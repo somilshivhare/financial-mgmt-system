@@ -8,8 +8,9 @@ export default function MarketingNavbar() {
     <header className="mkt-nav">
       <div className="mkt-nav-inner">
         <Link to="/" className="mkt-brand" aria-label="Nbaurum home">
-          <span className="mkt-brand-mark" aria-hidden="true" />
-          <span className="mkt-brand-name">Nbaurum</span>
+          <span className="mkt-brand-mark" aria-hidden="true">
+            <img className="mkt-brand-logo" src="/logo.png" alt="" />
+          </span>
         </Link>
 
         <nav className="mkt-nav-links" aria-label="Primary navigation">

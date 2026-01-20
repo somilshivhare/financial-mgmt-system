@@ -3,10 +3,8 @@ export default function MarketingFooter() {
     <footer className="mkt-footer">
       <div className="mkt-footer-inner">
         <div className="mkt-footer-brand">
-          <div className="mkt-footer-logo" aria-hidden="true" />
-          <div>
-            <div className="mkt-footer-name">Nbaurum</div>
-            <div className="mkt-footer-tagline">Your Dues. Our Duty.</div>
+          <div className="mkt-footer-logo" aria-hidden="true">
+            <img className="mkt-footer-logo-img" src="/logo.png" alt="" />
           </div>
         </div>
 
