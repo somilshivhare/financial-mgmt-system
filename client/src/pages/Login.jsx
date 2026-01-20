@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Eye, EyeOff, Lock, AlertCircle, FileText, TrendingUp, Shield } from 'lucide-react'
+import { Eye, EyeOff, Lock, AlertCircle, LayoutDashboard, BarChart3, LineChart, Shield } from 'lucide-react'
 import { login } from '../api/auth'
 import '../styles/Auth.css'
 
@@ -99,38 +99,82 @@ function Login({ onLogin }) {
               className="auth-brand-panel-logo"
             />
           </div>
-          <h1 className="auth-brand-panel-name">Nbaurum</h1>
-          <p className="auth-brand-panel-tagline">Your Dues. Our Duty.</p>
-          <div className="auth-brand-panel-divider"></div>
-          
-          <div className="auth-brand-panel-features">
-            <div className="auth-brand-panel-feature">
-              <FileText className="auth-brand-panel-feature-icon" />
-              <div className="auth-brand-panel-feature-content">
-                <h3 className="auth-brand-panel-feature-title">Comprehensive Invoicing</h3>
-                <p className="auth-brand-panel-feature-description">
-                  Streamline your invoicing process with automated workflows, multi-stage due management, and real-time tracking.
-                </p>
+          <div className="auth-brand-copy">
+            <h2 className="auth-brand-headline">
+              Effortlessly manage invoices, collections, and operations.
+            </h2>
+            <p className="auth-brand-subcopy">
+              Nbaurum centralizes your finance workflows into a single ERP workspace, so teams can invoice, follow up, and reconcile with confidence.
+            </p>
+          </div>
+
+          <div className="auth-brand-illustration" aria-hidden="true">
+            <div className="auth-brand-illustration-shell">
+              <div className="auth-brand-illustration-sidebar">
+                <div className="auth-brand-illustration-logo-row">
+                  <span className="auth-brand-illustration-logo-dot" />
+                  <span className="auth-brand-illustration-logo-text">Nbaurum</span>
+                </div>
+                <div className="auth-brand-illustration-nav-item auth-brand-illustration-nav-item--active">
+                  <LayoutDashboard className="auth-brand-illustration-nav-icon" />
+                  <span>Overview</span>
+                </div>
+                <div className="auth-brand-illustration-nav-item">
+                  <BarChart3 className="auth-brand-illustration-nav-icon" />
+                  <span>Invoices</span>
+                </div>
+                <div className="auth-brand-illustration-nav-item">
+                  <LineChart className="auth-brand-illustration-nav-icon" />
+                  <span>Collections</span>
+                </div>
+                <div className="auth-brand-illustration-nav-item">
+                  <Shield className="auth-brand-illustration-nav-icon" />
+                  <span>Controls</span>
+                </div>
               </div>
-            </div>
-            
-            <div className="auth-brand-panel-feature">
-              <TrendingUp className="auth-brand-panel-feature-icon" />
-              <div className="auth-brand-panel-feature-content">
-                <h3 className="auth-brand-panel-feature-title">Smart Collections</h3>
-                <p className="auth-brand-panel-feature-description">
-                  Monitor receivables, track payments, and optimize cash flow with intelligent collection planning and analytics.
-                </p>
-              </div>
-            </div>
-            
-            <div className="auth-brand-panel-feature">
-              <Shield className="auth-brand-panel-feature-icon" />
-              <div className="auth-brand-panel-feature-content">
-                <h3 className="auth-brand-panel-feature-title">Enterprise Security</h3>
-                <p className="auth-brand-panel-feature-description">
-                  Bank-grade security with centralized master data management and compliance-ready reporting.
-                </p>
+
+              <div className="auth-brand-illustration-main">
+                <div className="auth-brand-illustration-kpi-row">
+                  <div className="auth-brand-illustration-kpi-card">
+                    <span className="auth-brand-illustration-kpi-label">Outstanding</span>
+                    <span className="auth-brand-illustration-kpi-value">₹24.2L</span>
+                    <div className="auth-brand-illustration-kpi-bar">
+                      <span className="auth-brand-illustration-kpi-bar-fill" />
+                    </div>
+                  </div>
+                  <div className="auth-brand-illustration-kpi-card">
+                    <span className="auth-brand-illustration-kpi-label">Collected</span>
+                    <span className="auth-brand-illustration-kpi-value">92%</span>
+                    <div className="auth-brand-illustration-kpi-bar auth-brand-illustration-kpi-bar--soft">
+                      <span className="auth-brand-illustration-kpi-bar-fill" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="auth-brand-illustration-chart" />
+
+                <div className="auth-brand-illustration-table">
+                  <div className="auth-brand-illustration-table-header">
+                    <span>Customer</span>
+                    <span>Due</span>
+                    <span>Status</span>
+                  </div>
+                  <div className="auth-brand-illustration-table-row">
+                    <span>Acme Corp.</span>
+                    <span>₹4.8L</span>
+                    <span className="auth-brand-illustration-pill auth-brand-illustration-pill--warning">Due soon</span>
+                  </div>
+                  <div className="auth-brand-illustration-table-row">
+                    <span>Northwind</span>
+                    <span>₹2.1L</span>
+                    <span className="auth-brand-illustration-pill auth-brand-illustration-pill--success">Paid</span>
+                  </div>
+                  <div className="auth-brand-illustration-table-row">
+                    <span>Globex</span>
+                    <span>₹3.4L</span>
+                    <span className="auth-brand-illustration-pill">Planned</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -157,8 +201,8 @@ function Login({ onLogin }) {
           <div className="auth-card">
           <div className="auth-card-header">
             <div>
-              <h2 className="auth-card-title">Sign In</h2>
-              <p className="auth-card-subtitle">Access your ERP dashboard</p>
+              <h2 className="auth-card-title">Welcome Back</h2>
+              <p className="auth-card-subtitle">Sign in to continue to your Nbaurum workspace</p>
             </div>
             <div className="auth-security-indicator">
               <Lock className="auth-security-icon" />

@@ -2,6 +2,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useState, useEffect } from 'react'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import MarketingLayout from './layouts/MarketingLayout'
+import Home from './pages/Home'
+import About from './pages/About'
+import Pricing from './pages/Pricing'
+import Contact from './pages/Contact'
+import WhoWeAre from './pages/WhoWeAre'
 import Dashboard from './pages/Dashboard'
 import Finance from './pages/Finance'
 import MasterData from './pages/MasterData'
@@ -47,6 +53,17 @@ function App() {
     <MasterDataProvider>
     <Router>
       <Routes>
+        {/* Public marketing site (shown when logged out) */}
+        <Route
+          element={isAuthenticated ? <Navigate to="/dashboard" /> : <MarketingLayout />}
+        >
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/who-we-are" element={<WhoWeAre />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/contact" element={<Contact />} />
+        </Route>
+
         <Route 
           path="/login" 
           element={
@@ -76,8 +93,8 @@ function App() {
           <Route path="/payments/new" element={<PaymentEntry />} />
           <Route path="/collection" element={<CollectionPlan />} />
         </Route>
-        <Route path="/" element={<Navigate to="/dashboard" />} />
-        <Route path="*" element={<Navigate to="/login" />} />
+        {/* Fallback: send logged-out users to Home, logged-in users to Dashboard */}
+        <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/'} />} />
       </Routes>
     </Router>
     </MasterDataProvider>
