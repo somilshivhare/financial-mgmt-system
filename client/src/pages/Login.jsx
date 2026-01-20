@@ -94,7 +94,7 @@ function Login({ onLogin }) {
         <div className="auth-brand-panel-content">
           <div className="auth-brand-panel-logo-container">
             <img 
-              src="/logo.png" 
+              src="public/logo.png" 
               alt="Nbaurum" 
               className="auth-brand-panel-logo"
             />
