@@ -41,7 +41,7 @@ const sections = [
     items: [
       { to: '/subscription', label: 'Subscription', icon: Bell },
       { to: '/profile', label: 'My Profile', icon: User },
-      { to: '/contact', label: 'Contact', icon: Mail },
+      { to: '/support', label: 'Contact & Support', icon: Mail },
       { to: '/alerts', label: 'Alerts', icon: AlertCircle },
       { to: '/settings', label: 'Settings', icon: Settings },
     ],

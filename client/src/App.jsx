@@ -21,6 +21,12 @@ import InvoiceIndex from './pages/InvoiceIndex'
 import PaymentEntry from './pages/PaymentEntry'
 import PaymentIndex from './pages/PaymentIndex'
 import CollectionPlan from './pages/CollectionPlan'
+import Subscription from './pages/Subscription'
+import MyProfile from './pages/MyProfile'
+import ContactSupport from './pages/ContactSupport'
+import Alerts from './pages/Alerts'
+import Settings from './pages/Settings'
+import Meetings from './pages/Meetings'
 import AppLayout from './layouts/AppLayout'
 import { MasterDataProvider } from './contexts/MasterDataContext'
 import './App.css'
@@ -92,6 +98,12 @@ function App() {
           <Route path="/payments" element={<PaymentIndex />} />
           <Route path="/payments/new" element={<PaymentEntry />} />
           <Route path="/collection" element={<CollectionPlan />} />
+          <Route path="/subscription" element={<Subscription />} />
+          <Route path="/profile" element={<MyProfile />} />
+          <Route path="/support" element={<ContactSupport />} />
+          <Route path="/alerts" element={<Alerts />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/meetings" element={<Meetings />} />
         </Route>
         {/* Fallback: send logged-out users to Home, logged-in users to Dashboard */}
         <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/'} />} />
