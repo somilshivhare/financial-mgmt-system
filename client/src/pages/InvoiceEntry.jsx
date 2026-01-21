@@ -140,16 +140,23 @@ function InvoiceEntry() {
   })
   
   useEffect(() => {
-    // Load Master Data
+    // Load Master Data (sync getters)
     setCustomers(getCustomers())
     setPaymentTerms(getPaymentTerms())
     setConsignees(getConsignees())
     setPayers(getPayers())
     setEmployees(getEmployees())
-    
-    // Load PO Entries
-    const allPOs = poEntryService.getAllPONumbers()
-    setPOEntries(allPOs)
+
+    // Load PO Entries (async)
+    ;(async () => {
+      try {
+        const allPOs = await poEntryService.getAllPONumbers()
+        setPOEntries(allPOs)
+      } catch (e) {
+        console.error('Failed to load PO numbers:', e)
+        setPOEntries([])
+      }
+    })()
   }, [getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees])
   
   // Auto-generate Invoice ID when form is initialized
@@ -164,9 +171,9 @@ function InvoiceEntry() {
   }, [formData.invoiceType, formData.businessUnit])
   
   // Handle PO Number selection - Auto-populate from PO Entry
-  const handlePONumberChange = (e) => {
+  const handlePONumberChange = async (e) => {
     const poNumber = e.target.value
-    const poEntry = poEntryService.getPOEntryByPONumber(poNumber)
+    const poEntry = await poEntryService.getPOEntryByPONumber(poNumber)
     
     if (poEntry) {
       // Fetch customer details from Master Data
@@ -360,7 +367,7 @@ function InvoiceEntry() {
     }
   }
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     
     // Validate required fields
@@ -378,8 +385,8 @@ function InvoiceEntry() {
         keyID: formData.keyID, // PO Number
         invoiceID: displayData.invoiceID, // Auto-generated Invoice ID
       }
-      const invoice = invoiceService.saveInvoice(invoiceData)
-      alert(`Invoice ${invoice.invoiceID} saved successfully!`)
+      const invoice = await invoiceService.saveInvoice(invoiceData)
+      alert(`Invoice ${invoice?.invoiceID || invoice?.invoice_number || ''} saved successfully!`)
       navigate('/invoices')
     } catch (error) {
       console.error('Failed to save invoice:', error)

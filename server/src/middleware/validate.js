@@ -1,10 +1,15 @@
-{
-  "cells": [],
-  "metadata": {
-    "language_info": {
-      "name": "python"
+const { apiError } = require('../utils/apiResponse');
+
+const validate =
+  (schema, property = 'body') =>
+  (req, res, next) => {
+    const result = schema.safeParse(req[property]);
+    if (!result.success) {
+      const message = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+      return res.status(400).json(apiError(message, 'ERR_VALIDATION'));
     }
-  },
-  "nbformat": 4,
-  "nbformat_minor": 2
-}
+    req[property] = result.data;
+    return next();
+  };
+
+module.exports = { validate };

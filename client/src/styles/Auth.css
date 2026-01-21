@@ -340,6 +340,44 @@
   line-height: 1.6;
 }
 
+
+/* Back to Home Button */
+.auth-back-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+}
+
+.auth-back-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  background: #f9fafb;
+}
+
+.auth-back-button:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1);
+}
+
+.auth-back-icon {
+  width: 18px;
+  height: 18px;
+  color: #1f2937; /* dark slate */
+}
+
+
 /* ============================================
    RIGHT PANEL - AUTH FORM
    ============================================ */
@@ -914,6 +952,16 @@
 .auth-button-primary:active:not(:disabled) {
   transform: translateY(1px);
 }
+
+@media (max-width: 640px) {
+  .auth-back-button {
+    width: 40px;
+    height: 40px;
+    top: 16px;
+    right: 16px;
+  }
+}
+
 
 /* ============================================
    FOOTER

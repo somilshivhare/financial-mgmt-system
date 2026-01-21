@@ -60,8 +60,15 @@ function PaymentEntry() {
   // Fetch open invoices when customer is selected
   useEffect(() => {
     if (formData.customerId && customerLocked) {
-      const invoices = paymentService.getOpenInvoicesForCustomer(formData.customerId)
-      setOpenInvoices(invoices)
+      ;(async () => {
+        try {
+          const invoices = await paymentService.getOpenInvoicesForCustomer(formData.customerId)
+          setOpenInvoices(invoices || [])
+        } catch (e) {
+          console.error('Failed to load open invoices:', e)
+          setOpenInvoices([])
+        }
+      })()
     } else {
       setOpenInvoices([])
       setSelectedInvoices([])
@@ -139,7 +146,7 @@ function PaymentEntry() {
       
       return {
         invoiceID: invoice.invoiceID,
-        breakdown: paymentService.calculatePaymentBreakdown(invoice.invoice, paymentAmount, invoiceCharges),
+        breakdown: paymentService.calculatePaymentBreakdownSync(invoice.invoice, paymentAmount, invoiceCharges),
       }
     })
   }, [selectedInvoices, formData.invoicePayments, formData.paymentAmount, charges])
@@ -160,7 +167,7 @@ function PaymentEntry() {
     }
   }
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     
     // Validate required fields
@@ -187,8 +194,8 @@ function PaymentEntry() {
     
     // Save payment (this will also update invoice balances)
     try {
-      const payment = paymentService.savePayment(paymentData)
-      alert(`Payment ${payment.paymentID} saved successfully!`)
+      const payment = await paymentService.savePayment(paymentData)
+      alert(`Payment ${payment?.paymentID || payment?.id || ''} saved successfully!`)
       navigate('/payments')
     } catch (error) {
       console.error('Failed to save payment:', error)

@@ -168,7 +168,7 @@ function POEntry() {
     }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     
     // Validate required fields
@@ -188,7 +188,7 @@ function POEntry() {
     
     // Save using PO Entry service
     try {
-      poEntryService.savePOEntry(poEntry)
+      await poEntryService.savePOEntry(poEntry)
       alert('PO Entry submitted successfully!')
       navigate('/po-entry')
     } catch (error) {

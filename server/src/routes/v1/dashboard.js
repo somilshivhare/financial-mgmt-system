@@ -1,10 +1,10 @@
-{
-  "cells": [],
-  "metadata": {
-    "language_info": {
-      "name": "python"
-    }
-  },
-  "nbformat": 4,
-  "nbformat_minor": 2
-}
+const express = require('express');
+const { requireAuth } = require('../../middleware/requireAuth');
+const { requireRole } = require('../../middleware/requireRole');
+const { getDashboard } = require('../../controllers/dashboardController');
+
+const router = express.Router();
+
+router.get('/', requireAuth, requireRole('admin', 'finance', 'operations', 'sales'), getDashboard);
+
+module.exports = router;

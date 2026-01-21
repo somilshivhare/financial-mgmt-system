@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useState, useEffect } from 'react'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import MarketingLayout from './layouts/MarketingLayout'
 import Home from './pages/Home'
 import About from './pages/About'
@@ -75,6 +77,14 @@ function App() {
           element={
             isAuthenticated ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />
           } 
+        />
+        <Route
+          path="/forgot-password"
+          element={isAuthenticated ? <Navigate to="/dashboard" /> : <ForgotPassword />}
+        />
+        <Route
+          path="/reset-password"
+          element={isAuthenticated ? <Navigate to="/dashboard" /> : <ResetPassword />}
         />
         <Route 
           path="/register" 

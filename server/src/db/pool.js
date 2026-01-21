@@ -1,10 +1,17 @@
-{
-  "cells": [],
-  "metadata": {
-    "language_info": {
-      "name": "python"
-    }
-  },
-  "nbformat": 4,
-  "nbformat_minor": 2
-}
+const mysql = require('mysql2/promise');
+const { env } = require('../config/env');
+
+const pool = mysql.createPool({
+  host: env.DB_HOST,
+  user: env.DB_USER,
+  password: env.DB_PASSWORD,
+  database: env.DB_NAME,
+  port: env.DB_PORT,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  multipleStatements: true,
+  timezone: 'Z',
+});
+
+module.exports = { pool };

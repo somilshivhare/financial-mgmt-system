@@ -1,24 +1,33 @@
 import { useState, useEffect } from 'react'
-import { getTransactions } from '../api/finance'
+import { getAllPayments } from '../services/paymentService'
 import '../styles/Finance.css'
 
 function Finance() {
-  const [transactions, setTransactions] = useState([])
+  const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchTransactions = async () => {
+    const fetchPayments = async () => {
       try {
-        const response = await getTransactions()
-        setTransactions(response.data)
+        const response = await getAllPayments()
+        // Transform payments to transaction format for display
+        const transactions = response.map(payment => ({
+          id: payment.id,
+          date: payment.paymentReceiptDate,
+          description: `Payment ${payment.paymentID} - ${payment.customerName || 'Customer'}`,
+          amount: parseFloat(payment.paymentAmount || 0),
+          status: payment.status || 'completed',
+          type: 'income'
+        }))
+        setPayments(transactions)
       } catch (error) {
-        console.error('Failed to fetch transactions:', error)
+        console.error('Failed to fetch payments:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchTransactions()
+    fetchPayments()
   }, [])
 
   const getStatusClass = (status) => {
@@ -66,16 +75,16 @@ function Finance() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((transaction) => (
-                <tr key={transaction.id}>
-                  <td>{formatDate(transaction.date)}</td>
-                  <td>{transaction.description}</td>
-                  <td className={getAmountClass(transaction.amount)}>
-                    {formatAmount(transaction.amount)}
+              {payments.map((payment) => (
+                <tr key={payment.id}>
+                  <td>{formatDate(payment.date)}</td>
+                  <td>{payment.description}</td>
+                  <td className={getAmountClass(payment.amount)}>
+                    {formatAmount(payment.amount)}
                   </td>
                   <td>
-                    <span className={`status-badge ${getStatusClass(transaction.status)}`}>
-                      {transaction.status}
+                    <span className={`status-badge ${getStatusClass(payment.status)}`}>
+                      {payment.status}
                     </span>
                   </td>
                 </tr>

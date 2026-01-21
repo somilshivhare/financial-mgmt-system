@@ -23,10 +23,10 @@ export const MasterDataProvider = ({ children }) => {
     lastUpdated: null,
   })
 
-  const loadMasterData = useCallback(() => {
+  const loadMasterData = useCallback(async () => {
     setMasterData((prev) => ({ ...prev, loading: true }))
     try {
-      const data = masterDataService.getAllMasterData()
+      const data = await masterDataService.getAllMasterData()
       setMasterData({
         companies: data.companies || [],
         customers: data.customers || [],
@@ -57,9 +57,9 @@ export const MasterDataProvider = ({ children }) => {
     }
   }, [loadMasterData])
 
-  const saveRecord = useCallback((type, recordData) => {
+  const saveRecord = useCallback(async (type, recordData) => {
     try {
-      const saved = masterDataService.saveMasterDataRecord(type, recordData)
+      const saved = await masterDataService.saveMasterDataRecord(type, recordData)
       loadMasterData()
       return saved
     } catch (error) {
@@ -68,9 +68,9 @@ export const MasterDataProvider = ({ children }) => {
     }
   }, [loadMasterData])
 
-  const deleteRecord = useCallback((type, id) => {
+  const deleteRecord = useCallback(async (type, id) => {
     try {
-      const deleted = masterDataService.deleteMasterDataRecord(type, id)
+      const deleted = await masterDataService.deleteMasterDataRecord(type, id)
       loadMasterData()
       return deleted
     } catch (error) {
@@ -79,37 +79,45 @@ export const MasterDataProvider = ({ children }) => {
     }
   }, [loadMasterData])
 
-  const getCustomers = useCallback(() => {
-    return masterDataService.getCustomers()
-  }, [])
-
-  const getCompanies = useCallback(() => {
-    return masterDataService.getCompanies()
-  }, [])
-
-  const getConsignees = useCallback(() => {
-    return masterDataService.getConsignees()
-  }, [])
-
-  const getPayers = useCallback(() => {
-    return masterDataService.getPayers()
-  }, [])
-
-  const getEmployees = useCallback(() => {
-    return masterDataService.getEmployees()
-  }, [])
-
-  const getPaymentTerms = useCallback(() => {
-    return masterDataService.getPaymentTerms()
-  }, [])
+  // IMPORTANT: These getters must be synchronous because many pages call them during render/effects
+  // and expect arrays immediately (not Promises). The source of truth is the provider state.
+  const getCustomers = useCallback(() => masterData.customers || [], [masterData.customers])
+  const getCompanies = useCallback(() => masterData.companies || [], [masterData.companies])
+  const getConsignees = useCallback(() => masterData.consignees || [], [masterData.consignees])
+  const getPayers = useCallback(() => masterData.payers || [], [masterData.payers])
+  const getEmployees = useCallback(() => masterData.employees || [], [masterData.employees])
+  const getPaymentTerms = useCallback(() => masterData.paymentTerms || [], [masterData.paymentTerms])
 
   const getRecordById = useCallback((type, id) => {
-    return masterDataService.getMasterDataById(type, id)
-  }, [])
+    const typeMap = {
+      'company-profile': 'companies',
+      'customer-profile': 'customers',
+      'consignee-profile': 'consignees',
+      'payer-profile': 'payers',
+      'employee-profile': 'employees',
+      'payment-terms': 'paymentTerms',
+    }
+    const storageKey = typeMap[type] || type
+    const records = masterData[storageKey] || []
+    return records.find((r) => r.id === id) || null
+  }, [masterData])
 
   const search = useCallback((query) => {
-    return masterDataService.searchMasterData(query)
-  }, [])
+    const q = String(query || '').toLowerCase().trim()
+    if (!q) return []
+    const results = []
+    Object.keys(masterData).forEach((key) => {
+      const arr = masterData[key]
+      if (!Array.isArray(arr)) return
+      arr.forEach((record) => {
+        const searchableText = JSON.stringify(record.values || record).toLowerCase()
+        if (searchableText.includes(q)) {
+          results.push({ type: key, record })
+        }
+      })
+    })
+    return results
+  }, [masterData])
 
   const value = {
     masterData,

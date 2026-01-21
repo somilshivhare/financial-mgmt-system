@@ -43,12 +43,22 @@ function CollectionPlan() {
     }
   }, [filters])
   
-  const loadCollectionPlanData = () => {
-    const data = collectionPlanService.getCollectionPlanData(filters)
-    setGridData(data)
-    
-    const analyticsData = collectionPlanService.getCollectionAnalytics(filters)
-    setAnalytics(analyticsData)
+  const loadCollectionPlanData = async () => {
+    try {
+      const data = await collectionPlanService.getCollectionPlanData(filters)
+      setGridData(data || [])
+    } catch (e) {
+      console.error('Failed to load collection plan data:', e)
+      setGridData([])
+    }
+
+    try {
+      const analyticsData = await collectionPlanService.getCollectionAnalytics(filters)
+      setAnalytics(analyticsData)
+    } catch (e) {
+      console.error('Failed to load collection analytics:', e)
+      setAnalytics(null)
+    }
   }
   
   const handleFilterChange = (name, value) => {
@@ -66,8 +76,10 @@ function CollectionPlan() {
       planFinalised: parseFloat(value || 0),
     }
     
-    collectionPlanService.saveCollectionPlan(planData)
-    loadCollectionPlanData()
+    ;(async () => {
+      await collectionPlanService.saveCollectionPlan(planData)
+      loadCollectionPlanData()
+    })()
   }
   
   const handleMonthChange = (e) => {

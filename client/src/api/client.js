@@ -1,6 +1,7 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+// Default to backend v1 API; override with VITE_API_URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1'
 
 const client = axios.create({
   baseURL: API_BASE_URL,

@@ -1,10 +1,13 @@
-{
-  "cells": [],
-  "metadata": {
-    "language_info": {
-      "name": "python"
-    }
-  },
-  "nbformat": 4,
-  "nbformat_minor": 2
-}
+const { apiError } = require('../utils/apiResponse');
+
+const requireRole = (...allowed) => (req, res, next) => {
+  if (!req.user?.role) {
+    return res.status(403).json(apiError('Forbidden'));
+  }
+  if (!allowed.includes(req.user.role)) {
+    return res.status(403).json(apiError('Insufficient role'));
+  }
+  return next();
+};
+
+module.exports = { requireRole };

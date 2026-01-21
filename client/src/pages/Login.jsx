@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { Eye, EyeOff, Lock, AlertCircle, LayoutDashboard, BarChart3, LineChart, Shield } from 'lucide-react'
 import { login } from '../api/auth'
 import '../styles/Auth.css'
@@ -90,6 +91,15 @@ function Login({ onLogin }) {
   return (
     <div className="auth-page">
       {/* Left Panel - Brand & Context (Desktop Only) */}
+      {/* Back to Home Button */}
+<button
+  className="auth-back-button"
+  onClick={() => navigate('/')}
+  aria-label="Back to Home"
+>
+  <ArrowLeft className="auth-back-icon" />
+</button>
+
       <div className="auth-brand-panel">
         <div className="auth-brand-panel-content">
           <div className="auth-brand-panel-logo-container">
