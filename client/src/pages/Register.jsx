@@ -533,7 +533,7 @@ function Register({ onRegister }) {
                       {fieldErrors.password}
                     </span>
                   )}
-                </div>
+              </div>
 
                 {/* 6. Confirm Password */}
                 <div className="auth-form-group">
