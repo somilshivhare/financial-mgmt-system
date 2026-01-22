@@ -7,6 +7,7 @@ import {
 import '../styles/Support.css'
 import { createTicketJSON, listTickets, getTicket, addReply } from '../api/supportTickets'
 import { getSystemSettings } from '../api/settings'
+import { getApiUrl } from '../config/api'
 
 function safeParse(json) {
   try {
@@ -223,7 +224,7 @@ export default function ContactSupport() {
 
       // Use fetch for FormData upload
       const token = localStorage.getItem('token')
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1'
+      const API_BASE_URL = getApiUrl()
       const response = await fetch(`${API_BASE_URL}/support-tickets`, {
         method: 'POST',
         headers: {

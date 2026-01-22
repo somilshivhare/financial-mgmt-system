@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { io } from 'socket.io-client'
 import * as alertsApi from '../api/alerts'
+import { getApiBaseUrl } from '../config/api'
 
 /**
  * Custom hook for managing alerts with real-time WebSocket support
@@ -58,8 +59,8 @@ export function useAlerts() {
       const userId = userData.id
 
       // Connect to WebSocket server
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1'
-      const baseUrl = apiUrl.replace('/api/v1', '').replace('/api', '')
+      // WebSocket needs the base URL without /api/v1 path
+      const baseUrl = getApiBaseUrl()
       
       console.log(`[Alerts] Connecting to WebSocket at ${baseUrl}`)
       

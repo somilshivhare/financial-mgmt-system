@@ -24,6 +24,13 @@ export const MasterDataProvider = ({ children }) => {
   })
 
   const loadMasterData = useCallback(async () => {
+    // Only load master data if user is authenticated
+    const token = localStorage.getItem('token')
+    if (!token) {
+      // Not authenticated, skip loading
+      return
+    }
+
     setMasterData((prev) => ({ ...prev, loading: true }))
     try {
       const data = await masterDataService.getAllMasterData()
@@ -38,22 +45,52 @@ export const MasterDataProvider = ({ children }) => {
         lastUpdated: data.lastUpdated,
       })
     } catch (error) {
-      console.error('Failed to load master data:', error)
+      // Only log errors if authenticated (suppress errors on login page)
+      if (token) {
+        console.error('Failed to load master data:', error)
+      }
       setMasterData((prev) => ({ ...prev, loading: false }))
     }
   }, [])
 
   useEffect(() => {
-    loadMasterData()
+    // Check authentication before loading
+    const token = localStorage.getItem('token')
+    if (token) {
+      loadMasterData()
+    }
 
     // Listen for updates
     const handleUpdate = () => {
       loadMasterData()
     }
 
+    // Listen for authentication changes
+    const handleAuthChange = () => {
+      const currentToken = localStorage.getItem('token')
+      if (currentToken) {
+        loadMasterData()
+      } else {
+        // Clear master data on logout
+        setMasterData({
+          companies: [],
+          customers: [],
+          consignees: [],
+          payers: [],
+          employees: [],
+          paymentTerms: [],
+          loading: false,
+          lastUpdated: null,
+        })
+      }
+    }
+
     window.addEventListener('masterDataUpdated', handleUpdate)
+    window.addEventListener('storage', handleAuthChange)
+    
     return () => {
       window.removeEventListener('masterDataUpdated', handleUpdate)
+      window.removeEventListener('storage', handleAuthChange)
     }
   }, [loadMasterData])
 

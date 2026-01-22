@@ -1,10 +1,21 @@
 const express = require('express');
 const { requireAuth } = require('../../middleware/requireAuth');
 const { requireRole } = require('../../middleware/requireRole');
-const { getDashboard } = require('../../controllers/dashboardController');
+const { getDashboard, getAnalytics, getSubscriptionUsage } = require('../../controllers/dashboardController');
 
 const router = express.Router();
 
-router.get('/', requireAuth, requireRole('admin', 'finance', 'operations', 'sales'), getDashboard);
+// All dashboard routes require authentication and appropriate role
+router.use(requireAuth);
+router.use(requireRole('admin', 'finance', 'operations', 'sales'));
+
+// Main dashboard endpoint
+router.get('/', getDashboard);
+
+// Analytics endpoint for charts
+router.get('/analytics', getAnalytics);
+
+// Subscription and storage usage
+router.get('/subscription-usage', getSubscriptionUsage);
 
 module.exports = router;

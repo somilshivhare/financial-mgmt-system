@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { getProfile, updateProfile, updatePassword, revokeSession, getLoginHistory, uploadProfilePhoto } from '../api/user'
 import '../styles/MyProfile.css'
+import { getApiBaseUrl } from '../config/api'
 
 function safeParse(json) {
   try {
@@ -142,7 +143,7 @@ export default function MyProfile() {
           // Set profile photo preview if exists
           if (data.profile?.profile_picture_url) {
             // If it's a relative path, prepend API base URL
-            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+            const apiBase = getApiBaseUrl()
             const photoUrl = data.profile.profile_picture_url.startsWith('http')
               ? data.profile.profile_picture_url
               : `${apiBase}${data.profile.profile_picture_url}`
@@ -261,7 +262,7 @@ export default function MyProfile() {
     try {
       const response = await uploadProfilePhoto(file)
       if (response.data?.success && response.data?.data?.photoUrl) {
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+        const apiBase = getApiBaseUrl()
         const photoUrl = response.data.data.photoUrl.startsWith('http')
           ? response.data.data.photoUrl
           : `${apiBase}${response.data.data.photoUrl}`

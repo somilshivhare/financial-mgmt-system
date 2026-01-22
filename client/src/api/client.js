@@ -1,13 +1,20 @@
 import axios from 'axios'
+import { getApiUrl } from '../config/api'
 
-// Default to backend v1 API; override with VITE_API_URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1'
+// Get full API URL with /api/v1 path
+const API_BASE_URL = getApiUrl()
+
+// Log API base URL in development for debugging
+if (import.meta.env.DEV) {
+  console.log(`[API Client] Using base URL: ${API_BASE_URL}`)
+}
 
 const client = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 second timeout
 })
 
 client.interceptors.request.use((config) => {
@@ -28,11 +35,19 @@ client.interceptors.response.use(
   (error) => {
     // Handle network errors
     if (error.code === 'ERR_NETWORK' || !error.response) {
-      console.error('Network error:', error.message)
+      // Only log detailed errors in development or when authenticated
+      const isAuthenticated = !!localStorage.getItem('token')
+      if (import.meta.env.DEV || isAuthenticated) {
+        console.error('Network error:', error.message)
+        console.error('Request URL:', error.config?.url)
+        console.error('Base URL:', API_BASE_URL)
+      }
+      
       return Promise.reject({
         message: 'Network error: Unable to connect to server. Please check your connection.',
         code: 'NETWORK_ERROR',
         isNetworkError: true,
+        originalError: import.meta.env.DEV ? error.message : undefined,
       })
     }
 
