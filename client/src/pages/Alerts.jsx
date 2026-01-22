@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Bell,
@@ -8,8 +8,11 @@ import {
   Info,
   Search,
   ShieldAlert,
+  Loader2,
 } from 'lucide-react'
 import '../styles/Alerts.css'
+import * as alertsApi from '../api/alerts'
+import { useNotifications } from '../hooks/useNotifications'
 
 const CATEGORIES = ['All', 'Payments', 'Overdue Invoices', 'System', 'Compliance', 'Security']
 const READ_FILTERS = ['All', 'Unread', 'Read']
@@ -18,69 +21,6 @@ const DATE_FILTERS = [
   { value: '7d', label: 'Last 7 days' },
   { value: '30d', label: 'Last 30 days' },
   { value: '90d', label: 'Last 90 days' },
-]
-
-const MOCK_ALERTS = [
-  {
-    id: 'ALT-10021',
-    category: 'Overdue Invoices',
-    severity: 'Critical',
-    title: 'Invoice overdue beyond threshold',
-    message: 'Invoice is overdue by 18 days. Collection follow-up is recommended.',
-    references: { invoiceNo: 'INV-2024-0198', customer: 'Acme Corp.' },
-    createdAt: '2024-01-18T09:22:00Z',
-    read: false,
-  },
-  {
-    id: 'ALT-10018',
-    category: 'Payments',
-    severity: 'Warning',
-    title: 'Payment pending confirmation',
-    message: 'Payment was recorded but bank confirmation is pending.',
-    references: { invoiceNo: 'INV-2024-0189', customer: 'Northwind', paymentRef: 'UTR-928173' },
-    createdAt: '2024-01-16T12:10:00Z',
-    read: false,
-  },
-  {
-    id: 'ALT-10012',
-    category: 'Compliance',
-    severity: 'Info',
-    title: 'GST invoice details incomplete',
-    message: 'Some tax fields are missing. Review invoice to ensure compliance-ready output.',
-    references: { invoiceNo: 'INV-2024-0164' },
-    createdAt: '2024-01-10T08:45:00Z',
-    read: true,
-  },
-  {
-    id: 'ALT-10008',
-    category: 'Security',
-    severity: 'Warning',
-    title: 'New sign-in detected',
-    message: 'A new session was created from a different device. Review active sessions if unexpected.',
-    references: { user: 'user@example.com', device: 'Edge on Windows' },
-    createdAt: '2024-01-06T18:02:00Z',
-    read: false,
-  },
-  {
-    id: 'ALT-10003',
-    category: 'System',
-    severity: 'Info',
-    title: 'Background processing completed',
-    message: 'Master data refresh completed successfully.',
-    references: { job: 'Master Data Sync' },
-    createdAt: '2024-01-02T06:12:00Z',
-    read: true,
-  },
-  {
-    id: 'ALT-09998',
-    category: 'Payments',
-    severity: 'Critical',
-    title: 'Payment failed',
-    message: 'Payment attempt failed. Verify payment details and retry.',
-    references: { invoiceNo: 'INV-2023-0991', customer: 'Globex' },
-    createdAt: '2023-12-28T14:30:00Z',
-    read: true,
-  },
 ]
 
 function withinRange(dateStr, range) {
@@ -93,62 +33,170 @@ function withinRange(dateStr, range) {
 }
 
 function severityMeta(sev) {
-  const s = (sev || '').toLowerCase()
+  const s = (sev || 'info').toLowerCase()
   if (s === 'critical') return { icon: ShieldAlert, className: 'sev-critical', label: 'Critical' }
   if (s === 'warning') return { icon: CircleAlert, className: 'sev-warning', label: 'Warning' }
   return { icon: Info, className: 'sev-info', label: 'Info' }
 }
 
+function getCategoryFromAlertType(alertType) {
+  if (alertType?.includes('payment')) return 'Payments'
+  if (alertType?.includes('overdue') || alertType?.includes('invoice')) return 'Overdue Invoices'
+  if (alertType?.includes('subscription') || alertType?.includes('system')) return 'System'
+  if (alertType?.includes('compliance') || alertType?.includes('master_data')) return 'Compliance'
+  if (alertType?.includes('security') || alertType?.includes('failed')) return 'Security'
+  return 'System'
+}
+
 export default function Alerts() {
   const navigate = useNavigate()
-  const [alerts, setAlerts] = useState(MOCK_ALERTS)
+  const [alerts, setAlerts] = useState([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [readFilter, setReadFilter] = useState('All')
   const [dateRange, setDateRange] = useState('30d')
   const [showFilters, setShowFilters] = useState(false)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [unreadCount, setUnreadCount] = useState(0)
+  
+  const { refreshUnreadCount } = useNotifications()
+
+  // Load alerts from API
+  const loadAlerts = useCallback(async () => {
+    try {
+      setLoading(true)
+      const startDate = dateRange === 'all' ? '' : (() => {
+        const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90
+        const date = new Date()
+        date.setDate(date.getDate() - days)
+        return date.toISOString().split('T')[0]
+      })()
+      
+      const params = {
+        page,
+        pageSize: 50,
+        search: search.trim() || undefined,
+        status: readFilter === 'All' ? undefined : readFilter === 'Read' ? 'read' : 'new',
+        startDate: startDate || undefined,
+      }
+      
+      const response = await alertsApi.getAllAlerts(params)
+      if (response?.data) {
+        setAlerts(response.data.data || [])
+        setTotal(response.data.total || 0)
+      }
+    } catch (error) {
+      console.error('Failed to load alerts:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search, readFilter, dateRange])
+
+  // Load unread count
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const response = await alertsApi.getUnreadCount()
+      if (response?.data?.count !== undefined) {
+        setUnreadCount(response.data.count)
+      }
+    } catch (error) {
+      console.error('Failed to load unread count:', error)
+    }
+  }, [])
+
+  // Initial load
+  useEffect(() => {
+    loadAlerts()
+    loadUnreadCount()
+  }, [loadAlerts, loadUnreadCount])
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
     return alerts
-      .filter((a) => withinRange(a.createdAt, dateRange))
-      .filter((a) => (category === 'All' ? true : a.category === category))
-      .filter((a) => (readFilter === 'All' ? true : readFilter === 'Read' ? a.read : !a.read))
+      .filter((a) => withinRange(a.created_at, dateRange))
       .filter((a) => {
-        if (!q) return true
-        const ref = Object.values(a.references || {}).join(' ').toLowerCase()
+        if (category === 'All') return true
+        const alertCategory = getCategoryFromAlertType(a.alert_type)
+        return alertCategory === category
+      })
+      .filter((a) => {
+        if (readFilter === 'All') return true
+        if (readFilter === 'Read') return a.status === 'read'
+        return a.status === 'new'
+      })
+      .filter((a) => {
+        if (!search.trim()) return true
+        const q = search.trim().toLowerCase()
         return (
-          a.id.toLowerCase().includes(q) ||
-          a.title.toLowerCase().includes(q) ||
-          a.message.toLowerCase().includes(q) ||
-          ref.includes(q)
+          a.id?.toLowerCase().includes(q) ||
+          a.message?.toLowerCase().includes(q) ||
+          a.alert_type?.toLowerCase().includes(q) ||
+          a.invoice_number?.toLowerCase().includes(q) ||
+          a.payment_reference?.toLowerCase().includes(q) ||
+          a.po_number?.toLowerCase().includes(q)
         )
       })
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
   }, [alerts, category, readFilter, dateRange, search])
 
-  const counts = useMemo(() => {
-    const unread = alerts.filter((a) => !a.read).length
-    return { total: alerts.length, unread }
-  }, [alerts])
-
-  const markAsRead = (id) => {
-    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, read: true } : a)))
+  const markAsRead = async (id) => {
+    try {
+      await alertsApi.markAlertAsRead(id)
+      setAlerts((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: 'read', read_at: new Date().toISOString() } : a))
+      )
+      setUnreadCount((prev) => Math.max(0, prev - 1))
+      refreshUnreadCount()
+    } catch (error) {
+      console.error('Failed to mark alert as read:', error)
+    }
   }
 
-  const markAllAsRead = () => {
-    setAlerts((prev) => prev.map((a) => ({ ...a, read: true })))
+  const markAllAsRead = async () => {
+    try {
+      await alertsApi.markAllAlertsAsRead()
+      setAlerts((prev) =>
+        prev.map((a) => ({ ...a, status: 'read', read_at: new Date().toISOString() }))
+      )
+      setUnreadCount(0)
+      refreshUnreadCount()
+    } catch (error) {
+      console.error('Failed to mark all as read:', error)
+    }
+  }
+
+  const dismissAlert = async (id) => {
+    try {
+      await alertsApi.dismissAlert(id)
+      setAlerts((prev) => prev.filter((a) => a.id !== id))
+    } catch (error) {
+      console.error('Failed to dismiss alert:', error)
+    }
   }
 
   const onView = (a) => {
-    // Keep navigation conservative: go to invoice if present, else to subscription/profile as applicable.
-    if (a.references?.invoiceNo) {
+    if (a.link_url) {
+      navigate(a.link_url)
+      return
+    }
+    if (a.invoice_id) {
       navigate('/invoices')
       return
     }
-    if (a.category === 'Payments') navigate('/payments')
-    else if (a.category === 'Security') navigate('/profile')
-    else navigate('/dashboard')
+    if (a.payment_id) {
+      navigate('/payments')
+      return
+    }
+    if (a.po_id) {
+      navigate('/po')
+      return
+    }
+    if (a.collection_plan_id) {
+      navigate('/collection-plans')
+      return
+    }
+    navigate('/dashboard')
   }
 
   return (
@@ -164,10 +212,15 @@ export default function Alerts() {
             <Bell className="alerts-kpi-icon" />
             <div>
               <div className="alerts-kpi-label">Unread</div>
-              <div className="alerts-kpi-value">{counts.unread}</div>
+              <div className="alerts-kpi-value">{unreadCount}</div>
             </div>
           </div>
-          <button type="button" className="alerts-btn alerts-btn-secondary" onClick={markAllAsRead}>
+          <button
+            type="button"
+            className="alerts-btn alerts-btn-secondary"
+            onClick={markAllAsRead}
+            disabled={unreadCount === 0}
+          >
             <CheckCircle2 className="alerts-btn-icon" />
             Mark all read
           </button>
@@ -246,18 +299,30 @@ export default function Alerts() {
       <div className="alerts-list-card">
         <div className="alerts-list-head">
           <div className="alerts-list-title">Alerts</div>
-          <div className="alerts-list-meta">{filtered.length} shown</div>
+          <div className="alerts-list-meta">
+            {loading ? (
+              <Loader2 className="alerts-loading-icon" size={16} />
+            ) : (
+              `${filtered.length} shown${total > filtered.length ? ` of ${total}` : ''}`
+            )}
+          </div>
         </div>
 
         <div className="alerts-list">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="alerts-empty">
+              <Loader2 className="alerts-loading-icon" size={24} />
+              <p>Loading alerts...</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="alerts-empty">No alerts match your filters.</div>
           ) : (
             filtered.map((a) => {
               const sev = severityMeta(a.severity)
               const SevIcon = sev.icon
+              const isRead = a.status === 'read'
               return (
-                <div key={a.id} className={`alerts-row ${a.read ? 'is-read' : 'is-unread'}`}>
+                <div key={a.id} className={`alerts-row ${isRead ? 'is-read' : 'is-unread'}`}>
                   <div className="alerts-row-left">
                     <div className={`alerts-severity ${sev.className}`} aria-label={`Severity: ${sev.label}`}>
                       <SevIcon />
@@ -266,29 +331,34 @@ export default function Alerts() {
                     <div className="alerts-row-main">
                       <div className="alerts-row-top">
                         <div className="alerts-row-title">
-                          <span className="alerts-row-id">{a.id}</span>
-                          <span className="alerts-row-text">{a.title}</span>
+                          <span className="alerts-row-id">{a.id?.substring(0, 8)}</span>
+                          <span className="alerts-row-text">{a.message || 'Alert'}</span>
                         </div>
                         <div className="alerts-row-badges">
-                          <span className={`alerts-badge alerts-badge-category`}>{a.category}</span>
+                          <span className={`alerts-badge alerts-badge-category`}>
+                            {getCategoryFromAlertType(a.alert_type)}
+                          </span>
                           <span className={`alerts-badge ${sev.className}`}>{sev.label}</span>
-                          {!a.read && <span className="alerts-badge alerts-badge-unread">Unread</span>}
+                          {!isRead && <span className="alerts-badge alerts-badge-unread">Unread</span>}
                         </div>
                       </div>
 
                       <div className="alerts-row-msg">{a.message}</div>
 
                       <div className="alerts-row-ref">
-                        {a.references?.invoiceNo && <span className="alerts-ref">Invoice: <strong>{a.references.invoiceNo}</strong></span>}
-                        {a.references?.poNo && <span className="alerts-ref">PO: <strong>{a.references.poNo}</strong></span>}
-                        {a.references?.customer && <span className="alerts-ref">Customer: <strong>{a.references.customer}</strong></span>}
-                        {a.references?.paymentRef && <span className="alerts-ref">Payment Ref: <strong>{a.references.paymentRef}</strong></span>}
-                        {a.references?.device && <span className="alerts-ref">Device: <strong>{a.references.device}</strong></span>}
-                        {a.references?.job && <span className="alerts-ref">Job: <strong>{a.references.job}</strong></span>}
+                        {a.invoice_number && (
+                          <span className="alerts-ref">Invoice: <strong>{a.invoice_number}</strong></span>
+                        )}
+                        {a.po_number && (
+                          <span className="alerts-ref">PO: <strong>{a.po_number}</strong></span>
+                        )}
+                        {a.payment_reference && (
+                          <span className="alerts-ref">Payment Ref: <strong>{a.payment_reference}</strong></span>
+                        )}
                       </div>
 
                       <div className="alerts-row-time">
-                        {new Date(a.createdAt).toLocaleString('en-IN')}
+                        {new Date(a.created_at).toLocaleString('en-IN')}
                       </div>
                     </div>
                   </div>
@@ -301,9 +371,16 @@ export default function Alerts() {
                       type="button"
                       className="alerts-btn alerts-btn-secondary"
                       onClick={() => markAsRead(a.id)}
-                      disabled={a.read}
+                      disabled={isRead}
                     >
                       Mark as read
+                    </button>
+                    <button
+                      type="button"
+                      className="alerts-btn alerts-btn-ghost"
+                      onClick={() => dismissAlert(a.id)}
+                    >
+                      Dismiss
                     </button>
                   </div>
                 </div>
@@ -315,5 +392,3 @@ export default function Alerts() {
     </div>
   )
 }
-
-

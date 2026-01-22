@@ -30,6 +30,15 @@ const listInvoiceLines = async (req, res, next) => {
   }
 };
 
+const getInvoicesByPONumber = async (req, res, next) => {
+  try {
+    const invoices = await invoiceService.getInvoicesByPONumber(req.params.poNumber);
+    res.json(apiSuccess(invoices));
+  } catch (err) {
+    next(err);
+  }
+};
+
 const createInvoice = async (req, res, next) => {
   try {
     const invoice = await invoiceService.createInvoice(req.body, req.user.id);
@@ -45,5 +54,5 @@ const createInvoice = async (req, res, next) => {
   }
 };
 
-module.exports = { listInvoices, getInvoice, listInvoiceLines, createInvoice };
+module.exports = { listInvoices, getInvoice, listInvoiceLines, createInvoice, getInvoicesByPONumber };
 

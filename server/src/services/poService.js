@@ -43,7 +43,27 @@ const createPO = async (payload, userId) =>
     }
     await conn.execute('UPDATE purchase_orders SET total_amount = ? WHERE id = ?', [total, poId]);
     const [poRows] = await conn.execute('SELECT * FROM purchase_orders WHERE id = ?', [poId]);
-    return poRows[0];
+    const po = poRows[0];
+    
+    // Trigger notification after transaction commits
+    setImmediate(async () => {
+      try {
+        const notificationService = require('./notificationService');
+        const websocketService = require('./websocketService');
+        const notifications = await notificationService.notifyPOCreated(po, userId);
+        
+        // Send via WebSocket
+        notifications.forEach(notif => {
+          if (notif.user_id) {
+            websocketService.sendNotificationToUser(notif.user_id, notif);
+          }
+        });
+      } catch (err) {
+        console.error('Error sending PO creation notification:', err);
+      }
+    });
+    
+    return po;
   });
 
 const updateStatus = async (poId, status, userId) => {
@@ -53,6 +73,31 @@ const updateStatus = async (poId, status, userId) => {
     poId,
   ]);
   const [po] = await query('SELECT * FROM purchase_orders WHERE id = ?', [poId]);
+  
+  // Trigger notifications based on status change
+  setImmediate(async () => {
+    try {
+      const notificationService = require('./notificationService');
+      const websocketService = require('./websocketService');
+      let notifications = [];
+      
+      if (status === 'approved') {
+        notifications = await notificationService.notifyPOApproved(po, userId);
+      } else if (status === 'draft') {
+        notifications = await notificationService.notifyPOApprovalPending(po);
+      }
+      
+      // Send via WebSocket
+      notifications.forEach(notif => {
+        if (notif.user_id) {
+          websocketService.sendNotificationToUser(notif.user_id, notif);
+        }
+      });
+    } catch (err) {
+      console.error('Error sending PO status notification:', err);
+    }
+  });
+  
   return po;
 };
 

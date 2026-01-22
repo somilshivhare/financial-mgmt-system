@@ -88,20 +88,6 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
 
       {/* Footer */}
       <div className="sidebar-footer">
-        <div className="sidebar-storage">
-          <div className="sidebar-storage-header">
-            <div className="sidebar-storage-label">STORAGE USED</div>
-            <div className="sidebar-storage-percent">65%</div>
-          </div>
-          <div className="sidebar-storage-bar">
-            <div className="sidebar-storage-fill" />
-          </div>
-          <div className="sidebar-storage-footer">
-            <span className="sidebar-storage-used">6.5 GB</span>
-            <span className="sidebar-storage-total">of 10 GB</span>
-          </div>
-        </div>
-
         <button
           type="button"
           onClick={onLogout}

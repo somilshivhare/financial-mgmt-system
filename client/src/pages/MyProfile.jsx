@@ -11,6 +11,7 @@ import {
   Upload,
   XCircle,
 } from 'lucide-react'
+import { getProfile, updateProfile, updatePassword, revokeSession, getLoginHistory, uploadProfilePhoto } from '../api/user'
 import '../styles/MyProfile.css'
 
 function safeParse(json) {
@@ -26,35 +27,53 @@ const DEFAULT_PROFILE = {
     name: 'User',
     email: 'user@example.com',
     mobile: '',
+    phone: '',
   },
   organization: {
     companyName: 'Nbaurum',
     role: 'User',
-    department: 'Finance',
+    department: '',
+    designation: '',
   },
+  address: {
+    address: '',
+    city: '',
+    state: '',
+    country: 'India',
+    pinCode: '',
+  },
+  bio: '',
+  profilePictureUrl: '',
   permissions: ['Invoice: Read', 'Invoice: Create', 'Collections: Read', 'Master Data: Read'],
   security: {
-    lastLogin: new Date().toISOString(),
-    sessions: [
-      { id: 'sess-1', device: 'Chrome on Windows', location: 'Mumbai, IN', lastActive: 'Just now', current: true },
-      { id: 'sess-2', device: 'Edge on Windows', location: 'Delhi, IN', lastActive: '2 days ago', current: false },
-    ],
+    lastLogin: null,
+    lastLoginIp: '',
+    sessions: [],
   },
   preferences: {
     language: 'en-IN',
     timezone: 'Asia/Kolkata',
     dateFormat: 'DD MMM YYYY',
   },
+  preferencesOther: {
+    languageOther: '',
+    timezoneOther: '',
+    dateFormatOther: '',
+  },
 }
 
 export default function MyProfile() {
+  const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState(DEFAULT_PROFILE)
   const [draft, setDraft] = useState(DEFAULT_PROFILE)
   const [fieldErrors, setFieldErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoFile, setPhotoFile] = useState(null)
   const photoFileRef = useRef(null)
 
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' })
@@ -63,25 +82,106 @@ export default function MyProfile() {
   const [pwSaved, setPwSaved] = useState(false)
   const [showPw, setShowPw] = useState({ current: false, next: false, confirm: false })
 
+  // Load profile data from API
   useEffect(() => {
-    const storedUser = safeParse(localStorage.getItem('user') || '')
-    if (!storedUser) return
+    const loadProfile = async () => {
+      try {
+        setLoading(true)
+        setError('')
+        const response = await getProfile()
+        
+        if (!response.data || !response.data.success) {
+          throw new Error(response.data?.message || 'Failed to load profile')
+        }
+        
+        const data = response.data.data
 
-    const nextProfile = {
-      ...DEFAULT_PROFILE,
-      personal: {
-        ...DEFAULT_PROFILE.personal,
-        name: storedUser.name || DEFAULT_PROFILE.personal.name,
-        email: storedUser.email || DEFAULT_PROFILE.personal.email,
-      },
-      organization: {
-        ...DEFAULT_PROFILE.organization,
-        companyName: storedUser.companyName || DEFAULT_PROFILE.organization.companyName,
-        role: storedUser.role || DEFAULT_PROFILE.organization.role,
-      },
+        if (data && data.user) {
+          const userProfile = {
+            personal: {
+              name: data.user?.fullName || data.user?.full_name || 'User',
+              email: data.user?.email || 'user@example.com',
+              mobile: data.profile?.mobile || '',
+              phone: data.profile?.phone || '',
+            },
+            organization: {
+              companyName: data.profile?.company_name || 'Nbaurum',
+              role: data.user?.role || 'User',
+              department: data.profile?.department || '',
+              designation: data.profile?.designation || '',
+            },
+            address: {
+              address: data.profile?.address || '',
+              city: data.profile?.city || '',
+              state: data.profile?.state || '',
+              country: data.profile?.country || 'India',
+              pinCode: data.profile?.pin_code || '',
+            },
+            permissions: ['Invoice: Read', 'Invoice: Create', 'Collections: Read', 'Master Data: Read'],
+            security: {
+              lastLogin: data.user?.lastLoginAt || data.user?.last_login_at || new Date().toISOString(),
+              lastLoginIp: data.user?.lastLoginIp || data.user?.last_login_ip || '',
+              sessions: data.sessions || [],
+            },
+            preferences: {
+              language: data.preferences?.language || data.profile?.language || 'en-IN',
+              timezone: data.preferences?.timezone || data.profile?.timezone || 'Asia/Kolkata',
+              dateFormat: data.preferences?.date_format || data.profile?.date_format || 'DD MMM YYYY',
+            },
+            preferencesOther: {
+              languageOther: '',
+              timezoneOther: '',
+              dateFormatOther: '',
+            },
+            bio: data.profile?.bio || '',
+            profilePictureUrl: data.profile?.profile_picture_url || '',
+          }
+          setProfile(userProfile)
+          setDraft(userProfile)
+          
+          // Set profile photo preview if exists
+          if (data.profile?.profile_picture_url) {
+            // If it's a relative path, prepend API base URL
+            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+            const photoUrl = data.profile.profile_picture_url.startsWith('http')
+              ? data.profile.profile_picture_url
+              : `${apiBase}${data.profile.profile_picture_url}`
+            setPhotoPreviewUrl(photoUrl)
+          }
+          
+          // Update localStorage with fresh user data
+          if (data.user) {
+            localStorage.setItem('user', JSON.stringify({
+              id: data.user.id,
+              fullName: data.user.fullName || data.user.full_name,
+              email: data.user.email,
+              role: data.user.role,
+            }))
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err)
+        let errorMessage = err.response?.data?.message || err.message || 'Failed to load profile data'
+        
+        // Handle rate limit errors specifically
+        if (err.response?.status === 429 || err.status === 429) {
+          errorMessage = 'Rate limit exceeded. Please wait a moment and try again.'
+        } else if (err.response?.status === 404) {
+          errorMessage = 'Profile endpoint not found. Please ensure the server is running and migrations are up to date.'
+        } else if (err.code === 'NETWORK_ERROR' || err.isNetworkError) {
+          errorMessage = 'Network error: Unable to connect to server. Please check your connection.'
+        } else if (!err.response) {
+          // No response means server might be down or migration issue
+          errorMessage = 'Unable to connect to server. If this persists, please ensure database migrations are run: npm run migrate'
+        }
+        
+        setError(errorMessage)
+      } finally {
+        setLoading(false)
+      }
     }
-    setProfile(nextProfile)
-    setDraft(nextProfile)
+
+    loadProfile()
   }, [])
 
   useEffect(() => {
@@ -130,7 +230,7 @@ export default function MyProfile() {
     }))
   }
 
-  const onSelectPhoto = (e) => {
+  const onSelectPhoto = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -148,8 +248,51 @@ export default function MyProfile() {
     }
 
     setFieldErrors((prev) => ({ ...prev, photo: '' }))
-    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl)
+    
+    // Create preview
+    if (photoPreviewUrl && photoPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(photoPreviewUrl)
+    }
     setPhotoPreviewUrl(URL.createObjectURL(file))
+    setPhotoFile(file)
+
+    // Upload immediately
+    setPhotoUploading(true)
+    try {
+      const response = await uploadProfilePhoto(file)
+      if (response.data?.success && response.data?.data?.photoUrl) {
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+        const photoUrl = response.data.data.photoUrl.startsWith('http')
+          ? response.data.data.photoUrl
+          : `${apiBase}${response.data.data.photoUrl}`
+        
+        // Update both profile and draft with new photo URL
+        setProfile((prev) => ({ ...prev, profilePictureUrl: photoUrl }))
+        setDraft((prev) => ({ ...prev, profilePictureUrl: photoUrl }))
+        
+        // Update preview to use server URL
+        if (photoPreviewUrl && photoPreviewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(photoPreviewUrl)
+        }
+        setPhotoPreviewUrl(photoUrl)
+        setPhotoFile(null)
+      }
+    } catch (err) {
+      console.error('Failed to upload photo:', err)
+      setFieldErrors((prev) => ({ 
+        ...prev, 
+        photo: err.response?.data?.message || 'Failed to upload photo. Please try again.' 
+      }))
+      // Revert preview
+      if (photoPreviewUrl && photoPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(photoPreviewUrl)
+      }
+      setPhotoPreviewUrl(profile.profilePictureUrl || '')
+      setPhotoFile(null)
+    } finally {
+      setPhotoUploading(false)
+      e.target.value = '' // Reset file input
+    }
   }
 
   const onSaveProfile = async () => {
@@ -158,20 +301,48 @@ export default function MyProfile() {
     if (Object.keys(errors).length > 0) return
 
     setSaving(true)
+    setError('')
     try {
-      // Persist minimal user fields used across the app
+      // Get user role from localStorage to determine if company_name can be updated
       const storedUser = safeParse(localStorage.getItem('user') || '') || {}
-      const nextUser = {
-        ...storedUser,
-        name: draft.personal.name,
-        email: draft.personal.email,
-        companyName: draft.organization.companyName,
-        role: draft.organization.role,
+      const isAdmin = storedUser.role === 'admin'
+      
+      const updateData = {
+        name: draft.personal.name, // Update full_name in users table
+        phone: draft.personal.phone || '',
+        mobile: draft.personal.mobile || '',
+        department: draft.organization.department || '',
+        designation: draft.organization.designation || '',
+        address: draft.address?.address || '',
+        city: draft.address?.city || '',
+        state: draft.address?.state || '',
+        country: draft.address?.country || 'India',
+        pin_code: draft.address?.pinCode || '',
+        bio: draft.bio || '',
+        timezone: draft.preferences.timezone,
+        language: draft.preferences.language,
+        date_format: draft.preferences.dateFormat,
       }
-      localStorage.setItem('user', JSON.stringify(nextUser))
+      
+      // Only include company_name if user is admin
+      if (isAdmin) {
+        updateData.company_name = draft.organization.companyName || ''
+      }
+
+      await updateProfile(updateData)
 
       setProfile(draft)
       setSaved(true)
+      
+      // Update localStorage
+      localStorage.setItem('user', JSON.stringify({
+        ...storedUser,
+        fullName: draft.personal.name,
+        email: draft.personal.email,
+      }))
+    } catch (err) {
+      console.error('Failed to save profile:', err)
+      setError(err.response?.data?.message || err.message || 'Failed to save profile. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -201,15 +372,90 @@ export default function MyProfile() {
     if (!validatePassword()) return
 
     setPwSaving(true)
+    setPwErrors({})
     try {
-      // No backend requested; keep as a UI workflow only.
-      await new Promise((r) => setTimeout(r, 500))
+      await updatePassword(pw.current, pw.next)
       setPw({ current: '', next: '', confirm: '' })
       setPwSaved(true)
-      setPwErrors({})
+    } catch (err) {
+      console.error('Failed to update password:', err)
+      const errorMsg = err.response?.data?.message || 'Failed to update password. Please try again.'
+      if (errorMsg.includes('Current password')) {
+        setPwErrors({ current: errorMsg })
+      } else if (errorMsg.includes('at least 8')) {
+        setPwErrors({ next: errorMsg })
+      } else {
+        setPwErrors({ next: errorMsg })
+      }
     } finally {
       setPwSaving(false)
     }
+  }
+
+  const handleRevokeSession = async (sessionId) => {
+    if (!window.confirm('Are you sure you want to revoke this session?')) return
+    
+    try {
+      await revokeSession(sessionId)
+      // Reload profile to get updated sessions
+      const response = await getProfile()
+      const data = response.data.data
+      if (data?.sessions) {
+        setProfile((prev) => ({
+          ...prev,
+          security: {
+            ...prev.security,
+            sessions: data.sessions,
+          },
+        }))
+        setDraft((prev) => ({
+          ...prev,
+          security: {
+            ...prev.security,
+            sessions: data.sessions,
+          },
+        }))
+      }
+    } catch (err) {
+      console.error('Failed to revoke session:', err)
+      alert('Failed to revoke session. Please try again.')
+    }
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Never'
+    const date = new Date(dateString)
+    return date.toLocaleString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  const formatRelativeTime = (dateString) => {
+    if (!dateString) return 'Never'
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now - date
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+    return formatDate(dateString)
+  }
+
+  if (loading) {
+    return (
+      <div className="profile-page">
+        <div className="profile-loading">Loading profile...</div>
+      </div>
+    )
   }
 
   return (
@@ -242,12 +488,18 @@ export default function MyProfile() {
             type="button"
             className="profile-btn profile-btn-primary"
             onClick={onSaveProfile}
-            disabled={saving || !isDirty}
+            disabled={saving || !isDirty || loading}
           >
             {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="profile-error" role="alert">
+          {error}
+        </div>
+      )}
 
       <div className="profile-grid">
         {/* Personal Information */}
@@ -260,10 +512,15 @@ export default function MyProfile() {
           <div className="profile-photo-row">
             <div className="profile-photo">
               {photoPreviewUrl ? (
-                <img className="profile-photo-img" src={photoPreviewUrl} alt="Profile preview" />
+                <img className="profile-photo-img" src={photoPreviewUrl} alt="Profile" />
               ) : (
                 <div className="profile-photo-placeholder" aria-hidden="true">
                   <Camera className="profile-photo-icon" />
+                </div>
+              )}
+              {photoUploading && (
+                <div className="profile-photo-uploading">
+                  <div className="profile-photo-uploading-spinner" />
                 </div>
               )}
             </div>
@@ -275,16 +532,18 @@ export default function MyProfile() {
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 onChange={onSelectPhoto}
+                disabled={photoUploading || loading}
               />
               <button
                 type="button"
                 className="profile-btn profile-btn-secondary"
                 onClick={() => photoFileRef.current?.click()}
+                disabled={photoUploading || loading}
               >
                 <Upload className="profile-btn-icon" />
-                Upload photo
+                {photoUploading ? 'Uploading…' : 'Upload photo'}
               </button>
-              <div className="profile-help">PNG/JPG/WEBP, max 2MB.</div>
+              <div className="profile-help">PNG/JPG/WEBP, max 2MB. Photo uploads immediately.</div>
               {fieldErrors.photo && <div className="profile-field-error" role="alert">{fieldErrors.photo}</div>}
             </div>
           </div>
@@ -297,6 +556,7 @@ export default function MyProfile() {
                 className={`profile-input ${fieldErrors.name ? 'is-error' : ''}`}
                 value={draft.personal.name}
                 onChange={(e) => onPersonalChange('name', e.target.value)}
+                disabled={loading}
                 aria-invalid={fieldErrors.name ? 'true' : 'false'}
                 aria-describedby={fieldErrors.name ? 'name-error' : undefined}
               />
@@ -305,16 +565,19 @@ export default function MyProfile() {
 
             <div className="profile-field">
               <label className="profile-label" htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                className={`profile-input ${fieldErrors.email ? 'is-error' : ''}`}
-                value={draft.personal.email}
-                onChange={(e) => onPersonalChange('email', e.target.value)}
-                aria-invalid={fieldErrors.email ? 'true' : 'false'}
-                aria-describedby={fieldErrors.email ? 'email-error' : undefined}
-              />
-              {fieldErrors.email && <div id="email-error" className="profile-field-error" role="alert">{fieldErrors.email}</div>}
+              <div className="profile-readonly">
+                <input
+                  id="email"
+                  type="email"
+                  className={`profile-input ${fieldErrors.email ? 'is-error' : ''}`}
+                  value={draft.personal.email}
+                  readOnly
+                  disabled={loading}
+                  aria-invalid={fieldErrors.email ? 'true' : 'false'}
+                />
+                <span className="profile-readonly-chip"><Lock className="profile-chip-icon" /> Read-only</span>
+              </div>
+              <div className="profile-help">Email cannot be changed. Contact administrator if needed.</div>
             </div>
 
             <div className="profile-field">
@@ -326,10 +589,37 @@ export default function MyProfile() {
                 value={draft.personal.mobile}
                 onChange={(e) => onPersonalChange('mobile', e.target.value)}
                 placeholder="10-digit mobile number"
+                disabled={loading}
                 aria-invalid={fieldErrors.mobile ? 'true' : 'false'}
                 aria-describedby={fieldErrors.mobile ? 'mobile-error' : undefined}
               />
               {fieldErrors.mobile && <div id="mobile-error" className="profile-field-error" role="alert">{fieldErrors.mobile}</div>}
+            </div>
+
+            <div className="profile-field">
+              <label className="profile-label" htmlFor="phone">Phone</label>
+              <input
+                id="phone"
+                inputMode="tel"
+                className={`profile-input ${fieldErrors.phone ? 'is-error' : ''}`}
+                value={draft.personal.phone || ''}
+                onChange={(e) => onPersonalChange('phone', e.target.value)}
+                placeholder="Phone number"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="profile-field profile-field--full">
+              <label className="profile-label" htmlFor="bio">Bio</label>
+              <textarea
+                id="bio"
+                className="profile-input"
+                value={draft.bio || ''}
+                onChange={(e) => setDraft((prev) => ({ ...prev, bio: e.target.value }))}
+                placeholder="Tell us about yourself"
+                rows={3}
+                disabled={loading}
+              />
             </div>
           </div>
         </section>
@@ -344,26 +634,152 @@ export default function MyProfile() {
           <div className="profile-form-grid">
             <div className="profile-field">
               <label className="profile-label" htmlFor="company">Company</label>
-              <div className="profile-readonly">
-                <input id="company" className="profile-input" value={draft.organization.companyName} readOnly />
-                <span className="profile-readonly-chip"><Lock className="profile-chip-icon" /> Read-only</span>
-              </div>
+              {(() => {
+                const storedUser = safeParse(localStorage.getItem('user') || '') || {}
+                const isAdmin = storedUser.role === 'admin'
+                
+                if (isAdmin) {
+                  return (
+                    <input
+                      id="company"
+                      className="profile-input"
+                      value={draft.organization.companyName}
+                      onChange={(e) => setDraft((prev) => ({
+                        ...prev,
+                        organization: { ...prev.organization, companyName: e.target.value },
+                      }))}
+                      disabled={loading}
+                    />
+                  )
+                } else {
+                  return (
+                    <div className="profile-readonly">
+                      <input
+                        id="company"
+                        className="profile-input"
+                        value={draft.organization.companyName}
+                        readOnly
+                        disabled={loading}
+                      />
+                      <span className="profile-readonly-chip"><Lock className="profile-chip-icon" /> Read-only</span>
+                    </div>
+                  )
+                }
+              })()}
             </div>
 
             <div className="profile-field">
               <label className="profile-label" htmlFor="role">Role</label>
               <div className="profile-readonly">
-                <input id="role" className="profile-input" value={draft.organization.role} readOnly />
+                <input id="role" className="profile-input" value={draft.organization.role} readOnly disabled={loading} />
                 <span className="profile-readonly-chip"><Lock className="profile-chip-icon" /> Read-only</span>
               </div>
             </div>
 
             <div className="profile-field">
               <label className="profile-label" htmlFor="department">Department</label>
-              <div className="profile-readonly">
-                <input id="department" className="profile-input" value={draft.organization.department} readOnly />
-                <span className="profile-readonly-chip"><Lock className="profile-chip-icon" /> Read-only</span>
-              </div>
+              <input
+                id="department"
+                className="profile-input"
+                value={draft.organization.department}
+                onChange={(e) => setDraft((prev) => ({
+                  ...prev,
+                  organization: { ...prev.organization, department: e.target.value },
+                }))}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="profile-field">
+              <label className="profile-label" htmlFor="designation">Designation</label>
+              <input
+                id="designation"
+                className="profile-input"
+                value={draft.organization.designation}
+                onChange={(e) => setDraft((prev) => ({
+                  ...prev,
+                  organization: { ...prev.organization, designation: e.target.value },
+                }))}
+                placeholder="Job title"
+                disabled={loading}
+              />
+            </div>  
+          </div>
+
+          <div className="profile-divider-space" />
+
+          <div className="profile-form-grid">
+            <div className="profile-field profile-field--full">
+              <label className="profile-label" htmlFor="address">Address</label>
+              <textarea
+                id="address"
+                className="profile-input"
+                value={draft.address?.address || ''}
+                onChange={(e) => setDraft((prev) => ({
+                  ...prev,
+                  address: { ...prev.address, address: e.target.value },
+                }))}
+                placeholder="Street address"
+                rows={2}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="profile-field">
+              <label className="profile-label" htmlFor="city">City</label>
+              <input
+                id="city"
+                className="profile-input"
+                value={draft.address?.city || ''}
+                onChange={(e) => setDraft((prev) => ({
+                  ...prev,
+                  address: { ...prev.address, city: e.target.value },
+                }))}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="profile-field">
+              <label className="profile-label" htmlFor="state">State</label>
+              <input
+                id="state"
+                className="profile-input"
+                value={draft.address?.state || ''}
+                onChange={(e) => setDraft((prev) => ({
+                  ...prev,
+                  address: { ...prev.address, state: e.target.value },
+                }))}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="profile-field">
+              <label className="profile-label" htmlFor="country">Country</label>
+              <input
+                id="country"
+                className="profile-input"
+                value={draft.address?.country || 'India'}
+                onChange={(e) => setDraft((prev) => ({
+                  ...prev,
+                  address: { ...prev.address, country: e.target.value },
+                }))}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="profile-field">
+              <label className="profile-label" htmlFor="pinCode">Pin Code</label>
+              <input
+                id="pinCode"
+                className="profile-input"
+                value={draft.address?.pinCode || ''}
+                onChange={(e) => setDraft((prev) => ({
+                  ...prev,
+                  address: { ...prev.address, pinCode: e.target.value },
+                }))}
+                placeholder="PIN code"
+                disabled={loading}
+              />
             </div>
           </div>
 
@@ -399,7 +815,12 @@ export default function MyProfile() {
           <div className="profile-security-meta">
             <div className="profile-meta-item">
               <div className="profile-meta-label">Last login</div>
-              <div className="profile-meta-value">{new Date(draft.security.lastLogin).toLocaleString('en-IN')}</div>
+              <div className="profile-meta-value">
+                {draft.security.lastLogin ? formatDate(draft.security.lastLogin) : 'Never'}
+                {draft.security.lastLoginIp && (
+                  <span className="profile-meta-sub"> from {draft.security.lastLoginIp}</span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -515,29 +936,42 @@ export default function MyProfile() {
             </div>
 
             <div className="profile-session-list">
-              {draft.security.sessions.map((s) => (
-                <div key={s.id} className={`profile-session ${s.current ? 'is-current' : ''}`}>
-                  <div className="profile-session-left">
-                    <div className="profile-session-icon">
-                      <Monitor />
+              {loading ? (
+                <div className="profile-loading">Loading sessions...</div>
+              ) : draft.security.sessions.length === 0 ? (
+                <div className="profile-empty">No active sessions</div>
+              ) : (
+                draft.security.sessions.map((s) => (
+                  <div key={s.id} className={`profile-session ${s.current ? 'is-current' : ''}`}>
+                    <div className="profile-session-left">
+                      <div className="profile-session-icon">
+                        <Monitor />
+                      </div>
+                      <div className="profile-session-meta">
+                        <div className="profile-session-device">{s.device || 'Unknown device'}</div>
+                        <div className="profile-session-sub">
+                          {s.location || 'Unknown location'} • {formatRelativeTime(s.lastActive)}
+                          {s.ipAddress && ` • ${s.ipAddress}`}
+                        </div>
+                      </div>
                     </div>
-                    <div className="profile-session-meta">
-                      <div className="profile-session-device">{s.device}</div>
-                      <div className="profile-session-sub">{s.location} • {s.lastActive}</div>
+                    <div className="profile-session-actions">
+                      {s.current ? (
+                        <span className="profile-session-chip">Current</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="profile-btn profile-btn-ghost profile-btn-sm"
+                          onClick={() => handleRevokeSession(s.id)}
+                        >
+                          <XCircle className="profile-btn-icon" />
+                          Revoke
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="profile-session-actions">
-                    {s.current ? (
-                      <span className="profile-session-chip">Current</span>
-                    ) : (
-                      <button type="button" className="profile-btn profile-btn-ghost profile-btn-sm">
-                        <XCircle className="profile-btn-icon" />
-                        Revoke
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </section>
@@ -557,10 +991,27 @@ export default function MyProfile() {
                 className="profile-input profile-select"
                 value={draft.preferences.language}
                 onChange={(e) => onPreferenceChange('language', e.target.value)}
+                disabled={loading}
               >
                 <option value="en-IN">English (India)</option>
                 <option value="en-US">English (US)</option>
+                <option value="Other">Other</option>
               </select>
+              {draft.preferences.language === 'Other' && (
+                <input
+                  type="text"
+                  id="languageOther"
+                  className="profile-input"
+                  value={draft.preferencesOther?.languageOther || ''}
+                  onChange={(e) => setDraft((prev) => ({
+                    ...prev,
+                    preferencesOther: { ...prev.preferencesOther, languageOther: e.target.value },
+                  }))}
+                  placeholder="Enter language code"
+                  disabled={loading}
+                  style={{ marginTop: '8px' }}
+                />
+              )}
             </div>
 
             <div className="profile-field">
@@ -570,10 +1021,27 @@ export default function MyProfile() {
                 className="profile-input profile-select"
                 value={draft.preferences.timezone}
                 onChange={(e) => onPreferenceChange('timezone', e.target.value)}
+                disabled={loading}
               >
                 <option value="Asia/Kolkata">Asia/Kolkata</option>
                 <option value="UTC">UTC</option>
+                <option value="Other">Other</option>
               </select>
+              {draft.preferences.timezone === 'Other' && (
+                <input
+                  type="text"
+                  id="timezoneOther"
+                  className="profile-input"
+                  value={draft.preferencesOther?.timezoneOther || ''}
+                  onChange={(e) => setDraft((prev) => ({
+                    ...prev,
+                    preferencesOther: { ...prev.preferencesOther, timezoneOther: e.target.value },
+                  }))}
+                  placeholder="Enter timezone (e.g., America/New_York)"
+                  disabled={loading}
+                  style={{ marginTop: '8px' }}
+                />
+              )}
             </div>
 
             <div className="profile-field">
@@ -583,11 +1051,28 @@ export default function MyProfile() {
                 className="profile-input profile-select"
                 value={draft.preferences.dateFormat}
                 onChange={(e) => onPreferenceChange('dateFormat', e.target.value)}
+                disabled={loading}
               >
                 <option value="DD MMM YYYY">DD MMM YYYY</option>
                 <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                 <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                <option value="Other">Other</option>
               </select>
+              {draft.preferences.dateFormat === 'Other' && (
+                <input
+                  type="text"
+                  id="dateFormatOther"
+                  className="profile-input"
+                  value={draft.preferencesOther?.dateFormatOther || ''}
+                  onChange={(e) => setDraft((prev) => ({
+                    ...prev,
+                    preferencesOther: { ...prev.preferencesOther, dateFormatOther: e.target.value },
+                  }))}
+                  placeholder="Enter date format (e.g., MM/DD/YYYY)"
+                  disabled={loading}
+                  style={{ marginTop: '8px' }}
+                />
+              )}
             </div>
           </div>
         </section>

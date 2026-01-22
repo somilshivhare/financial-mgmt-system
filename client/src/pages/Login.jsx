@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Eye, EyeOff, Lock, AlertCircle, LayoutDashboard, BarChart3, LineChart, Shield } from 'lucide-react'
@@ -16,6 +16,8 @@ function Login({ onLogin }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
+  const submitTimeoutRef = useRef(null)
+  const isSubmittingRef = useRef(false)
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -47,12 +49,25 @@ function Login({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Prevent double submission
+    if (isSubmittingRef.current || loading) {
+      return
+    }
+    
+    // Clear any existing timeout
+    if (submitTimeoutRef.current) {
+      clearTimeout(submitTimeoutRef.current)
+    }
+    
     setError('')
     
     if (!validateForm()) {
       return
     }
 
+    // Set submitting flag and loading state
+    isSubmittingRef.current = true
     setLoading(true)
 
     try {
@@ -71,13 +86,41 @@ function Login({ onLogin }) {
       
       navigate('/dashboard')
     } catch (err) {
-      // Generic error message for security
-      setError('Invalid email or password. Please try again.')
-      console.error('Login error:', err)
+      // Handle structured error responses
+      let errorMessage = 'Invalid email or password. Please try again.'
+      
+      if (err.response?.data) {
+        const errorData = err.response.data
+        if (errorData.code === 'RATE_LIMIT_EXCEEDED') {
+          errorMessage = errorData.message || 'Too many login attempts. Please wait a moment and try again.'
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        } else if (errorData.code === 'ERR_INVALID_CREDENTIALS') {
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.'
+        }
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
+      console.error('[Login] Error:', err)
     } finally {
-      setLoading(false)
+      // Add small delay before allowing resubmission to prevent rapid clicks
+      submitTimeoutRef.current = setTimeout(() => {
+        isSubmittingRef.current = false
+        setLoading(false)
+      }, 500)
     }
   }
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (submitTimeoutRef.current) {
+        clearTimeout(submitTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Load remembered email on mount
   useEffect(() => {

@@ -13,6 +13,7 @@ import {
   Receipt,
   Clock,
 } from 'lucide-react'
+import * as settingsApi from '../api/settings'
 import '../styles/Settings.css'
 
 function safeParse(json) {
@@ -86,6 +87,8 @@ export default function Settings() {
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
 
   const [modal, setModal] = useState(null) // { key, title, confirmText, tone, onConfirm, body }
 
@@ -96,21 +99,57 @@ export default function Settings() {
 
   const isDirty = useMemo(() => JSON.stringify(settings) !== JSON.stringify(draft), [settings, draft])
 
+  // Load settings from backend
   useEffect(() => {
-    const storedUser = safeParse(localStorage.getItem('user') || '') || {}
-    setUser({
-      email: storedUser.email || 'user@example.com',
-      role: storedUser.role || storedUser.userRole || 'User',
-    })
+    const loadSettings = async () => {
+      try {
+        setLoading(true)
+        setLoadError(null)
+        
+        // Load user from localStorage
+        const storedUser = safeParse(localStorage.getItem('user') || '') || {}
+        setUser({
+          email: storedUser.email || 'user@example.com',
+          role: storedUser.role || storedUser.userRole || 'User',
+        })
 
-    const storedSettings = safeParse(localStorage.getItem('erpSettings') || '')
-    if (storedSettings) {
-      setSettings({ ...DEFAULT_SETTINGS, ...storedSettings })
-      setDraft({ ...DEFAULT_SETTINGS, ...storedSettings })
-    } else {
-      setSettings(DEFAULT_SETTINGS)
-      setDraft(DEFAULT_SETTINGS)
+        // Load settings from backend
+        const response = await settingsApi.getSettings()
+        if (response?.data?.data) {
+          const backendSettings = response.data.data
+          
+          // Transform backend settings to frontend format (remove _meta)
+          const transformedSettings = {}
+          Object.keys(backendSettings).forEach(key => {
+            const { _meta, ...value } = backendSettings[key]
+            transformedSettings[key] = value
+          })
+          
+          // Merge with defaults to ensure all categories exist
+          const mergedSettings = {
+            ...DEFAULT_SETTINGS,
+            ...transformedSettings,
+          }
+          
+          setSettings(mergedSettings)
+          setDraft(mergedSettings)
+        } else {
+          // Fallback to defaults if no settings found
+          setSettings(DEFAULT_SETTINGS)
+          setDraft(DEFAULT_SETTINGS)
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error)
+        setLoadError(error.message || 'Failed to load settings')
+        // Fallback to defaults on error
+        setSettings(DEFAULT_SETTINGS)
+        setDraft(DEFAULT_SETTINGS)
+      } finally {
+        setLoading(false)
+      }
     }
+
+    loadSettings()
   }, [])
 
   useEffect(() => {
@@ -160,6 +199,39 @@ export default function Settings() {
     const changed2fa = draft.security.twoFactorEnabled !== settings.security.twoFactorEnabled
     const changedTimeout = draft.security.sessionTimeoutMinutes !== settings.security.sessionTimeoutMinutes
 
+    // Check financial year change if it's being changed
+    if (changedFY) {
+      try {
+        const checkResponse = await settingsApi.checkFinancialYearChange(draft.general.financialYear)
+        if (!checkResponse?.data?.data?.allowed) {
+          setErrors({
+            ...errors,
+            financialYear: checkResponse.data.data.reason || 'Cannot change financial year',
+          })
+          requestConfirm({
+            title: 'Financial Year Change Not Allowed',
+            confirmText: 'OK',
+            tone: 'danger',
+            body: (
+              <div className="settings-confirm">
+                <div className="settings-confirm-note">
+                  <AlertCircle className="settings-confirm-icon" />
+                  <div>
+                    {checkResponse.data.data.reason || 'Cannot change financial year: Transactions already exist in the system.'}
+                  </div>
+                </div>
+              </div>
+            ),
+            onConfirm: () => setModal(null),
+          })
+          return
+        }
+      } catch (error) {
+        console.error('Failed to check financial year:', error)
+        // Continue with confirmation if check fails
+      }
+    }
+
     if (changedFY || changedNum || changed2fa || changedTimeout) {
       requestConfirm({
         title: 'Confirm settings update',
@@ -192,10 +264,64 @@ export default function Settings() {
   const applySave = async () => {
     setModal(null)
     setSaving(true)
+    setErrors({})
+    
     try {
-      localStorage.setItem('erpSettings', JSON.stringify(draft))
+      // Prepare settings for backend (only changed categories)
+      const settingsToUpdate = {}
+      if (JSON.stringify(draft.general) !== JSON.stringify(settings.general)) {
+        settingsToUpdate.general = draft.general
+      }
+      if (JSON.stringify(draft.invoice) !== JSON.stringify(settings.invoice)) {
+        settingsToUpdate.invoice = draft.invoice
+      }
+      if (JSON.stringify(draft.notifications) !== JSON.stringify(settings.notifications)) {
+        settingsToUpdate.notifications = draft.notifications
+      }
+      if (JSON.stringify(draft.security) !== JSON.stringify(settings.security)) {
+        settingsToUpdate.security = draft.security
+      }
+      if (JSON.stringify(draft.access) !== JSON.stringify(settings.access)) {
+        settingsToUpdate.access = draft.access
+      }
+
+      // Update settings via backend API
+      await settingsApi.updateSettings(settingsToUpdate)
+      
+      // Update local state
       setSettings(draft)
       setSaved(true)
+      
+      // Clear any errors
+      setErrors({})
+    } catch (error) {
+      console.error('Failed to save settings:', error)
+      
+      // Handle specific error types
+      if (error.code === 'FINANCIAL_YEAR_LOCKED' || error.message?.includes('financial year')) {
+        setErrors({
+          ...errors,
+          financialYear: error.message || 'Cannot change financial year: Transactions exist',
+        })
+      } else if (error.code === 'SETTING_LOCKED') {
+        setErrors({
+          ...errors,
+          _general: error.message || 'This setting is locked and cannot be changed',
+        })
+      } else if (error.code === 'VALIDATION_ERROR' && error.data) {
+        // Handle validation errors
+        const validationErrors = {}
+        error.data.forEach(err => {
+          const path = err.path.join('.')
+          validationErrors[path] = err.message
+        })
+        setErrors(validationErrors)
+      } else {
+        setErrors({
+          ...errors,
+          _general: error.message || 'Failed to save settings. Please try again.',
+        })
+      }
     } finally {
       setSaving(false)
     }
@@ -204,6 +330,84 @@ export default function Settings() {
   const resetDraft = () => {
     setDraft(settings)
     setErrors({})
+  }
+
+  const handleResetToDefaults = async () => {
+    requestConfirm({
+      title: 'Reset to Defaults',
+      confirmText: 'Reset',
+      tone: 'danger',
+      body: (
+        <div className="settings-confirm">
+          <div className="settings-confirm-note">
+            <AlertCircle className="settings-confirm-icon" />
+            <div>
+              This will reset all settings to their default values. This action cannot be undone.
+            </div>
+          </div>
+        </div>
+      ),
+      onConfirm: async () => {
+        setModal(null)
+        setSaving(true)
+        try {
+          await settingsApi.resetSettings()
+          // Reload settings
+          const response = await settingsApi.getSettings()
+          if (response?.data?.data) {
+            const backendSettings = response.data.data
+            const transformedSettings = {}
+            Object.keys(backendSettings).forEach(key => {
+              const { _meta, ...value } = backendSettings[key]
+              transformedSettings[key] = value
+            })
+            const mergedSettings = {
+              ...DEFAULT_SETTINGS,
+              ...transformedSettings,
+            }
+            setSettings(mergedSettings)
+            setDraft(mergedSettings)
+            setSaved(true)
+          }
+        } catch (error) {
+          console.error('Failed to reset settings:', error)
+          setErrors({
+            ...errors,
+            _general: error.message || 'Failed to reset settings',
+          })
+        } finally {
+          setSaving(false)
+        }
+      },
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="settings-page">
+        <div className="settings-loading">
+          <p>Loading settings...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError && !settings) {
+    return (
+      <div className="settings-page">
+        <div className="settings-error">
+          <AlertCircle />
+          <p>Failed to load settings: {loadError}</p>
+          <button
+            type="button"
+            className="settings-btn settings-btn-primary"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -233,13 +437,30 @@ export default function Settings() {
           )}
 
           <button type="button" className="settings-btn settings-btn-ghost" onClick={resetDraft} disabled={!isDirty || saving}>
-            Reset
+            Discard changes
           </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="settings-btn settings-btn-secondary"
+              onClick={handleResetToDefaults}
+              disabled={saving}
+            >
+              Reset to defaults
+            </button>
+          )}
           <button type="button" className="settings-btn settings-btn-primary" onClick={onSave} disabled={saving || !isDirty}>
             {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </div>
+
+      {errors._general && (
+        <div className="settings-error-banner" role="alert">
+          <AlertCircle />
+          <span>{errors._general}</span>
+        </div>
+      )}
 
       <div className="settings-grid">
         {/* General Settings */}

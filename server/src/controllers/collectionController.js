@@ -47,5 +47,41 @@ const addAction = async (req, res, next) => {
   }
 };
 
-module.exports = { listPlans, createPlan, updatePlanStatus, listActions, addAction };
+const getCollectionPlanData = async (req, res, next) => {
+  try {
+    const filters = {
+      personId: req.query.personId || null,
+      businessUnit: req.query.businessUnit || null,
+      month: req.query.month || null,
+    };
+    const data = await collectionService.getCollectionPlanData(filters);
+    res.json(apiSuccess(data));
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getCollectionAnalytics = async (req, res, next) => {
+  try {
+    const filters = {
+      personId: req.query.personId || null,
+      businessUnit: req.query.businessUnit || null,
+      month: req.query.month || null,
+    };
+    const analytics = await collectionService.getCollectionAnalytics(filters);
+    res.json(apiSuccess(analytics));
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { 
+  listPlans, 
+  createPlan, 
+  updatePlanStatus, 
+  listActions, 
+  addAction,
+  getCollectionPlanData,
+  getCollectionAnalytics,
+};
 

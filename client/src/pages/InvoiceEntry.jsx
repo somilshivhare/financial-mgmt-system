@@ -4,12 +4,30 @@ import { ArrowLeft, Save, Calculator } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
 import * as poEntryService from '../services/poEntryService'
 import * as invoiceService from '../services/invoiceService'
+import * as paymentApi from '../api/payment'
 import { INDIA_STATES } from '../utils/indiaStates'
 import '../styles/InvoiceEntry.css'
 
+// Field type constants
+const FIELD_TYPES = {
+  MANUAL: 'manual',
+  DROPDOWN: 'dropdown',
+  DEFAULT: 'default', // Auto-filled, read-only
+  CALCULATED: 'calculated', // System calculated, non-editable
+}
+
+// Invoice Type options
+const INVOICE_TYPES = ['REG', 'EXP', 'TAX', 'PRO', 'Other']
+const BUSINESS_UNITS = ['MAIN', 'UNIT1', 'UNIT2', 'UNIT3', 'Other']
+const SEGMENTS = ['Domestic', 'Export']
+const ZONES = ['North', 'East', 'West', 'South']
+const REGIONS = ['North', 'East', 'West', 'South', 'Central']
+const MATERIAL_DESCRIPTION_TYPES = ['Goods', 'Services', 'Both', 'Other']
+const UNITS = ['Nos', 'MT', 'KG', 'LTR', 'MTR', 'SQM', 'CUM', 'Other']
+
 function InvoiceEntry() {
   const navigate = useNavigate()
-  const { getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees, getRecordById } = useMasterData()
+  const { getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees } = useMasterData()
   
   const [poEntries, setPOEntries] = useState([])
   const [customers, setCustomers] = useState([])
@@ -17,137 +35,181 @@ function InvoiceEntry() {
   const [consignees, setConsignees] = useState([])
   const [payers, setPayers] = useState([])
   const [employees, setEmployees] = useState([])
+  const [paymentData, setPaymentData] = useState(null) // Payment Advice data
   
+  // Comprehensive form data with ALL fields as per Excel specification
   const [formData, setFormData] = useState({
-    // Invoice Header
-    invoiceID: '', // Auto-generated, immutable
-    invoiceDate: new Date().toISOString().split('T')[0],
-    invoiceType: 'REG', // REG, EXP, TAX, etc.
-    businessUnit: 'MAIN',
+    // ========== INVOICE IDENTIFICATION ==========
+    keyID: '', // PO Number - MANDATORY, Primary Linkage
+    gstTaxInvoiceNo: '', // Manual Entry
+    gstTaxInvoiceDate: '', // Manual Entry
+    internalInvoiceNo: '', // Auto-generated
+    invoiceType: 'REG', // Dropdown
+    businessUnit: 'MAIN', // Dropdown
     
-    // Key ID / PO Linking
-    keyID: '', // PO Number - Required
-    poNumber: '', // Auto-filled from PO Entry
-    poDate: '', // Auto-filled from PO Entry
+    // ========== CUSTOMER & PO DETAILS (Auto-filled from PO/Master Data) ==========
+    customerName: '', // Default (read-only)
+    customerId: '', // Default (read-only)
+    segment: '', // Default (read-only)
+    region: '', // Default (read-only)
+    zone: '', // Default (read-only)
+    salesOrderNo: '', // Manual Entry
+    accountManagerName: '', // Default (read-only)
+    accountManagerId: '', // Default (read-only)
+    poNoReference: '', // Default (read-only) - same as keyID
+    poDate: '', // Default (read-only)
     
-    // Customer Details (Auto-filled from PO Entry -> Master Data)
-    customer: '', // Customer Name
-    customerId: '', // Reference to Master Data
-    segment: '',
-    region: '',
-    zone: '',
-    accountManager: '', // Employee reference
-    accountManagerId: '',
+    // ========== MATERIAL & SUPPLY DETAILS ==========
+    materialDescriptionType: '', // Dropdown
+    stateOfSupply: '', // Default (read-only)
+    qty: '', // Manual Entry
+    unit: '', // Dropdown
+    currency: 'INR', // Default (read-only)
     
-    // Payment Terms (Auto-filled from PO Entry -> Master Data)
-    paymentTerms: '',
-    paymentTermsId: '',
-    
-    // Consignee & Payer (Auto-filled from Customer -> Master Data)
-    consignee: '',
-    consigneeId: '',
-    payer: '',
-    payerId: '',
-    
-    // Currency & State (Auto-filled from PO Entry)
-    currency: 'INR',
-    stateOfSupply: '',
-    
-    // Tax & Value Calculations
-    basicRate: '',
-    qty: '',
+    // ========== VALUE CALCULATIONS ==========
+    basicRate: '', // Manual Entry
     basicValue: '', // Calculated: Basic Rate × Qty
-    freightRate: '',
+    freightInvoiceNo: '', // Manual Entry
+    freightRate: '', // Manual Entry
     freightValue: '', // Calculated: Freight Rate × Qty
-    
-    // GST Rates
-    sgstRate: '',
-    cgstRate: '',
-    igstRate: '',
-    ugstRate: '',
-    
-    // GST Values (Calculated)
-    sgstValue: '', // Calculated
-    cgstValue: '', // Calculated
-    igstValue: '', // Calculated
-    ugstValue: '', // Calculated
-    totalGST: '', // Calculated: Sum of all GST values
-    
-    // Totals (Calculated)
+    // GST Rates (Manual Entry)
+    sgstRate: '', // Manual Entry
+    cgstRate: '', // Manual Entry
+    igstRate: '', // Manual Entry
+    ugstRate: '', // Manual Entry
+    // GST Output Values (Calculated)
+    sgstOutput: '', // Calculated
+    cgstOutput: '', // Calculated
+    igstOutput: '', // Calculated
+    ugstOutput: '', // Calculated
+    totalGST: '', // Calculated: Sum of all GST
+    tcs: '', // Manual Entry
     subtotal: '', // Calculated: Basic Value + Freight Value
     totalInvoiceValue: '', // Calculated: Subtotal + Total GST
     
-    // Logistics & Dispatch
-    dispatchDate: '',
-    dispatchMode: '',
-    lrNumber: '',
-    lrDate: '',
-    vehicleNumber: '',
-    transporter: '',
+    // ========== CONSIGNEE & PAYER DETAILS ==========
+    consigneeId: '', // Selected from dropdown or manual entry
+    consigneeNameAddress: '', // Manual Entry (can be selected from dropdown or typed)
+    consigneeCity: '', // Manual Entry
+    payerId: '', // Selected from dropdown or manual entry
+    payerNameAddress: '', // Manual Entry (can be selected from dropdown or typed)
+    payerCity: '', // Manual Entry
     
-    // Inspection & Compliance
-    inspectionDate: '',
-    complianceDate: '',
+    // ========== LOGISTICS & TRANSPORT ==========
+    lorryReceiptNo: '', // Manual Entry
+    lorryReceiptDate: '', // Manual Entry
+    transporterName: '', // Dropdown from Employees (role: Transporter)
+    transporterId: '', // Selected transporter ID
+    deliveryChallanNo: '', // Manual Entry
+    deliveryChallanDate: '', // Manual Entry
     
-    // Payment & Due Tracking - 1st Due
-    firstDueDate: '', // Calculated from Invoice Date + Payment Terms
+    // ========== MATERIAL INSPECTION DATES ==========
+    materialInspectionRequestDate: '', // Manual Entry
+    inspectionOfferDate: '', // Manual Entry
+    materialInspectionDate: '', // Manual Entry
+    deliveryInstructionDate: '', // Manual Entry
+    deliveryInspectionCIPReceivedDate: '', // Manual Entry
+    miccReceiptDate: '', // Manual Entry
+    lastDateOfDispatch: '', // Manual Entry
+    invoiceReadyDate: '', // Manual Entry
+    
+    // ========== COURIER DETAILS ==========
+    courierDocumentNo: '', // Manual Entry
+    courierDocumentDate: '', // Manual Entry
+    courierCompanyName: '', // Manual Entry
+    billSentToPersonName: '', // Manual Entry
+    billSentDate: '', // Manual Entry
+    
+    // ========== MATERIAL RECEIPT DATES ==========
+    lastDateOfMaterialReceipt: '', // Manual Entry
+    invoiceReceiptDate: '', // Manual Entry
+    invoiceReceiptPersonName: '', // Dropdown from Employees
+    invoiceReceiptPersonId: '', // Selected person ID
+    materialVerificationDate: '', // Manual Entry
+    
+    // ========== PROCESSING DATES ==========
+    jvrDate: '', // Manual Entry
+    srnDate: '', // Manual Entry
+    mrcDate: '', // Manual Entry
+    invoiceSubmissionAtSiteDate: '', // Manual Entry
+    invoiceForwardedToHODate: '', // Manual Entry
+    invoiceForwardedForPaymentDate: '', // Manual Entry
+    
+    // ========== PAYMENT TERMS ==========
+    paymentTermsId: '', // Dropdown from Payment Terms Master Data
+    paymentTerms: '', // Auto-filled from selected payment terms
+    paymentTextId: '', // Dropdown from Payment Terms Master Data (for description)
+    paymentText: '', // Auto-filled from selected payment terms description
+    
+    // ========== 1ST DUE PAYMENT TRACKING (Read-only from Payment Advice) ==========
+    firstDueDate: '', // Calculated
     firstDueAmount: '', // Calculated
-    firstReceivedAmount: '', // From Payment Advice
-    firstReceiptDate: '', // From Payment Advice
-    firstBalance: '', // Calculated: Due Amount - Received Amount
-    firstNotDue: '', // Calculated
-    firstOverdue: '', // Calculated
-    firstDaysOutstanding: '', // Calculated
+    paymentReceivedAmount1stDue: '', // Read-only from Payment Advice
+    receiptDate1stDue: '', // Read-only from Payment Advice
+    firstDueBalance: '', // Calculated: 1st Due Amount - Payment Received Amount
+    notDue1stDue: '', // Calculated
+    overDue1stDue: '', // Calculated
+    noOfDaysOfPaymentReceipt1stDue: '', // Calculated
     
-    // Payment & Due Tracking - 2nd Due
-    secondDueDate: '',
-    secondDueAmount: '',
-    secondReceivedAmount: '',
-    secondReceiptDate: '',
-    secondBalance: '',
-    secondNotDue: '',
-    secondOverdue: '',
-    secondDaysOutstanding: '',
+    // ========== 2ND DUE PAYMENT TRACKING (Read-only from Payment Advice) ==========
+    secondDueDate: '', // Calculated
+    secondDueAmount: '', // Calculated
+    paymentReceivedAmount2ndDue: '', // Read-only from Payment Advice
+    receiptDate2ndDue: '', // Read-only from Payment Advice
+    secondDueBalance: '', // Calculated
+    notDue2ndDue: '', // Calculated
+    overDue2ndDue: '', // Calculated
+    noOfDaysOfPaymentReceipt2ndDue: '', // Calculated
     
-    // Payment & Due Tracking - 3rd Due
-    thirdDueDate: '',
-    thirdDueAmount: '',
-    thirdReceivedAmount: '',
-    thirdReceiptDate: '',
-    thirdBalance: '',
-    thirdNotDue: '',
-    thirdOverdue: '',
-    thirdDaysOutstanding: '',
+    // ========== 3RD DUE PAYMENT TRACKING (Read-only from Payment Advice) ==========
+    thirdDueDate: '', // Calculated
+    thirdDueAmount: '', // Calculated
+    paymentReceivedAmount3rdDue: '', // Read-only from Payment Advice
+    receiptDate3rdDue: '', // Read-only from Payment Advice
+    thirdDueBalance: '', // Calculated
+    notDue3rdDue: '', // Calculated
+    overDue3rdDue: '', // Calculated
+    noOfDaysOfPaymentReceipt3rdDue: '', // Calculated
     
-    // Consolidated Totals
+    // ========== CONSOLIDATED TOTALS ==========
     totalBalance: '', // Calculated: Sum of all balances
     notDueTotal: '', // Calculated: Sum of not-due amounts
     overDueTotal: '', // Calculated: Sum of overdue amounts
     
-    // Deductions & Adjustments (Linked to Payment Advice)
-    tdsAmount: '', // From Payment Advice
-    penaltyAmount: '', // From Payment Advice
-    deductionAmount: '', // From Payment Advice
-    bankCharges: '', // From Payment Advice
-    excessSupply: '', // From Payment Advice
-    interest: '', // From Payment Advice
-    holdAmount: '', // From Payment Advice
+    // ========== TDS FIELDS (Read-only from Payment Advice) ==========
+    itTDS2Percent: '', // Read-only from Payment Advice
+    itTDS1Percent194Q: '', // Read-only from Payment Advice
+    lcessBoq1Percent: '', // Read-only from Payment Advice
+    tds2PercentCGSTSGST: '', // Read-only from Payment Advice
+    tdsOnCGST1Percent: '', // Read-only from Payment Advice
+    tdsOnSGST1Percent: '', // Read-only from Payment Advice
     
-    // Bad Debts
-    badDebtAmount: '',
-    badDebtDate: '',
-    badDebtReason: '',
+    // ========== DEDUCTIONS & ADJUSTMENTS (Read-only from Payment Advice) ==========
+    excessSupplyQty: '', // Read-only from Payment Advice
+    interestOnAdvance: '', // Read-only from Payment Advice
+    anyHold: '', // Read-only from Payment Advice
+    penaltyLDDeduction: '', // Read-only from Payment Advice
+    bankCharges: '', // Read-only from Payment Advice
+    lcDiscrepancyCharge: '', // Read-only from Payment Advice
+    provisionForBadDebts: '', // Manual Entry
+    badDebts: '', // Manual Entry
+    
+    // "Other" fields for dropdowns
+    invoiceTypeOther: '',
+    businessUnitOther: '',
+    materialDescriptionTypeOther: '',
+    unitOther: '',
   })
   
+  // Load master data and PO entries
   useEffect(() => {
-    // Load Master Data (sync getters)
     setCustomers(getCustomers())
     setPaymentTerms(getPaymentTerms())
     setConsignees(getConsignees())
     setPayers(getPayers())
     setEmployees(getEmployees())
-
-    // Load PO Entries (async)
+    
+    // Load PO Entries
     ;(async () => {
       try {
         const allPOs = await poEntryService.getAllPONumbers()
@@ -159,67 +221,156 @@ function InvoiceEntry() {
     })()
   }, [getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees])
   
-  // Auto-generate Invoice ID when form is initialized
+  // Auto-generate Internal Invoice No
   useEffect(() => {
-    if (!formData.invoiceID) {
+    if (!formData.internalInvoiceNo && formData.invoiceType && formData.businessUnit) {
       const generatedID = invoiceService.generateInvoiceID(
         formData.invoiceType,
         formData.businessUnit
       )
-      setFormData((prev) => ({ ...prev, invoiceID: generatedID }))
+      setFormData((prev) => ({ ...prev, internalInvoiceNo: generatedID }))
     }
   }, [formData.invoiceType, formData.businessUnit])
   
-  // Handle PO Number selection - Auto-populate from PO Entry
-  const handlePONumberChange = async (e) => {
+  // Handle PO Number (Key ID) selection - Auto-populate all linked fields
+  const handleKeyIDChange = async (e) => {
     const poNumber = e.target.value
-    const poEntry = await poEntryService.getPOEntryByPONumber(poNumber)
-    
-    if (poEntry) {
-      // Fetch customer details from Master Data
-      const customer = customers.find((c) => c.id === poEntry.customerId)
-      
-      // Fetch payment terms from Master Data
-      const terms = paymentTerms.find((t) => t.id === poEntry.paymentTermsId)
-      
-      // Auto-populate all fields from PO Entry
-      setFormData((prev) => {
-        const updated = {
-          ...prev,
-          keyID: poNumber,
-          poNumber: poEntry.poNumber || '',
-          poDate: poEntry.poDate || '',
-          customer: customer?.name || poEntry.customerName || '',
-          customerId: poEntry.customerId || '',
-          paymentTerms: terms?.description || poEntry.poPaymentTerms || '',
-          paymentTermsId: poEntry.paymentTermsId || '',
-          currency: poEntry.poCurrency || 'INR',
-          stateOfSupply: poEntry.poDeliveryState || '',
-          consigneeId: customer?.consigneeId || '',
-          payerId: customer?.payerId || '',
-        }
-        
-        // Set consignee and payer names
-        if (customer?.consigneeId) {
-          const consignee = consignees.find((c) => c.id === customer.consigneeId)
-          updated.consignee = consignee?.name || ''
-        }
-        
-        if (customer?.payerId) {
-          const payer = payers.find((p) => p.id === customer.payerId)
-          updated.payer = payer?.name || ''
-        }
-        
-        return updated
-      })
-    } else {
-      // Clear fields if PO not found
+    if (!poNumber) {
+      // Clear all auto-filled fields
       setFormData((prev) => ({
         ...prev,
-        keyID: poNumber,
-        poNumber: '',
+        keyID: '',
+        poNoReference: '',
         poDate: '',
+        customerName: '',
+        customerId: '',
+        segment: '',
+        region: '',
+        zone: '',
+        accountManagerName: '',
+        accountManagerId: '',
+        stateOfSupply: '',
+        currency: 'INR',
+        paymentTermsId: '',
+        paymentTerms: '',
+        paymentTextId: '',
+        paymentText: '',
+        transporterId: '',
+        transporterName: '',
+        invoiceReceiptPersonId: '',
+        invoiceReceiptPersonName: '',
+        consigneeId: '',
+        consigneeNameAddress: '',
+        consigneeCity: '',
+        payerId: '',
+        payerNameAddress: '',
+        payerCity: '',
       }))
+      return
+    }
+    
+    try {
+      const poEntry = await poEntryService.getPOEntryByPONumber(poNumber)
+      if (!poEntry) {
+        alert(`PO Number ${poNumber} not found. Please create PO Entry first.`)
+        return
+      }
+      
+      // Fetch customer details from Master Data
+      const customer = customers.find((c) => c.id === poEntry.customerId)
+      const terms = paymentTerms.find((t) => t.id === poEntry.paymentTermsId)
+      
+      // Auto-populate all fields from PO Entry and Master Data
+      const updated = {
+        ...formData,
+        keyID: poNumber,
+        poNoReference: poEntry.poNumber || poNumber,
+        poDate: poEntry.poDate || '',
+        customerName: customer?.name || poEntry.customerName || '',
+        customerId: poEntry.customerId || '',
+        segment: poEntry.segment || '',
+        region: poEntry.region || '',
+        zone: poEntry.zone || '',
+        accountManagerId: poEntry.accountManagerId || '',
+        accountManagerName: employees.find((e) => e.id === poEntry.accountManagerId)?.name || '',
+        stateOfSupply: poEntry.customerState || poEntry.poDeliveryState || '',
+        currency: poEntry.poCurrency || 'INR',
+        paymentTermsId: poEntry.paymentTermsId || '',
+        paymentTerms: terms?.values?.paymentTermsDescription || poEntry.poPaymentTerms || '',
+        paymentTextId: poEntry.paymentTermsId || '', // Use same payment terms for payment text
+        paymentText: terms?.values?.paymentTermsDescription || poEntry.poPaymentTerms || '',
+      }
+      
+      // Optionally set consignee and payer details from customer master data (but allow manual override)
+      if (customer) {
+        if (customer.consigneeId && !formData.consigneeId && !formData.consigneeNameAddress) {
+          const consignee = consignees.find((c) => c.id === customer.consigneeId)
+          if (consignee) {
+            updated.consigneeId = customer.consigneeId
+            updated.consigneeNameAddress = consignee.values?.consigneeAddress || consignee.name || ''
+            updated.consigneeCity = consignee.values?.city || ''
+          }
+        }
+        
+        if (customer.payerId && !formData.payerId && !formData.payerNameAddress) {
+          const payer = payers.find((p) => p.id === customer.payerId)
+          if (payer) {
+            updated.payerId = customer.payerId
+            updated.payerNameAddress = payer.values?.payerAddress || payer.name || ''
+            updated.payerCity = payer.values?.city || ''
+          }
+        }
+      }
+      
+      setFormData(updated)
+      
+      // Load payment data for this invoice if it exists
+      loadPaymentData(poNumber)
+    } catch (error) {
+      console.error('Failed to load PO entry:', error)
+      alert('Failed to load PO entry. Please try again.')
+    }
+  }
+  
+  // Load payment data from Payment Advice
+  const loadPaymentData = async (poNumber) => {
+    try {
+      // Get invoices for this PO
+      const invoices = await invoiceService.getInvoicesByPONumber(poNumber)
+      if (invoices && invoices.length > 0) {
+        const invoice = invoices[0] // Use first invoice for now
+        if (invoice.id) {
+          const payments = await paymentApi.getPaymentsByInvoice(invoice.id)
+          if (payments && payments.data) {
+            // Aggregate payment data
+            const paymentData = payments.data.reduce((acc, payment) => {
+              // Sum up payment amounts by due stage
+              // This is simplified - in real system, you'd track which due stage each payment applies to
+              acc.firstReceivedAmount = (parseFloat(acc.firstReceivedAmount || 0) + parseFloat(payment.amount || 0)).toFixed(2)
+              acc.tds = (parseFloat(acc.tds || 0) + parseFloat(payment.tds || 0)).toFixed(2)
+              acc.bankCharges = (parseFloat(acc.bankCharges || 0) + parseFloat(payment.bank_charges || 0)).toFixed(2)
+              acc.penalty = (parseFloat(acc.penalty || 0) + parseFloat(payment.penalty || 0)).toFixed(2)
+              acc.otherDeductions = (parseFloat(acc.otherDeductions || 0) + parseFloat(payment.other_deductions || 0)).toFixed(2)
+              return acc
+            }, {})
+            
+            setPaymentData(paymentData)
+            
+            // Update form data with payment information
+            setFormData((prev) => ({
+              ...prev,
+              paymentReceivedAmount1stDue: paymentData.firstReceivedAmount || '',
+              receiptDate1stDue: paymentData.receiptDate || '',
+              itTDS2Percent: paymentData.tds || '',
+              bankCharges: paymentData.bankCharges || '',
+              penaltyLDDeduction: paymentData.penalty || '',
+            }))
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load payment data:', error)
+      // Don't show error - payment data may not exist yet
     }
   }
   
@@ -239,11 +390,11 @@ function InvoiceEntry() {
   // Calculate due dates and amounts
   const dueCalculations = useMemo(() => {
     return invoiceService.calculateDueDates(
-      formData.invoiceDate,
+      formData.gstTaxInvoiceDate || new Date().toISOString().split('T')[0],
       formData.paymentTerms,
       calculatedValues.totalInvoiceValue
     )
-  }, [formData.invoiceDate, formData.paymentTerms, calculatedValues.totalInvoiceValue])
+  }, [formData.gstTaxInvoiceDate, formData.paymentTerms, calculatedValues.totalInvoiceValue])
   
   // Calculate balances and status for each due stage
   const calculateDueStage = (dueDate, dueAmount, receivedAmount, receiptDate) => {
@@ -271,25 +422,25 @@ function InvoiceEntry() {
     }
   }
   
-  // Compute due stage calculations using calculated due dates/amounts
+  // Compute due stage calculations
   const dueStageCalculations = useMemo(() => {
     const first = calculateDueStage(
       dueCalculations.firstDueDate || formData.firstDueDate,
       dueCalculations.firstDueAmount || formData.firstDueAmount,
-      formData.firstReceivedAmount,
-      formData.firstReceiptDate
+      formData.paymentReceivedAmount1stDue,
+      formData.receiptDate1stDue
     )
     const second = calculateDueStage(
       dueCalculations.secondDueDate || formData.secondDueDate,
       dueCalculations.secondDueAmount || formData.secondDueAmount,
-      formData.secondReceivedAmount,
-      formData.secondReceiptDate
+      formData.paymentReceivedAmount2ndDue,
+      formData.receiptDate2ndDue
     )
     const third = calculateDueStage(
       dueCalculations.thirdDueDate || formData.thirdDueDate,
       dueCalculations.thirdDueAmount || formData.thirdDueAmount,
-      formData.thirdReceivedAmount,
-      formData.thirdReceiptDate
+      formData.paymentReceivedAmount3rdDue,
+      formData.receiptDate3rdDue
     )
     
     const totalBalance = parseFloat(first.balance) + parseFloat(second.balance) + parseFloat(third.balance)
@@ -306,12 +457,12 @@ function InvoiceEntry() {
     }
   }, [
     dueCalculations,
-    formData.firstReceivedAmount,
-    formData.firstReceiptDate,
-    formData.secondReceivedAmount,
-    formData.secondReceiptDate,
-    formData.thirdReceivedAmount,
-    formData.thirdReceiptDate,
+    formData.paymentReceivedAmount1stDue,
+    formData.receiptDate1stDue,
+    formData.paymentReceivedAmount2ndDue,
+    formData.receiptDate2ndDue,
+    formData.paymentReceivedAmount3rdDue,
+    formData.receiptDate3rdDue,
   ])
   
   // Merge all computed values for display
@@ -319,19 +470,22 @@ function InvoiceEntry() {
     ...formData,
     ...calculatedValues,
     ...dueCalculations,
-    ...dueStageCalculations,
-    firstBalance: dueStageCalculations.first.balance,
-    firstNotDue: dueStageCalculations.first.notDue,
-    firstOverdue: dueStageCalculations.first.overdue,
-    firstDaysOutstanding: dueStageCalculations.first.daysOutstanding,
-    secondBalance: dueStageCalculations.second.balance,
-    secondNotDue: dueStageCalculations.second.notDue,
-    secondOverdue: dueStageCalculations.second.overdue,
-    secondDaysOutstanding: dueStageCalculations.second.daysOutstanding,
-    thirdBalance: dueStageCalculations.third.balance,
-    thirdNotDue: dueStageCalculations.third.notDue,
-    thirdOverdue: dueStageCalculations.third.overdue,
-    thirdDaysOutstanding: dueStageCalculations.third.daysOutstanding,
+    sgstOutput: calculatedValues.sgstValue,
+    cgstOutput: calculatedValues.cgstValue,
+    igstOutput: calculatedValues.igstValue,
+    ugstOutput: calculatedValues.ugstValue,
+    firstDueBalance: dueStageCalculations.first.balance,
+    notDue1stDue: dueStageCalculations.first.notDue,
+    overDue1stDue: dueStageCalculations.first.overdue,
+    noOfDaysOfPaymentReceipt1stDue: dueStageCalculations.first.daysOutstanding,
+    secondDueBalance: dueStageCalculations.second.balance,
+    notDue2ndDue: dueStageCalculations.second.notDue,
+    overDue2ndDue: dueStageCalculations.second.overdue,
+    noOfDaysOfPaymentReceipt2ndDue: dueStageCalculations.second.daysOutstanding,
+    thirdDueBalance: dueStageCalculations.third.balance,
+    notDue3rdDue: dueStageCalculations.third.notDue,
+    overDue3rdDue: dueStageCalculations.third.overdue,
+    noOfDaysOfPaymentReceipt3rdDue: dueStageCalculations.third.daysOutstanding,
     totalBalance: dueStageCalculations.totalBalance,
     notDueTotal: dueStageCalculations.notDueTotal,
     overDueTotal: dueStageCalculations.overDueTotal,
@@ -341,21 +495,165 @@ function InvoiceEntry() {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
-  
-  const handleAccountManagerChange = (e) => {
-    const employeeId = e.target.value
-    const employee = employees.find((e) => e.id === employeeId)
-    setFormData((prev) => ({
-      ...prev,
-      accountManagerId: employeeId,
-      accountManager: employee?.name || '',
-    }))
+
+  // Handle Consignee selection from dropdown
+  const handleConsigneeChange = (e) => {
+    const consigneeId = e.target.value
+    if (!consigneeId) {
+      setFormData((prev) => ({
+        ...prev,
+        consigneeId: '',
+        // Don't clear name/address and city - allow manual entry to persist
+      }))
+      return
+    }
+    
+    const consignee = consignees.find((c) => c.id === consigneeId)
+    if (consignee) {
+      // Build address from consignee data
+      const consigneeName = consignee.values?.consigneeName || ''
+      const consigneeAddress = consignee.values?.consigneeAddress || ''
+      const addressParts = [consigneeName, consigneeAddress].filter(Boolean)
+      const address = addressParts.join('\n') || ''
+      const city = consignee.values?.city || ''
+      
+      setFormData((prev) => ({
+        ...prev,
+        consigneeId,
+        consigneeNameAddress: address,
+        consigneeCity: city,
+      }))
+    }
+  }
+
+  // Handle Payer selection from dropdown
+  const handlePayerChange = (e) => {
+    const payerId = e.target.value
+    if (!payerId) {
+      setFormData((prev) => ({
+        ...prev,
+        payerId: '',
+        // Don't clear name/address and city - allow manual entry to persist
+      }))
+      return
+    }
+    
+    const payer = payers.find((p) => p.id === payerId)
+    if (payer) {
+      // Build address from payer data
+      const payerName = payer.values?.payerName || ''
+      const payerAddress = payer.values?.payerAddress || ''
+      const addressParts = [payerName, payerAddress].filter(Boolean)
+      const address = addressParts.join('\n') || ''
+      const city = payer.values?.city || ''
+      
+      setFormData((prev) => ({
+        ...prev,
+        payerId,
+        payerNameAddress: address,
+        payerCity: city,
+      }))
+    }
+  }
+
+  // Handle Transporter selection from dropdown
+  const handleTransporterChange = (e) => {
+    const transporterId = e.target.value
+    if (!transporterId) {
+      setFormData((prev) => ({
+        ...prev,
+        transporterId: '',
+        transporterName: '',
+      }))
+      return
+    }
+    
+    const transporter = employees.find((emp) => emp.id === transporterId)
+    if (transporter) {
+      const name = transporter.values?.nameOfEmployee || transporter.values?.transporterName || transporter.name || ''
+      setFormData((prev) => ({
+        ...prev,
+        transporterId,
+        transporterName: name,
+      }))
+    }
+  }
+
+  // Handle Invoice Receipt Person selection from dropdown
+  const handleInvoiceReceiptPersonChange = (e) => {
+    const invoiceReceiptPersonId = e.target.value
+    if (!invoiceReceiptPersonId) {
+      setFormData((prev) => ({
+        ...prev,
+        invoiceReceiptPersonId: '',
+        invoiceReceiptPersonName: '',
+      }))
+      return
+    }
+    
+    const person = employees.find((emp) => emp.id === invoiceReceiptPersonId)
+    if (person) {
+      const name = person.values?.nameOfEmployee || person.name || ''
+      setFormData((prev) => ({
+        ...prev,
+        invoiceReceiptPersonId,
+        invoiceReceiptPersonName: name,
+      }))
+    }
+  }
+
+  // Handle Payment Terms selection from dropdown
+  const handlePaymentTermsChange = (e) => {
+    const paymentTermsId = e.target.value
+    if (!paymentTermsId) {
+      setFormData((prev) => ({
+        ...prev,
+        paymentTermsId: '',
+        paymentTerms: '',
+      }))
+      return
+    }
+    
+    const terms = paymentTerms.find((t) => t.id === paymentTermsId)
+    if (terms) {
+      // Build payment terms description from the payment terms data
+      const description = terms.values?.paymentTermsDescription || ''
+      setFormData((prev) => ({
+        ...prev,
+        paymentTermsId,
+        paymentTerms: description,
+      }))
+    }
+  }
+
+  // Handle Payment Text selection from dropdown
+  const handlePaymentTextChange = (e) => {
+    const paymentTextId = e.target.value
+    if (!paymentTextId) {
+      setFormData((prev) => ({
+        ...prev,
+        paymentTextId: '',
+        paymentText: '',
+      }))
+      return
+    }
+    
+    const terms = paymentTerms.find((t) => t.id === paymentTextId)
+    if (terms) {
+      const description = terms.values?.paymentTermsDescription || ''
+      setFormData((prev) => ({
+        ...prev,
+        paymentTextId,
+        paymentText: description,
+      }))
+    }
   }
   
   const handleSaveDraft = () => {
     try {
       const draft = {
         ...formData,
+        ...displayData,
         savedAt: new Date().toISOString(),
         draft: true,
       }
@@ -371,8 +669,13 @@ function InvoiceEntry() {
     e.preventDefault()
     
     // Validate required fields
-    if (!formData.keyID || !formData.invoiceDate) {
-      alert('Please fill in all required fields (PO Number/Key ID, Invoice Date)')
+    if (!formData.keyID) {
+      alert('Key ID (PO Number) is mandatory. Please select a PO Number.')
+      return
+    }
+    
+    if (!formData.gstTaxInvoiceNo || !formData.gstTaxInvoiceDate) {
+      alert('GST Tax Invoice No and Date are required.')
       return
     }
     
@@ -381,17 +684,85 @@ function InvoiceEntry() {
       const invoiceData = {
         ...formData,
         ...displayData,
-        // Ensure key relationships are preserved
-        keyID: formData.keyID, // PO Number
-        invoiceID: displayData.invoiceID, // Auto-generated Invoice ID
+        key_id: formData.keyID, // Store Key ID for reporting
+        invoice_number: formData.internalInvoiceNo,
+        issue_date: formData.gstTaxInvoiceDate,
       }
+      
       const invoice = await invoiceService.saveInvoice(invoiceData)
-      alert(`Invoice ${invoice?.invoiceID || invoice?.invoice_number || ''} saved successfully!`)
+      alert(`Invoice ${invoice?.invoice_number || invoice?.internalInvoiceNo || ''} saved successfully!`)
       navigate('/invoices')
     } catch (error) {
       console.error('Failed to save invoice:', error)
       alert('Failed to save invoice. Please try again.')
     }
+  }
+  
+  // Render field based on type
+  const renderField = (fieldName, label, type = FIELD_TYPES.MANUAL, options = [], placeholder = '', required = false) => {
+    const isReadOnly = type === FIELD_TYPES.DEFAULT || type === FIELD_TYPES.CALCULATED
+    const isCalculated = type === FIELD_TYPES.CALCULATED
+    const value = displayData[fieldName] || formData[fieldName] || ''
+    
+    if (type === FIELD_TYPES.DROPDOWN) {
+      return (
+        <div className="invoice-entry-field" key={fieldName}>
+          <label htmlFor={fieldName} className="invoice-entry-label">
+            {label} {required && <span className="invoice-entry-required">*</span>}
+          </label>
+          <select
+            id={fieldName}
+            name={fieldName}
+            value={formData[fieldName] || ''}
+            onChange={handleChange}
+            className="invoice-entry-select"
+            required={required}
+            disabled={isReadOnly}
+          >
+            <option value="">Select {label}</option>
+            {options.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+          {formData[fieldName] === 'Other' && (
+            <input
+              type="text"
+              name={`${fieldName}Other`}
+              value={formData[`${fieldName}Other`] || ''}
+              onChange={handleChange}
+              className="invoice-entry-input"
+              placeholder={`Enter ${label}`}
+              style={{ marginTop: '8px' }}
+            />
+          )}
+        </div>
+      )
+    }
+    
+    return (
+      <div className="invoice-entry-field" key={fieldName}>
+        <label htmlFor={fieldName} className="invoice-entry-label">
+          {label} {required && <span className="invoice-entry-required">*</span>}
+        </label>
+        <input
+          type={fieldName.includes('Date') ? 'date' : fieldName.includes('Amount') || fieldName.includes('Value') || fieldName.includes('Rate') || fieldName.includes('Qty') || fieldName.includes('Percent') ? 'number' : 'text'}
+          id={fieldName}
+          name={fieldName}
+          value={value}
+          onChange={handleChange}
+          className={`invoice-entry-input ${isReadOnly ? 'invoice-entry-input-readonly' : ''} ${isCalculated ? 'invoice-entry-input-calculated' : ''}`}
+          readOnly={isReadOnly}
+          disabled={isReadOnly}
+          required={required && !isReadOnly}
+          placeholder={placeholder}
+          step={fieldName.includes('Rate') || fieldName.includes('Percent') ? '0.01' : fieldName.includes('Qty') ? '0.01' : '0.01'}
+        />
+        {isCalculated && <small className="invoice-entry-hint">System Calculated</small>}
+        {isReadOnly && !isCalculated && <small className="invoice-entry-hint">Auto-filled from PO/Master Data</small>}
+      </div>
+    )
   }
   
   return (
@@ -410,8 +781,8 @@ function InvoiceEntry() {
         
         <div className="invoice-entry-header-content">
           <h1 className="invoice-entry-title">Invoice Entry</h1>
-          {formData.invoiceID && (
-            <p className="invoice-entry-subtitle">Invoice ID: {formData.invoiceID}</p>
+          {formData.internalInvoiceNo && (
+            <p className="invoice-entry-subtitle">Internal Invoice No: {formData.internalInvoiceNo}</p>
           )}
         </div>
         
@@ -429,1232 +800,522 @@ function InvoiceEntry() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="invoice-entry-form">
-        {/* Invoice Header Section */}
+        {/* ========== KEY ID & INVOICE IDENTIFICATION SECTION ========== */}
         <div className="invoice-entry-section">
-          <h2 className="invoice-entry-section-title">Invoice Header</h2>
+          <h2 className="invoice-entry-section-title">Key ID & Invoice Identification</h2>
           <div className="invoice-entry-form-grid">
-            <div className="invoice-entry-field">
-              <label htmlFor="invoiceID" className="invoice-entry-label">
-                Invoice ID <span className="invoice-entry-required">*</span>
-              </label>
-              <input
-                type="text"
-                id="invoiceID"
-                name="invoiceID"
-                value={formData.invoiceID}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-              <small className="invoice-entry-hint">Auto-generated, immutable</small>
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="invoiceDate" className="invoice-entry-label">
-                Invoice Date <span className="invoice-entry-required">*</span>
-              </label>
-              <input
-                type="date"
-                id="invoiceDate"
-                name="invoiceDate"
-                value={formData.invoiceDate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-                required
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="invoiceType" className="invoice-entry-label">
-                Invoice Type
-              </label>
-              <select
-                id="invoiceType"
-                name="invoiceType"
-                value={formData.invoiceType}
-                onChange={handleChange}
-                className="invoice-entry-select"
-              >
-                <option value="REG">Regular (REG)</option>
-                <option value="EXP">Export (EXP)</option>
-                <option value="TAX">Tax Invoice (TAX)</option>
-                <option value="PRO">Proforma (PRO)</option>
-              </select>
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="businessUnit" className="invoice-entry-label">
-                Business Unit
-              </label>
-              <input
-                type="text"
-                id="businessUnit"
-                name="businessUnit"
-                value={formData.businessUnit}
-                onChange={handleChange}
-                className="invoice-entry-input"
-                placeholder="MAIN"
-              />
-            </div>
+            {renderField('keyID', 'Key ID (PO Number)', FIELD_TYPES.DROPDOWN, 
+              poEntries.map(po => po.poNumber), '', true)}
+            {renderField('gstTaxInvoiceNo', 'GST Tax Invoice No', FIELD_TYPES.MANUAL, [], '', true)}
+            {renderField('gstTaxInvoiceDate', 'GST Tax Invoice Date', FIELD_TYPES.MANUAL, [], '', true)}
+            {renderField('internalInvoiceNo', 'Internal Invoice No', FIELD_TYPES.CALCULATED)}
+            {renderField('invoiceType', 'Invoice Type', FIELD_TYPES.DROPDOWN, INVOICE_TYPES)}
+            {renderField('businessUnit', 'Business Unit', FIELD_TYPES.DROPDOWN, BUSINESS_UNITS)}
           </div>
         </div>
 
-        {/* Customer & PO Linking Section */}
+        {/* ========== CUSTOMER & PO DETAILS SECTION ========== */}
         <div className="invoice-entry-section">
-          <h2 className="invoice-entry-section-title">Customer & PO Linking</h2>
+          <h2 className="invoice-entry-section-title">Customer & PO Details</h2>
           <div className="invoice-entry-form-grid">
-            <div className="invoice-entry-field">
-              <label htmlFor="keyID" className="invoice-entry-label">
-                Key ID (PO Number) <span className="invoice-entry-required">*</span>
-              </label>
-              <select
-                id="keyID"
-                name="keyID"
-                value={formData.keyID}
-                onChange={handlePONumberChange}
-                className="invoice-entry-select"
-                required
-              >
-                <option value="">Select PO Number</option>
-                {poEntries.map((po) => (
-                  <option key={po.poNumber} value={po.poNumber}>
-                    {po.poNumber} - {po.customerName} ({po.poDate})
-                  </option>
-                ))}
-              </select>
-              {poEntries.length === 0 && (
-                <small className="invoice-entry-hint">
-                  No PO entries found. <a href="/po-entry/new" style={{ color: 'var(--color-primary)' }}>Create one first</a>
-                </small>
-              )}
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="poNumber" className="invoice-entry-label">
-                PO Number (Auto-filled)
-              </label>
-              <input
-                type="text"
-                id="poNumber"
-                name="poNumber"
-                value={formData.poNumber}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="poDate" className="invoice-entry-label">
-                PO Date (Auto-filled)
-              </label>
-              <input
-                type="date"
-                id="poDate"
-                name="poDate"
-                value={formData.poDate}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="customer" className="invoice-entry-label">
-                Customer (Auto-filled)
-              </label>
-              <input
-                type="text"
-                id="customer"
-                name="customer"
-                value={formData.customer}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="segment" className="invoice-entry-label">
-                Segment
-              </label>
-              <input
-                type="text"
-                id="segment"
-                name="segment"
-                value={formData.segment}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="region" className="invoice-entry-label">
-                Region
-              </label>
-              <input
-                type="text"
-                id="region"
-                name="region"
-                value={formData.region}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="zone" className="invoice-entry-label">
-                Zone
-              </label>
-              <input
-                type="text"
-                id="zone"
-                name="zone"
-                value={formData.zone}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="accountManagerId" className="invoice-entry-label">
-                Account Manager
-              </label>
-              <select
-                id="accountManagerId"
-                name="accountManagerId"
-                value={formData.accountManagerId}
-                onChange={handleAccountManagerChange}
-                className="invoice-entry-select"
-              >
-                <option value="">Select Account Manager</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name} {emp.designation ? `(${emp.designation})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="paymentTerms" className="invoice-entry-label">
-                Payment Terms (Auto-filled)
-              </label>
-              <textarea
-                id="paymentTerms"
-                name="paymentTerms"
-                value={formData.paymentTerms}
-                className="invoice-entry-textarea invoice-entry-input-readonly"
-                rows="2"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="consignee" className="invoice-entry-label">
-                Consignee (Auto-filled)
-              </label>
-              <input
-                type="text"
-                id="consignee"
-                name="consignee"
-                value={formData.consignee}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="payer" className="invoice-entry-label">
-                Payer (Auto-filled)
-              </label>
-              <input
-                type="text"
-                id="payer"
-                name="payer"
-                value={formData.payer}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="currency" className="invoice-entry-label">
-                Currency (Auto-filled)
-              </label>
-              <input
-                type="text"
-                id="currency"
-                name="currency"
-                value={formData.currency}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="stateOfSupply" className="invoice-entry-label">
-                State of Supply (Auto-filled)
-              </label>
-              <select
-                id="stateOfSupply"
-                name="stateOfSupply"
-                value={formData.stateOfSupply}
-                className="invoice-entry-select invoice-entry-input-readonly"
-                disabled
-              >
-                <option value="">Select State</option>
-                {INDIA_STATES.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {renderField('customerName', 'Customer Name', FIELD_TYPES.DEFAULT)}
+            {renderField('segment', 'Segment', FIELD_TYPES.DEFAULT)}
+            {renderField('region', 'Region', FIELD_TYPES.DEFAULT)}
+            {renderField('zone', 'Zone', FIELD_TYPES.DEFAULT)}
+            {renderField('salesOrderNo', 'Sales Order No', FIELD_TYPES.MANUAL)}
+            {renderField('accountManagerName', 'Account Manager Name', FIELD_TYPES.DEFAULT)}
+            {renderField('poNoReference', 'PO No / Reference', FIELD_TYPES.DEFAULT)}
+            {renderField('poDate', 'PO Date', FIELD_TYPES.DEFAULT)}
           </div>
         </div>
 
-        {/* Tax & Value Calculations Section */}
+        {/* ========== MATERIAL & SUPPLY DETAILS SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">Material & Supply Details</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('materialDescriptionType', 'Material Description Type', FIELD_TYPES.DROPDOWN, MATERIAL_DESCRIPTION_TYPES)}
+            {renderField('stateOfSupply', 'State of Supply', FIELD_TYPES.DEFAULT)}
+            {renderField('qty', 'Qty', FIELD_TYPES.MANUAL, [], '0.00')}
+            {renderField('unit', 'Unit', FIELD_TYPES.DROPDOWN, UNITS)}
+            {renderField('currency', 'Currency', FIELD_TYPES.DEFAULT)}
+          </div>
+        </div>
+
+        {/* ========== VALUE CALCULATIONS SECTION ========== */}
         <div className="invoice-entry-section">
           <h2 className="invoice-entry-section-title">
             Tax & Value Calculations
             <Calculator className="invoice-entry-section-icon" />
           </h2>
           <div className="invoice-entry-form-grid">
-            <div className="invoice-entry-field">
-              <label htmlFor="basicRate" className="invoice-entry-label">
-                Basic Rate
-              </label>
-              <input
-                type="number"
-                id="basicRate"
-                name="basicRate"
-                value={formData.basicRate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="qty" className="invoice-entry-label">
-                Quantity
-              </label>
-              <input
-                type="number"
-                id="qty"
-                name="qty"
-                value={formData.qty}
-                onChange={handleChange}
-                className="invoice-entry-input"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="basicValue" className="invoice-entry-label">
-                Basic Value (Calculated)
-              </label>
-              <input
-                type="text"
-                id="basicValue"
-                name="basicValue"
-                value={displayData.basicValue}
-                className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                readOnly
-              />
-              <small className="invoice-entry-hint">Basic Rate × Qty</small>
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="freightRate" className="invoice-entry-label">
-                Freight Rate
-              </label>
-              <input
-                type="number"
-                id="freightRate"
-                name="freightRate"
-                value={formData.freightRate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="freightValue" className="invoice-entry-label">
-                Freight Value (Calculated)
-              </label>
-              <input
-                type="text"
-                id="freightValue"
-                name="freightValue"
-                value={displayData.freightValue}
-                className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                readOnly
-              />
-              <small className="invoice-entry-hint">Freight Rate × Qty</small>
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="subtotal" className="invoice-entry-label">
-                Subtotal (Calculated)
-              </label>
-              <input
-                type="text"
-                id="subtotal"
-                name="subtotal"
-                value={displayData.subtotal}
-                className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                readOnly
-              />
-              <small className="invoice-entry-hint">Basic Value + Freight Value</small>
-            </div>
-            
-            {/* GST Rates */}
-            <div className="invoice-entry-field">
-              <label htmlFor="sgstRate" className="invoice-entry-label">
-                SGST Rate (%)
-              </label>
-              <input
-                type="number"
-                id="sgstRate"
-                name="sgstRate"
-                value={formData.sgstRate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="cgstRate" className="invoice-entry-label">
-                CGST Rate (%)
-              </label>
-              <input
-                type="number"
-                id="cgstRate"
-                name="cgstRate"
-                value={formData.cgstRate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="igstRate" className="invoice-entry-label">
-                IGST Rate (%)
-              </label>
-              <input
-                type="number"
-                id="igstRate"
-                name="igstRate"
-                value={formData.igstRate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="ugstRate" className="invoice-entry-label">
-                UGST Rate (%)
-              </label>
-              <input
-                type="number"
-                id="ugstRate"
-                name="ugstRate"
-                value={formData.ugstRate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-            
-            {/* GST Values */}
-            <div className="invoice-entry-field">
-              <label htmlFor="sgstValue" className="invoice-entry-label">
-                SGST Value (Calculated)
-              </label>
-              <input
-                type="text"
-                id="sgstValue"
-                name="sgstValue"
-                value={displayData.sgstValue}
-                className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="cgstValue" className="invoice-entry-label">
-                CGST Value (Calculated)
-              </label>
-              <input
-                type="text"
-                id="cgstValue"
-                name="cgstValue"
-                value={displayData.cgstValue}
-                className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="igstValue" className="invoice-entry-label">
-                IGST Value (Calculated)
-              </label>
-              <input
-                type="text"
-                id="igstValue"
-                name="igstValue"
-                value={displayData.igstValue}
-                className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="ugstValue" className="invoice-entry-label">
-                UGST Value (Calculated)
-              </label>
-              <input
-                type="text"
-                id="ugstValue"
-                name="ugstValue"
-                value={displayData.ugstValue}
-                className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="totalGST" className="invoice-entry-label">
-                Total GST (Calculated)
-              </label>
-              <input
-                type="text"
-                id="totalGST"
-                name="totalGST"
-                value={displayData.totalGST}
-                className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                readOnly
-              />
-              <small className="invoice-entry-hint">Sum of all GST values</small>
-            </div>
-            
-            <div className="invoice-entry-field invoice-entry-field-full">
-              <label htmlFor="totalInvoiceValue" className="invoice-entry-label">
-                Total Invoice Value (Calculated)
-              </label>
-              <input
-                type="text"
-                id="totalInvoiceValue"
-                name="totalInvoiceValue"
-                value={displayData.totalInvoiceValue}
-                className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated invoice-entry-input-total"
-                readOnly
-              />
-              <small className="invoice-entry-hint">Subtotal + Total GST</small>
-            </div>
+            {renderField('basicRate', 'Basic Rate', FIELD_TYPES.MANUAL, [], '0.00')}
+            {renderField('basicValue', 'Basic Value (Basic Rate × Qty)', FIELD_TYPES.CALCULATED)}
+            {renderField('freightInvoiceNo', 'Freight Invoice No', FIELD_TYPES.MANUAL)}
+            {renderField('freightRate', 'Freight Rate', FIELD_TYPES.MANUAL, [], '0.00')}
+            {renderField('freightValue', 'Freight Value (Freight Rate × Qty)', FIELD_TYPES.CALCULATED)}
+            {renderField('sgstRate', 'SGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
+            {renderField('cgstRate', 'CGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
+            {renderField('igstRate', 'IGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
+            {renderField('ugstRate', 'UGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
+            {renderField('sgstOutput', 'SGST Output', FIELD_TYPES.CALCULATED)}
+            {renderField('cgstOutput', 'CGST Output', FIELD_TYPES.CALCULATED)}
+            {renderField('igstOutput', 'IGST Output', FIELD_TYPES.CALCULATED)}
+            {renderField('ugstOutput', 'UGST Output', FIELD_TYPES.CALCULATED)}
+            {renderField('totalGST', 'Total GST', FIELD_TYPES.CALCULATED)}
+            {renderField('tcs', 'TCS', FIELD_TYPES.MANUAL, [], '0.00')}
+            {renderField('subtotal', 'SubTotal', FIELD_TYPES.CALCULATED)}
+            {renderField('totalInvoiceValue', 'Total Invoice Value', FIELD_TYPES.CALCULATED)}
           </div>
         </div>
 
-        {/* Logistics & Dispatch Section */}
+        {/* ========== CONSIGNEE & PAYER DETAILS SECTION ========== */}
         <div className="invoice-entry-section">
-          <h2 className="invoice-entry-section-title">Logistics & Dispatch Details</h2>
+          <h2 className="invoice-entry-section-title">Consignee & Payer Details</h2>
           <div className="invoice-entry-form-grid">
+            {/* Consignee Selection Dropdown */}
             <div className="invoice-entry-field">
-              <label htmlFor="dispatchDate" className="invoice-entry-label">
-                Dispatch Date
-              </label>
-              <input
-                type="date"
-                id="dispatchDate"
-                name="dispatchDate"
-                value={formData.dispatchDate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="dispatchMode" className="invoice-entry-label">
-                Dispatch Mode
+              <label htmlFor="consigneeId" className="invoice-entry-label">
+                Select Consignee (Optional)
               </label>
               <select
-                id="dispatchMode"
-                name="dispatchMode"
-                value={formData.dispatchMode}
-                onChange={handleChange}
+                id="consigneeId"
+                name="consigneeId"
+                value={formData.consigneeId}
+                onChange={handleConsigneeChange}
                 className="invoice-entry-select"
               >
-                <option value="">Select Mode</option>
-                <option value="Road">Road</option>
-                <option value="Rail">Rail</option>
-                <option value="Air">Air</option>
-                <option value="Sea">Sea</option>
-                <option value="Courier">Courier</option>
+                <option value="">Select from Master Data or enter manually</option>
+                {consignees.map((consignee) => {
+                  const name = consignee.values?.consigneeName || consignee.name || 'Unnamed Consignee'
+                  const city = consignee.values?.city || ''
+                  return (
+                    <option key={consignee.id} value={consignee.id}>
+                      {name} {city ? `(${city})` : ''}
+                    </option>
+                  )
+                })}
               </select>
+              {consignees.length === 0 && (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                  No consignees found. <a href="/master-data/new/consignee-profile" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
+                </p>
+              )}
             </div>
             
-            <div className="invoice-entry-field">
-              <label htmlFor="lrNumber" className="invoice-entry-label">
-                LR Number
-              </label>
-              <input
-                type="text"
-                id="lrNumber"
-                name="lrNumber"
-                value={formData.lrNumber}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="lrDate" className="invoice-entry-label">
-                LR Date
-              </label>
-              <input
-                type="date"
-                id="lrDate"
-                name="lrDate"
-                value={formData.lrDate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="vehicleNumber" className="invoice-entry-label">
-                Vehicle Number
-              </label>
-              <input
-                type="text"
-                id="vehicleNumber"
-                name="vehicleNumber"
-                value={formData.vehicleNumber}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="transporter" className="invoice-entry-label">
-                Transporter
-              </label>
-              <input
-                type="text"
-                id="transporter"
-                name="transporter"
-                value={formData.transporter}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Inspection & Compliance Section */}
-        <div className="invoice-entry-section">
-          <h2 className="invoice-entry-section-title">Inspection & Compliance Dates</h2>
-          <div className="invoice-entry-form-grid">
-            <div className="invoice-entry-field">
-              <label htmlFor="inspectionDate" className="invoice-entry-label">
-                Inspection Date
-              </label>
-              <input
-                type="date"
-                id="inspectionDate"
-                name="inspectionDate"
-                value={formData.inspectionDate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="complianceDate" className="invoice-entry-label">
-                Compliance Date
-              </label>
-              <input
-                type="date"
-                id="complianceDate"
-                name="complianceDate"
-                value={formData.complianceDate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Payment & Due Tracking Section */}
-        <div className="invoice-entry-section">
-          <h2 className="invoice-entry-section-title">Payment & Due Tracking</h2>
-          
-          {/* 1st Due */}
-          <div className="invoice-entry-due-stage">
-            <h3 className="invoice-entry-due-stage-title">1st Due</h3>
-            <div className="invoice-entry-form-grid">
-              <div className="invoice-entry-field">
-                <label htmlFor="firstDueDate" className="invoice-entry-label">
-                  1st Due Date (Calculated)
-                </label>
-                <input
-                  type="date"
-                  id="firstDueDate"
-                  name="firstDueDate"
-                  value={displayData.firstDueDate}
-                  className="invoice-entry-input invoice-entry-input-readonly"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="firstDueAmount" className="invoice-entry-label">
-                  1st Due Amount (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="firstDueAmount"
-                  name="firstDueAmount"
-                  value={displayData.firstDueAmount}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="firstReceivedAmount" className="invoice-entry-label">
-                  1st Received Amount (From Payment Advice)
-                </label>
-                <input
-                  type="text"
-                  id="firstReceivedAmount"
-                  name="firstReceivedAmount"
-                  value={formData.firstReceivedAmount}
-                  className="invoice-entry-input invoice-entry-input-readonly"
-                  readOnly
-                  placeholder="Linked to Payment Advice"
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="firstReceiptDate" className="invoice-entry-label">
-                  1st Receipt Date (From Payment Advice)
-                </label>
-                <input
-                  type="date"
-                  id="firstReceiptDate"
-                  name="firstReceiptDate"
-                  value={formData.firstReceiptDate}
-                  className="invoice-entry-input invoice-entry-input-readonly"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="firstBalance" className="invoice-entry-label">
-                  1st Balance (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="firstBalance"
-                  name="firstBalance"
-                  value={displayData.firstBalance}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="firstNotDue" className="invoice-entry-label">
-                  1st Not Due (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="firstNotDue"
-                  name="firstNotDue"
-                  value={displayData.firstNotDue}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="firstOverdue" className="invoice-entry-label">
-                  1st Overdue (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="firstOverdue"
-                  name="firstOverdue"
-                  value={displayData.firstOverdue}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="firstDaysOutstanding" className="invoice-entry-label">
-                  1st Days Outstanding (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="firstDaysOutstanding"
-                  name="firstDaysOutstanding"
-                  value={displayData.firstDaysOutstanding}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-            </div>
-          </div>
-          
-          {/* 2nd Due */}
-          <div className="invoice-entry-due-stage">
-            <h3 className="invoice-entry-due-stage-title">2nd Due</h3>
-            <div className="invoice-entry-form-grid">
-              <div className="invoice-entry-field">
-                <label htmlFor="secondDueDate" className="invoice-entry-label">
-                  2nd Due Date (Calculated)
-                </label>
-                <input
-                  type="date"
-                  id="secondDueDate"
-                  name="secondDueDate"
-                  value={displayData.secondDueDate}
-                  className="invoice-entry-input invoice-entry-input-readonly"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="secondDueAmount" className="invoice-entry-label">
-                  2nd Due Amount (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="secondDueAmount"
-                  name="secondDueAmount"
-                  value={displayData.secondDueAmount}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="secondReceivedAmount" className="invoice-entry-label">
-                  2nd Received Amount (From Payment Advice)
-                </label>
-                <input
-                  type="text"
-                  id="secondReceivedAmount"
-                  name="secondReceivedAmount"
-                  value={formData.secondReceivedAmount}
-                  className="invoice-entry-input invoice-entry-input-readonly"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="secondReceiptDate" className="invoice-entry-label">
-                  2nd Receipt Date (From Payment Advice)
-                </label>
-                <input
-                  type="date"
-                  id="secondReceiptDate"
-                  name="secondReceiptDate"
-                  value={formData.secondReceiptDate}
-                  className="invoice-entry-input invoice-entry-input-readonly"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="secondBalance" className="invoice-entry-label">
-                  2nd Balance (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="secondBalance"
-                  name="secondBalance"
-                  value={displayData.secondBalance}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="secondNotDue" className="invoice-entry-label">
-                  2nd Not Due (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="secondNotDue"
-                  name="secondNotDue"
-                  value={displayData.secondNotDue}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="secondOverdue" className="invoice-entry-label">
-                  2nd Overdue (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="secondOverdue"
-                  name="secondOverdue"
-                  value={displayData.secondOverdue}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="secondDaysOutstanding" className="invoice-entry-label">
-                  2nd Days Outstanding (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="secondDaysOutstanding"
-                  name="secondDaysOutstanding"
-                  value={displayData.secondDaysOutstanding}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-            </div>
-          </div>
-          
-          {/* 3rd Due */}
-          <div className="invoice-entry-due-stage">
-            <h3 className="invoice-entry-due-stage-title">3rd Due</h3>
-            <div className="invoice-entry-form-grid">
-              <div className="invoice-entry-field">
-                <label htmlFor="thirdDueDate" className="invoice-entry-label">
-                  3rd Due Date (Calculated)
-                </label>
-                <input
-                  type="date"
-                  id="thirdDueDate"
-                  name="thirdDueDate"
-                  value={displayData.thirdDueDate}
-                  className="invoice-entry-input invoice-entry-input-readonly"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="thirdDueAmount" className="invoice-entry-label">
-                  3rd Due Amount (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="thirdDueAmount"
-                  name="thirdDueAmount"
-                  value={displayData.thirdDueAmount}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="thirdReceivedAmount" className="invoice-entry-label">
-                  3rd Received Amount (From Payment Advice)
-                </label>
-                <input
-                  type="text"
-                  id="thirdReceivedAmount"
-                  name="thirdReceivedAmount"
-                  value={formData.thirdReceivedAmount}
-                  className="invoice-entry-input invoice-entry-input-readonly"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="thirdReceiptDate" className="invoice-entry-label">
-                  3rd Receipt Date (From Payment Advice)
-                </label>
-                <input
-                  type="date"
-                  id="thirdReceiptDate"
-                  name="thirdReceiptDate"
-                  value={formData.thirdReceiptDate}
-                  className="invoice-entry-input invoice-entry-input-readonly"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="thirdBalance" className="invoice-entry-label">
-                  3rd Balance (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="thirdBalance"
-                  name="thirdBalance"
-                  value={displayData.thirdBalance}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="thirdNotDue" className="invoice-entry-label">
-                  3rd Not Due (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="thirdNotDue"
-                  name="thirdNotDue"
-                  value={displayData.thirdNotDue}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="thirdOverdue" className="invoice-entry-label">
-                  3rd Overdue (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="thirdOverdue"
-                  name="thirdOverdue"
-                  value={displayData.thirdOverdue}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="thirdDaysOutstanding" className="invoice-entry-label">
-                  3rd Days Outstanding (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="thirdDaysOutstanding"
-                  name="thirdDaysOutstanding"
-                  value={displayData.thirdDaysOutstanding}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-            </div>
-          </div>
-          
-          {/* Consolidated Totals */}
-          <div className="invoice-entry-consolidated-totals">
-            <h3 className="invoice-entry-due-stage-title">Consolidated Totals</h3>
-            <div className="invoice-entry-form-grid">
-              <div className="invoice-entry-field">
-                <label htmlFor="totalBalance" className="invoice-entry-label">
-                  Total Balance (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="totalBalance"
-                  name="totalBalance"
-                  value={displayData.totalBalance}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated invoice-entry-input-total"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="notDueTotal" className="invoice-entry-label">
-                  Not Due Total (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="notDueTotal"
-                  name="notDueTotal"
-                  value={displayData.notDueTotal}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated"
-                  readOnly
-                />
-              </div>
-              
-              <div className="invoice-entry-field">
-                <label htmlFor="overDueTotal" className="invoice-entry-label">
-                  Over Due Total (Calculated)
-                </label>
-                <input
-                  type="text"
-                  id="overDueTotal"
-                  name="overDueTotal"
-                  value={displayData.overDueTotal}
-                  className="invoice-entry-input invoice-entry-input-readonly invoice-entry-input-calculated invoice-entry-input-overdue"
-                  readOnly
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Deductions & Adjustments Section */}
-        <div className="invoice-entry-section">
-          <h2 className="invoice-entry-section-title">Deductions & Adjustments (Linked to Payment Advice)</h2>
-          <div className="invoice-entry-form-grid">
-            <div className="invoice-entry-field">
-              <label htmlFor="tdsAmount" className="invoice-entry-label">
-                TDS Amount (From Payment Advice)
-              </label>
-              <input
-                type="text"
-                id="tdsAmount"
-                name="tdsAmount"
-                value={formData.tdsAmount}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-                placeholder="Linked to Payment Advice"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="penaltyAmount" className="invoice-entry-label">
-                Penalty Amount (From Payment Advice)
-              </label>
-              <input
-                type="text"
-                id="penaltyAmount"
-                name="penaltyAmount"
-                value={formData.penaltyAmount}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="deductionAmount" className="invoice-entry-label">
-                Deduction Amount (From Payment Advice)
-              </label>
-              <input
-                type="text"
-                id="deductionAmount"
-                name="deductionAmount"
-                value={formData.deductionAmount}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="bankCharges" className="invoice-entry-label">
-                Bank Charges (From Payment Advice)
-              </label>
-              <input
-                type="text"
-                id="bankCharges"
-                name="bankCharges"
-                value={formData.bankCharges}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="excessSupply" className="invoice-entry-label">
-                Excess Supply (From Payment Advice)
-              </label>
-              <input
-                type="text"
-                id="excessSupply"
-                name="excessSupply"
-                value={formData.excessSupply}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="interest" className="invoice-entry-label">
-                Interest (From Payment Advice)
-              </label>
-              <input
-                type="text"
-                id="interest"
-                name="interest"
-                value={formData.interest}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="holdAmount" className="invoice-entry-label">
-                Hold Amount (From Payment Advice)
-              </label>
-              <input
-                type="text"
-                id="holdAmount"
-                name="holdAmount"
-                value={formData.holdAmount}
-                className="invoice-entry-input invoice-entry-input-readonly"
-                readOnly
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Bad Debts Section */}
-        <div className="invoice-entry-section">
-          <h2 className="invoice-entry-section-title">Bad Debts</h2>
-          <div className="invoice-entry-form-grid">
-            <div className="invoice-entry-field">
-              <label htmlFor="badDebtAmount" className="invoice-entry-label">
-                Bad Debt Amount
-              </label>
-              <input
-                type="number"
-                id="badDebtAmount"
-                name="badDebtAmount"
-                value={formData.badDebtAmount}
-                onChange={handleChange}
-                className="invoice-entry-input"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="badDebtDate" className="invoice-entry-label">
-                Bad Debt Date
-              </label>
-              <input
-                type="date"
-                id="badDebtDate"
-                name="badDebtDate"
-                value={formData.badDebtDate}
-                onChange={handleChange}
-                className="invoice-entry-input"
-              />
-            </div>
-            
+            {/* Consignee Name & Address - Manual Entry */}
             <div className="invoice-entry-field invoice-entry-field-full">
-              <label htmlFor="badDebtReason" className="invoice-entry-label">
-                Bad Debt Reason
+              <label htmlFor="consigneeNameAddress" className="invoice-entry-label">
+                Consignee Name & Address
               </label>
               <textarea
-                id="badDebtReason"
-                name="badDebtReason"
-                value={formData.badDebtReason}
+                id="consigneeNameAddress"
+                name="consigneeNameAddress"
+                value={formData.consigneeNameAddress || ''}
                 onChange={handleChange}
                 className="invoice-entry-textarea"
                 rows="3"
-                placeholder="Enter reason for bad debt..."
+                placeholder="Enter consignee name and address manually or select from dropdown above"
               />
             </div>
+            
+            {/* Consignee City - Manual Entry */}
+            <div className="invoice-entry-field">
+              <label htmlFor="consigneeCity" className="invoice-entry-label">
+                Consignee City
+              </label>
+              <input
+                type="text"
+                id="consigneeCity"
+                name="consigneeCity"
+                value={formData.consigneeCity || ''}
+                onChange={handleChange}
+                className="invoice-entry-input"
+                placeholder="Enter city"
+              />
+            </div>
+            
+            {/* Payer Selection Dropdown */}
+            <div className="invoice-entry-field">
+              <label htmlFor="payerId" className="invoice-entry-label">
+                Select Payer (Optional)
+              </label>
+              <select
+                id="payerId"
+                name="payerId"
+                value={formData.payerId}
+                onChange={handlePayerChange}
+                className="invoice-entry-select"
+              >
+                <option value="">Select from Master Data or enter manually</option>
+                {payers.map((payer) => {
+                  const name = payer.values?.payerName || payer.name || 'Unnamed Payer'
+                  const city = payer.values?.city || ''
+                  return (
+                    <option key={payer.id} value={payer.id}>
+                      {name} {city ? `(${city})` : ''}
+                    </option>
+                  )
+                })}
+              </select>
+              {payers.length === 0 && (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                  No payers found. <a href="/master-data/new/payer-profile" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
+                </p>
+              )}
+            </div>
+            
+            {/* Payer Name & Address - Manual Entry */}
+            <div className="invoice-entry-field invoice-entry-field-full">
+              <label htmlFor="payerNameAddress" className="invoice-entry-label">
+                Payer Name & Address
+              </label>
+              <textarea
+                id="payerNameAddress"
+                name="payerNameAddress"
+                value={formData.payerNameAddress || ''}
+                onChange={handleChange}
+                className="invoice-entry-textarea"
+                rows="3"
+                placeholder="Enter payer name and address manually or select from dropdown above"
+              />
+            </div>
+            
+            {/* Payer City - Manual Entry */}
+            <div className="invoice-entry-field">
+              <label htmlFor="payerCity" className="invoice-entry-label">
+                City
+              </label>
+              <input
+                type="text"
+                id="payerCity"
+                name="payerCity"
+                value={formData.payerCity || ''}
+                onChange={handleChange}
+                className="invoice-entry-input"
+                placeholder="Enter city"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ========== LOGISTICS & TRANSPORT SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">Logistics & Transport</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('lorryReceiptNo', 'Lorry Receipt No', FIELD_TYPES.MANUAL)}
+            {renderField('lorryReceiptDate', 'Lorry Receipt Date', FIELD_TYPES.MANUAL)}
+            <div className="invoice-entry-field">
+              <label htmlFor="transporterId" className="invoice-entry-label">
+                Transporter Name
+              </label>
+              <select
+                id="transporterId"
+                name="transporterId"
+                value={formData.transporterId}
+                onChange={handleTransporterChange}
+                className="invoice-entry-select"
+              >
+                <option value="">Select Transporter from Master Data</option>
+                {employees
+                  .filter((emp) => {
+                    const role = (emp.values?.role || emp.role || '').toLowerCase()
+                    return role.includes('transporter')
+                  })
+                  .map((emp) => {
+                    const name = emp.values?.nameOfEmployee || emp.values?.transporterName || emp.name || 'Unnamed Transporter'
+                    return (
+                      <option key={emp.id} value={emp.id}>
+                        {name}
+                      </option>
+                    )
+                  })}
+              </select>
+              <input
+                type="text"
+                id="transporterName"
+                name="transporterName"
+                value={formData.transporterName}
+                onChange={handleChange}
+                className="invoice-entry-input"
+                placeholder="Or enter transporter name manually"
+                style={{ marginTop: '8px' }}
+              />
+              {employees.filter((emp) => {
+                const role = (emp.values?.role || emp.role || '').toLowerCase()
+                return role.includes('transporter')
+              }).length === 0 && (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                  No transporters found. <a href="/master-data/new/employee-profile" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
+                </p>
+              )}
+            </div>
+            {renderField('deliveryChallanNo', 'Delivery Challan No', FIELD_TYPES.MANUAL)}
+            {renderField('deliveryChallanDate', 'Delivery Challan Date', FIELD_TYPES.MANUAL)}
+          </div>
+        </div>
+
+        {/* ========== MATERIAL INSPECTION DATES SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">Material Inspection Dates</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('materialInspectionRequestDate', 'Material Inspection Request Date', FIELD_TYPES.MANUAL)}
+            {renderField('inspectionOfferDate', 'Inspection Offer Date', FIELD_TYPES.MANUAL)}
+            {renderField('materialInspectionDate', 'Material Inspection Date', FIELD_TYPES.MANUAL)}
+            {renderField('deliveryInstructionDate', 'Delivery Instruction Date', FIELD_TYPES.MANUAL)}
+            {renderField('deliveryInspectionCIPReceivedDate', 'Delivery Inspection / CIP Received Date', FIELD_TYPES.MANUAL)}
+            {renderField('miccReceiptDate', 'MICC Receipt Date', FIELD_TYPES.MANUAL)}
+            {renderField('lastDateOfDispatch', 'Last Date of Dispatch', FIELD_TYPES.MANUAL)}
+            {renderField('invoiceReadyDate', 'Invoice Ready Date', FIELD_TYPES.MANUAL)}
+          </div>
+        </div>
+
+        {/* ========== COURIER DETAILS SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">Courier Details</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('courierDocumentNo', 'Courier Document No', FIELD_TYPES.MANUAL)}
+            {renderField('courierDocumentDate', 'Courier Document Date', FIELD_TYPES.MANUAL)}
+            {renderField('courierCompanyName', 'Courier Company Name', FIELD_TYPES.MANUAL)}
+            {renderField('billSentToPersonName', 'Bill Sent to Person Name', FIELD_TYPES.MANUAL)}
+            {renderField('billSentDate', 'Bill Sent Date', FIELD_TYPES.MANUAL)}
+          </div>
+        </div>
+
+        {/* ========== MATERIAL RECEIPT DATES SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">Material Receipt Dates</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('lastDateOfMaterialReceipt', 'Last Date of Material Receipt', FIELD_TYPES.MANUAL)}
+            {renderField('invoiceReceiptDate', 'Invoice Receipt Date', FIELD_TYPES.MANUAL)}
+            <div className="invoice-entry-field">
+              <label htmlFor="invoiceReceiptPersonId" className="invoice-entry-label">
+                Invoice Receipt Person Name
+              </label>
+              <select
+                id="invoiceReceiptPersonId"
+                name="invoiceReceiptPersonId"
+                value={formData.invoiceReceiptPersonId}
+                onChange={handleInvoiceReceiptPersonChange}
+                className="invoice-entry-select"
+              >
+                <option value="">Select Person from Master Data</option>
+                {employees.map((emp) => {
+                  const name = emp.values?.nameOfEmployee || emp.name || 'Unnamed Employee'
+                  const designation = emp.values?.designation || ''
+                  return (
+                    <option key={emp.id} value={emp.id}>
+                      {name} {designation ? `(${designation})` : ''}
+                    </option>
+                  )
+                })}
+              </select>
+              <input
+                type="text"
+                id="invoiceReceiptPersonName"
+                name="invoiceReceiptPersonName"
+                value={formData.invoiceReceiptPersonName}
+                onChange={handleChange}
+                className="invoice-entry-input"
+                placeholder="Or enter person name manually"
+                style={{ marginTop: '8px' }}
+              />
+              {employees.length === 0 && (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                  No employees found. <a href="/master-data/new/employee-profile" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
+                </p>
+              )}
+            </div>
+            {renderField('materialVerificationDate', 'Material Verification Date', FIELD_TYPES.MANUAL)}
+          </div>
+        </div>
+
+        {/* ========== PROCESSING DATES SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">Processing Dates</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('jvrDate', 'JVR Date', FIELD_TYPES.MANUAL)}
+            {renderField('srnDate', 'SRN Date', FIELD_TYPES.MANUAL)}
+            {renderField('mrcDate', 'MRC Date', FIELD_TYPES.MANUAL)}
+            {renderField('invoiceSubmissionAtSiteDate', 'Invoice Submission at Site Date', FIELD_TYPES.MANUAL)}
+            {renderField('invoiceForwardedToHODate', 'Invoice Forwarded to HO Date', FIELD_TYPES.MANUAL)}
+            {renderField('invoiceForwardedForPaymentDate', 'Invoice Forwarded for Payment Date', FIELD_TYPES.MANUAL)}
+          </div>
+        </div>
+
+        {/* ========== PAYMENT TERMS SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">Payment Terms</h2>
+          <div className="invoice-entry-form-grid">
+            <div className="invoice-entry-field">
+              <label htmlFor="paymentTermsId" className="invoice-entry-label">
+                Payment Terms
+              </label>
+              <select
+                id="paymentTermsId"
+                name="paymentTermsId"
+                value={formData.paymentTermsId}
+                onChange={handlePaymentTermsChange}
+                className="invoice-entry-select"
+              >
+                <option value="">Select Payment Terms from Master Data</option>
+                {paymentTerms.map((terms) => {
+                  const description = terms.values?.paymentTermsDescription || terms.name || 'Unnamed Payment Terms'
+                  return (
+                    <option key={terms.id} value={terms.id}>
+                      {description.substring(0, 100)}{description.length > 100 ? '...' : ''}
+                    </option>
+                  )
+                })}
+              </select>
+              {paymentTerms.length === 0 && (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                  No payment terms found. <a href="/master-data/new/payment-terms" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
+                </p>
+              )}
+            </div>
+            
+            <div className="invoice-entry-field invoice-entry-field-full">
+              <label htmlFor="paymentTerms" className="invoice-entry-label">
+                Payment Terms Description (Auto-filled)
+              </label>
+              <textarea
+                id="paymentTerms"
+                name="paymentTerms"
+                value={formData.paymentTerms || ''}
+                onChange={handleChange}
+                className="invoice-entry-textarea"
+                rows="3"
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)' }}
+              />
+            </div>
+            
+            <div className="invoice-entry-field">
+              <label htmlFor="paymentTextId" className="invoice-entry-label">
+                Payment Text
+              </label>
+              <select
+                id="paymentTextId"
+                name="paymentTextId"
+                value={formData.paymentTextId}
+                onChange={handlePaymentTextChange}
+                className="invoice-entry-select"
+              >
+                <option value="">Select Payment Text from Master Data</option>
+                {paymentTerms.map((terms) => {
+                  const description = terms.values?.paymentTermsDescription || terms.name || 'Unnamed Payment Terms'
+                  return (
+                    <option key={terms.id} value={terms.id}>
+                      {description.substring(0, 100)}{description.length > 100 ? '...' : ''}
+                    </option>
+                  )
+                })}
+              </select>
+              {paymentTerms.length === 0 && (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                  No payment terms found. <a href="/master-data/new/payment-terms" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
+                </p>
+              )}
+            </div>
+            
+            <div className="invoice-entry-field invoice-entry-field-full">
+              <label htmlFor="paymentText" className="invoice-entry-label">
+                Payment Text Description (Auto-filled)
+              </label>
+              <textarea
+                id="paymentText"
+                name="paymentText"
+                value={formData.paymentText || ''}
+                onChange={handleChange}
+                className="invoice-entry-textarea"
+                rows="3"
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)' }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ========== 1ST DUE PAYMENT TRACKING SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">1st Due Payment Tracking</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('firstDueDate', '1st Due Date', FIELD_TYPES.CALCULATED)}
+            {renderField('firstDueAmount', '1st Due Amount', FIELD_TYPES.CALCULATED)}
+            {renderField('paymentReceivedAmount1stDue', 'Payment Received Amount (1st Due)', FIELD_TYPES.DEFAULT)}
+            {renderField('receiptDate1stDue', 'Receipt Date (1st Due)', FIELD_TYPES.DEFAULT)}
+            {renderField('firstDueBalance', '1st Due Balance', FIELD_TYPES.CALCULATED)}
+            {renderField('notDue1stDue', 'Not Due (1st Due)', FIELD_TYPES.CALCULATED)}
+            {renderField('overDue1stDue', 'Over Due (1st Due)', FIELD_TYPES.CALCULATED)}
+            {renderField('noOfDaysOfPaymentReceipt1stDue', 'No. of Days of Payment Receipt (1st Due)', FIELD_TYPES.CALCULATED)}
+          </div>
+        </div>
+
+        {/* ========== 2ND DUE PAYMENT TRACKING SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">2nd Due Payment Tracking</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('secondDueDate', '2nd Due Date', FIELD_TYPES.CALCULATED)}
+            {renderField('secondDueAmount', '2nd Due Amount', FIELD_TYPES.CALCULATED)}
+            {renderField('paymentReceivedAmount2ndDue', 'Payment Received Amount (2nd Due)', FIELD_TYPES.DEFAULT)}
+            {renderField('receiptDate2ndDue', 'Receipt Date (2nd Due)', FIELD_TYPES.DEFAULT)}
+            {renderField('secondDueBalance', '2nd Due Balance', FIELD_TYPES.CALCULATED)}
+            {renderField('notDue2ndDue', 'Not Due (2nd Due)', FIELD_TYPES.CALCULATED)}
+            {renderField('overDue2ndDue', 'Over Due (2nd Due)', FIELD_TYPES.CALCULATED)}
+            {renderField('noOfDaysOfPaymentReceipt2ndDue', 'No. of Days of Payment Receipt (2nd Due)', FIELD_TYPES.CALCULATED)}
+          </div>
+        </div>
+
+        {/* ========== 3RD DUE PAYMENT TRACKING SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">3rd Due Payment Tracking</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('thirdDueDate', '3rd Due Date', FIELD_TYPES.CALCULATED)}
+            {renderField('thirdDueAmount', '3rd Due Amount', FIELD_TYPES.CALCULATED)}
+            {renderField('paymentReceivedAmount3rdDue', 'Payment Received Amount (3rd Due)', FIELD_TYPES.DEFAULT)}
+            {renderField('receiptDate3rdDue', 'Receipt Date (3rd Due)', FIELD_TYPES.DEFAULT)}
+            {renderField('thirdDueBalance', '3rd Due Balance', FIELD_TYPES.CALCULATED)}
+            {renderField('notDue3rdDue', 'Not Due (3rd Due)', FIELD_TYPES.CALCULATED)}
+            {renderField('overDue3rdDue', 'Over Due (3rd Due)', FIELD_TYPES.CALCULATED)}
+            {renderField('noOfDaysOfPaymentReceipt3rdDue', 'No. of Days of Payment Receipt (3rd Due)', FIELD_TYPES.CALCULATED)}
+          </div>
+        </div>
+
+        {/* ========== CONSOLIDATED TOTALS SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">Consolidated Totals</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('totalBalance', 'Total Balance', FIELD_TYPES.CALCULATED)}
+            {renderField('notDueTotal', 'Not Due Total', FIELD_TYPES.CALCULATED)}
+            {renderField('overDueTotal', 'Over Due Total', FIELD_TYPES.CALCULATED)}
+          </div>
+        </div>
+
+        {/* ========== TDS FIELDS SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">TDS Fields (From Payment Advice)</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('itTDS2Percent', 'IT TDS @2%', FIELD_TYPES.DEFAULT)}
+            {renderField('itTDS1Percent194Q', 'IT TDS @1% (194Q)', FIELD_TYPES.DEFAULT)}
+            {renderField('lcessBoq1Percent', 'LCess / BOQ @1%', FIELD_TYPES.DEFAULT)}
+            {renderField('tds2PercentCGSTSGST', 'TDS @2% (CGST/SGST)', FIELD_TYPES.DEFAULT)}
+            {renderField('tdsOnCGST1Percent', 'TDS on CGST @1%', FIELD_TYPES.DEFAULT)}
+            {renderField('tdsOnSGST1Percent', 'TDS on SGST @1%', FIELD_TYPES.DEFAULT)}
+          </div>
+        </div>
+
+        {/* ========== DEDUCTIONS & ADJUSTMENTS SECTION ========== */}
+        <div className="invoice-entry-section">
+          <h2 className="invoice-entry-section-title">Deductions & Adjustments (From Payment Advice)</h2>
+          <div className="invoice-entry-form-grid">
+            {renderField('excessSupplyQty', 'Excess Supply Qty', FIELD_TYPES.DEFAULT)}
+            {renderField('interestOnAdvance', 'Interest on Advance', FIELD_TYPES.DEFAULT)}
+            {renderField('anyHold', 'Any Hold', FIELD_TYPES.DEFAULT)}
+            {renderField('penaltyLDDeduction', 'Penalty / LD Deduction', FIELD_TYPES.DEFAULT)}
+            {renderField('bankCharges', 'Bank Charges', FIELD_TYPES.DEFAULT)}
+            {renderField('lcDiscrepancyCharge', 'LC Discrepancy Charge', FIELD_TYPES.DEFAULT)}
+            {renderField('provisionForBadDebts', 'Provision for Bad Debts', FIELD_TYPES.MANUAL, [], '0.00')}
+            {renderField('badDebts', 'Bad Debts', FIELD_TYPES.MANUAL, [], '0.00')}
           </div>
         </div>
 
@@ -1680,4 +1341,3 @@ function InvoiceEntry() {
 }
 
 export default InvoiceEntry
-

@@ -1,88 +1,229 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Save, Plus, X, Trash2 } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
 import * as poEntryService from '../services/poEntryService'
-import { INDIA_STATES } from '../utils/indiaStates'
+import { INDIA_STATES, COUNTRIES } from '../utils/indiaStates'
 import '../styles/POEntry.css'
+
+// Option sets from Excel format
+const BUSINESS_UNITS = ['MAIN', 'UNIT1', 'UNIT2', 'UNIT3', 'Other']
+const SEGMENTS = ['Domestic', 'Export']
+const ZONES = ['North', 'East', 'West', 'South']
+const PAYMENT_TYPES = ['Secured','Unsecured', 'Govt', 'Other']
+const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'Other']
 
 function POEntry() {
   const navigate = useNavigate()
-  const { getCustomers, getPaymentTerms, getRecordById } = useMasterData()
+  const { getCustomers, getPaymentTerms, getEmployees, getCompanies } = useMasterData()
   const [customers, setCustomers] = useState([])
   const [paymentTerms, setPaymentTerms] = useState([])
+  const [employees, setEmployees] = useState([])
+  const [companies, setCompanies] = useState([])
+  
+  // BOQ Line Items
+  const [boqItems, setBoqItems] = useState([
+    {
+      id: 1,
+      materialDescription: '',
+      quantity: '',
+      uom: '',
+      unitPrice: '',
+      unitCost: '',
+      freight: '',
+      gst: '',
+      totalCost: '',
+    },
+  ])
+
   const [formData, setFormData] = useState({
-    // Customer / Customer PO Entry details
+    // Customer Name
+    customerId: '',
     customerName: '',
-    customerPONumber: '',
-    customerPODate: '',
     
-    // Customer Details
+    // Legal Entity Name
+    legalEntityName: '',
+    
+    // Customer Address
     customerAddress: '',
-    customerCity: '',
-    customerState: '',
-    customerCountry: 'India',
-    customerPinCode: '',
-    customerGSTIN: '',
-    customerContactPerson: '',
-    customerContactNumber: '',
-    customerEmail: '',
     
-    // PO Details
+    // District
+    customerDistrict: '',
+    
+    // State
+    customerState: '',
+    
+    // Country
+    customerCountry: 'India',
+    
+    // Pin Code
+    customerPinCode: '',
+    
+    // GST No
+    customerGSTIN: '',
+    
+    // Business Unit
+    businessUnit: '',
+    
+    // Segment
+    segment: '',
+    
+    // Zone
+    zone: '',
+    
+    // Contract Agreement No
+    contractAgreementNo: '',
+    
+    // Contract Agreement Date
+    contractAgreementDate: '',
+    
+    // Purchase Order No
     poNumber: '',
+    
+    // Purchase Order Date
     poDate: '',
+    
+    // Letter of Intent No
+    loiNumber: '',
+    
+    // Letter of Intent Date
+    loiDate: '',
+    
+    // Letter of Award No
+    loaNumber: '',
+    
+    // Letter of Award Date
+    loaDate: '',
+    
+    // Tender Reference No
+    tenderNumber: '',
+    
+    // Tender Date
+    tenderDate: '',
+    
+    // Project Description
+    projectDescription: '',
+    
+    // Payment Type
+    paymentType: '',
+    
+    // Payment Terms
+    paymentTermsId: '',
+    poPaymentTerms: '',
+    
+    // Payment Terms Clause in PO
+    paymentTermsClauseInPO: '',
+    
+    // Insurance Type
+    insuranceType: '',
+    
+    // Policy No
+    insurancePolicyNumber: '',
+    
+    // Policy Date
+    insurancePolicyDate: '',
+    
+    // Policy Company
+    insurancePolicyCompany: '',
+    
+    // Policy Valid upto
+    insurancePolicyValidUpto: '',
+    
+    // Policy Clause in PO
+    insurancePolicyClauseInPO: '',
+    
+    // Policy Remarks
+    insurancePolicyRemarks: '',
+    
+    // Bank Guarantee Type
+    bankGuaranteeType: '',
+    
+    // Bank Guarantee No
+    bankGuaranteeNumber: '',
+    
+    // Bank Guarantee Date
+    bankGuaranteeDate: '',
+    
+    // Bank Guarantee Value
+    bankGuaranteeValue: '',
+    
+    // Bank Name
+    bankName: '',
+    
+    // Bank Guarantee Validity
+    bankGuaranteeValidity: '',
+    
+    // Bank Guarantee Release & Validity Clause in PO
+    bankGuaranteeReleaseValidityClauseInPO: '',
+    
+    // Bank Guarantee Remarks
+    bankGuaranteeRemarks: '',
+    
+    // Sales Manager
+    salesManagerId: '',
+    
+    // Sales Head
+    salesHeadId: '',
+    
+    // Business Head
+    businessHeadId: '',
+    
+    // Project Manager
+    projectManagerId: '',
+    
+    // Project Head
+    projectHeadId: '',
+    
+    // Collection Incharge
+    collectionInchargeId: '',
+    
+    // Sales Agent Name
+    salesAgentName: '',
+    
+    // Sales Agent Commission
+    salesAgentCommission: '',
+    
+    // Collection Agent Name
+    collectionAgentName: '',
+    
+    // Collection Agent Commission
+    collectionAgentCommission: '',
+    
+    // Delivery Schedule Clause
+    deliveryScheduleClause: '',
+    
+    // Liquidated Damages Clause
+    liquidatedDamagesClause: '',
+    
+    // Last Date of Delivery
+    lastDateOfDelivery: '',
+    
+    // PO Validity
+    poValidity: '',
+    
+    // PO Signed Concern Name
+    poSignedConcernName: '',
+    
+    // Internal fields for calculations and other purposes
     poValue: '',
     poCurrency: 'INR',
-    poDescription: '',
-    poDeliveryLocation: '',
-    poDeliveryAddress: '',
-    poDeliveryCity: '',
-    poDeliveryState: '',
-    poDeliveryPinCode: '',
-    poDeliveryDate: '',
-    poPaymentTerms: '',
-    poWarrantyPeriod: '',
-    poValidityPeriod: '',
     
-    // Tender & Agreement details
-    tenderNumber: '',
-    tenderDate: '',
-    tenderAuthority: '',
-    agreementNumber: '',
-    agreementDate: '',
-    agreementValue: '',
-    agreementStartDate: '',
-    agreementEndDate: '',
-    agreementTerms: '',
-    
-    // Insurance Details
-    insuranceRequired: '',
-    insuranceType: '',
-    insuranceProvider: '',
-    insurancePolicyNumber: '',
-    insuranceStartDate: '',
-    insuranceEndDate: '',
-    insuranceAmount: '',
-    insurancePremium: '',
-    
-    // Bank Guarantee details
-    bankGuaranteeRequired: '',
-    bankGuaranteeType: '',
-    bankName: '',
-    bankGuaranteeNumber: '',
-    bankGuaranteeDate: '',
-    bankGuaranteeAmount: '',
-    bankGuaranteeValidityDate: '',
-    bankGuaranteePercentage: '',
-    customerId: '', // Store selected customer ID
-    paymentTermsId: '', // Store selected payment terms ID
+    // "Other" fields for dropdowns
+    businessUnitOther: '',
+    segmentOther: '',
+    zoneOther: '',
+    paymentTypeOther: '',
+    poCurrencyOther: '',
+    customerStateOther: '',
   })
 
   useEffect(() => {
     // Load Master Data for dropdowns
     setCustomers(getCustomers())
     setPaymentTerms(getPaymentTerms())
-  }, [getCustomers, getPaymentTerms])
+    setEmployees(getEmployees())
+    setCompanies(getCompanies())
+  }, [getCustomers, getPaymentTerms, getEmployees, getCompanies])
   
   // Auto-generate PO Number when form is initialized (only once)
   useEffect(() => {
@@ -92,6 +233,46 @@ function POEntry() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty dependency array - only run once on mount
+
+  // Calculate BOQ totals
+  const boqTotals = useMemo(() => {
+    let totalExWorks = 0
+    let totalFreight = 0
+    let totalGST = 0
+    let totalPOValue = 0
+
+    boqItems.forEach((item) => {
+      const quantity = parseFloat(item.quantity) || 0
+      const unitCost = parseFloat(item.unitCost) || 0
+      const freight = parseFloat(item.freight) || 0
+      const gst = parseFloat(item.gst) || 0
+      const totalCost = parseFloat(item.totalCost) || 0
+
+      // Total Ex-Works = sum of (unit cost * quantity) for all items
+      totalExWorks += unitCost * quantity
+      // Total Freight = sum of freight for all items
+      totalFreight += freight
+      // Total GST = sum of GST for all items
+      totalGST += gst
+      // Total PO Value = sum of total cost for all items
+      totalPOValue += totalCost
+    })
+
+    return {
+      totalExWorks: totalExWorks.toFixed(2),
+      totalFreight: totalFreight.toFixed(2),
+      totalGST: totalGST.toFixed(2),
+      totalPOValue: totalPOValue.toFixed(2),
+    }
+  }, [boqItems])
+
+  // Update PO Value when BOQ totals change
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      poValue: boqTotals.totalPOValue,
+    }))
+  }, [boqTotals.totalPOValue])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -107,15 +288,14 @@ function POEntry() {
       setFormData((prev) => ({
         ...prev,
         customerId,
-        customerName: customer.name,
-        customerAddress: customer.address,
-        customerCity: customer.city || '',
+        customerName: customer.name || customer.customerName || '',
+        customerAddress: customer.address || customer.customerAddress || '',
         customerState: customer.state || '',
-        customerPinCode: customer.pinCode,
-        customerGSTIN: customer.gstin,
-        customerContactPerson: customer.contactPerson,
-        customerContactNumber: customer.contactNumber,
-        customerEmail: customer.email,
+        customerDistrict: customer.district || '',
+        customerPinCode: customer.pinCode || '',
+        customerGSTIN: customer.gstin || customer.gstNo || '',
+        segment: customer.segment || '',
+        legalEntityName: customer.legalEntityName || '',
       }))
     } else {
       setFormData((prev) => ({
@@ -123,13 +303,11 @@ function POEntry() {
         customerId: '',
         customerName: '',
         customerAddress: '',
-        customerCity: '',
         customerState: '',
+        customerDistrict: '',
         customerPinCode: '',
         customerGSTIN: '',
-        customerContactPerson: '',
-        customerContactNumber: '',
-        customerEmail: '',
+        legalEntityName: '',
       }))
     }
   }
@@ -142,7 +320,7 @@ function POEntry() {
       setFormData((prev) => ({
         ...prev,
         paymentTermsId,
-        poPaymentTerms: terms.description || terms.name,
+        poPaymentTerms: terms.paymentTermsDescription || terms.description || terms.name || '',
       }))
     } else {
       setFormData((prev) => ({
@@ -153,10 +331,58 @@ function POEntry() {
     }
   }
 
+  // BOQ Item Handlers
+  const handleAddBOQItem = () => {
+    const newId = Math.max(...boqItems.map((item) => item.id), 0) + 1
+    setBoqItems([
+      ...boqItems,
+      {
+        id: newId,
+        materialDescription: '',
+        quantity: '',
+        uom: '',
+        unitPrice: '',
+        unitCost: '',
+        freight: '',
+        gst: '',
+        totalCost: '',
+      },
+    ])
+  }
+
+  const handleRemoveBOQItem = (id) => {
+    if (boqItems.length > 1) {
+      setBoqItems(boqItems.filter((item) => item.id !== id))
+    }
+  }
+
+  const handleBOQItemChange = (id, field, value) => {
+    setBoqItems(
+      boqItems.map((item) => {
+        if (item.id === id) {
+          const updated = { ...item, [field]: value }
+          
+          // Auto-calculate total cost: (quantity * unit cost) + freight + GST
+          const quantity = parseFloat(updated.quantity) || 0
+          const unitCost = parseFloat(updated.unitCost) || 0
+          const freight = parseFloat(updated.freight) || 0
+          const gst = parseFloat(updated.gst) || 0
+          
+          const calculatedTotal = quantity * unitCost + freight + gst
+          updated.totalCost = calculatedTotal > 0 ? calculatedTotal.toFixed(2) : ''
+          
+          return updated
+        }
+        return item
+      })
+    )
+  }
+
   const handleSaveDraft = () => {
     try {
       const draft = {
         ...formData,
+        boqItems,
         savedAt: new Date().toISOString(),
         draft: true,
       }
@@ -180,6 +406,8 @@ function POEntry() {
     // Save PO Entry with Master Data references
     const poEntry = {
       ...formData,
+      boqItems,
+      boqTotals,
       submittedAt: new Date().toISOString(),
       // Maintain relationships to Master Data
       customerId: formData.customerId,
@@ -196,6 +424,23 @@ function POEntry() {
       alert('Failed to save PO Entry. Please try again.')
     }
   }
+
+  // Filter employees by role
+  const getEmployeesByRole = (roleKeywords) => {
+    return employees.filter((emp) => {
+      const role = (emp.role || emp.designation || '').toLowerCase()
+      return roleKeywords.some((keyword) => role.includes(keyword.toLowerCase()))
+    })
+  }
+
+  const salesManagers = getEmployeesByRole(['sales manager'])
+  const salesHeads = getEmployeesByRole(['sales head'])
+  const projectManagers = getEmployeesByRole(['project manager'])
+  const projectHeads = getEmployeesByRole(['project head'])
+  const businessHeads = getEmployeesByRole(['business head'])
+  const collectionIncharges = getEmployeesByRole(['collection incharge'])
+  const salesAgents = getEmployeesByRole(['sales agent'])
+  const collectionAgents = getEmployeesByRole(['collection agent'])
 
   return (
     <div className="po-entry-page">
@@ -239,13 +484,13 @@ function POEntry() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="po-entry-form">
-        {/* Customer / Customer PO Entry Details */}
+        {/* Customer & Basic Information */}
         <div className="po-entry-section">
-          <h2 className="po-entry-section-title">Customer / Customer PO Entry Details</h2>
+          <h2 className="po-entry-section-title">Customer & Basic Information</h2>
           <div className="po-entry-form-grid">
             <div className="po-entry-field">
               <label htmlFor="customerId" className="po-entry-label">
-                Customer <span className="po-entry-required">*</span>
+                Customer Name <span className="po-entry-required">*</span>
               </label>
               <select
                 id="customerId"
@@ -258,7 +503,7 @@ function POEntry() {
                 <option value="">Select Customer from Master Data</option>
                 {customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
-                    {customer.name} {customer.gstin ? `(${customer.gstin})` : ''}
+                    {customer.name || customer.customerName} {customer.gstin || customer.gstNo ? `(${customer.gstin || customer.gstNo})` : ''}
                   </option>
                 ))}
               </select>
@@ -286,39 +531,19 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="customerPONumber" className="po-entry-label">
-                Customer PO Number
+              <label htmlFor="legalEntityName" className="po-entry-label">
+                Legal Entity Name
               </label>
               <input
                 type="text"
-                id="customerPONumber"
-                name="customerPONumber"
-                value={formData.customerPONumber}
+                id="legalEntityName"
+                name="legalEntityName"
+                value={formData.legalEntityName}
                 onChange={handleChange}
                 className="po-entry-input"
               />
             </div>
             
-            <div className="po-entry-field">
-              <label htmlFor="customerPODate" className="po-entry-label">
-                Customer PO Date
-              </label>
-              <input
-                type="date"
-                id="customerPODate"
-                name="customerPODate"
-                value={formData.customerPODate}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Customer Details */}
-        <div className="po-entry-section">
-          <h2 className="po-entry-section-title">Customer Details</h2>
-          <div className="po-entry-form-grid">
             <div className="po-entry-field po-entry-field-full">
               <label htmlFor="customerAddress" className="po-entry-label">
                 Customer Address
@@ -334,14 +559,14 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="customerCity" className="po-entry-label">
-                City
+              <label htmlFor="customerDistrict" className="po-entry-label">
+                District
               </label>
               <input
                 type="text"
-                id="customerCity"
-                name="customerCity"
-                value={formData.customerCity}
+                id="customerDistrict"
+                name="customerDistrict"
+                value={formData.customerDistrict}
                 onChange={handleChange}
                 className="po-entry-input"
               />
@@ -364,21 +589,39 @@ function POEntry() {
                     {state}
                   </option>
                 ))}
+                <option value="Other">Other</option>
               </select>
+              {formData.customerState === 'Other' && (
+                <input
+                  type="text"
+                  id="customerStateOther"
+                  name="customerStateOther"
+                  value={formData.customerStateOther}
+                  onChange={handleChange}
+                  className="po-entry-input"
+                  placeholder="Enter state name"
+                  style={{ marginTop: '8px' }}
+                />
+              )}
             </div>
             
             <div className="po-entry-field">
               <label htmlFor="customerCountry" className="po-entry-label">
                 Country
               </label>
-              <input
-                type="text"
+              <select
                 id="customerCountry"
                 name="customerCountry"
                 value={formData.customerCountry}
                 onChange={handleChange}
-                className="po-entry-input"
-              />
+                className="po-entry-select"
+              >
+                {COUNTRIES.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
             </div>
             
             <div className="po-entry-field">
@@ -397,7 +640,7 @@ function POEntry() {
             
             <div className="po-entry-field">
               <label htmlFor="customerGSTIN" className="po-entry-label">
-                GSTIN
+                GST No
               </label>
               <input
                 type="text"
@@ -410,56 +653,115 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="customerContactPerson" className="po-entry-label">
-                Contact Person
+              <label htmlFor="businessUnit" className="po-entry-label">
+                Business Unit
               </label>
-              <input
-                type="text"
-                id="customerContactPerson"
-                name="customerContactPerson"
-                value={formData.customerContactPerson}
+              <select
+                id="businessUnit"
+                name="businessUnit"
+                value={formData.businessUnit}
                 onChange={handleChange}
-                className="po-entry-input"
-              />
+                className="po-entry-select"
+              >
+                <option value="">Select Business Unit</option>
+                {BUSINESS_UNITS.filter((unit) => unit !== 'Other').map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+                <option value="Other">Other</option>
+              </select>
+              {formData.businessUnit === 'Other' && (
+                <input
+                  type="text"
+                  id="businessUnitOther"
+                  name="businessUnitOther"
+                  value={formData.businessUnitOther}
+                  onChange={handleChange}
+                  className="po-entry-input"
+                  placeholder="Enter business unit"
+                  style={{ marginTop: '8px' }}
+                />
+              )}
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="customerContactNumber" className="po-entry-label">
-                Contact Number
+              <label htmlFor="segment" className="po-entry-label">
+                Segment
               </label>
-              <input
-                type="tel"
-                id="customerContactNumber"
-                name="customerContactNumber"
-                value={formData.customerContactNumber}
+              <select
+                id="segment"
+                name="segment"
+                value={formData.segment}
                 onChange={handleChange}
-                className="po-entry-input"
-              />
+                className="po-entry-select"
+              >
+                <option value="">Select Segment</option>
+                {SEGMENTS.map((segment) => (
+                  <option key={segment} value={segment}>
+                    {segment}
+                  </option>
+                ))}
+              </select>
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="customerEmail" className="po-entry-label">
-                Email
+              <label htmlFor="zone" className="po-entry-label">
+                Zone
               </label>
-              <input
-                type="email"
-                id="customerEmail"
-                name="customerEmail"
-                value={formData.customerEmail}
+              <select
+                id="zone"
+                name="zone"
+                value={formData.zone}
                 onChange={handleChange}
-                className="po-entry-input"
-              />
+                className="po-entry-select"
+              >
+                <option value="">Select Zone</option>
+                {ZONES.map((zone) => (
+                  <option key={zone} value={zone}>
+                    {zone}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
 
-        {/* PO Details */}
+        {/* Contract, Agreement & PO Details */}
         <div className="po-entry-section">
-          <h2 className="po-entry-section-title">PO Details</h2>
+          <h2 className="po-entry-section-title">Contract, Agreement & PO Details</h2>
           <div className="po-entry-form-grid">
             <div className="po-entry-field">
+              <label htmlFor="contractAgreementNo" className="po-entry-label">
+                Contract Agreement No
+              </label>
+              <input
+                type="text"
+                id="contractAgreementNo"
+                name="contractAgreementNo"
+                value={formData.contractAgreementNo}
+                onChange={handleChange}
+                className="po-entry-input"
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="contractAgreementDate" className="po-entry-label">
+                Contract Agreement Date
+              </label>
+              <input
+                type="date"
+                id="contractAgreementDate"
+                name="contractAgreementDate"
+                value={formData.contractAgreementDate}
+                onChange={handleChange}
+                className="po-entry-input"
+              />
+            </div>
+            
+            <div className="po-entry-field">
               <label htmlFor="poNumber" className="po-entry-label">
-                PO Number <span className="po-entry-required">*</span>
+                Purchase Order No <span className="po-entry-required">*</span>
               </label>
               <input
                 type="text"
@@ -475,7 +777,7 @@ function POEntry() {
             
             <div className="po-entry-field">
               <label htmlFor="poDate" className="po-entry-label">
-                PO Date <span className="po-entry-required">*</span>
+                Purchase Order Date <span className="po-entry-required">*</span>
               </label>
               <input
                 type="date"
@@ -487,224 +789,72 @@ function POEntry() {
                 required
               />
             </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poValue" className="po-entry-label">
-                PO Value
-              </label>
-              <input
-                type="number"
-                id="poValue"
-                name="poValue"
-                value={formData.poValue}
-                onChange={handleChange}
-                className="po-entry-input"
-                step="0.01"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poCurrency" className="po-entry-label">
-                Currency
-              </label>
-              <select
-                id="poCurrency"
-                name="poCurrency"
-                value={formData.poCurrency}
-                onChange={handleChange}
-                className="po-entry-select"
-              >
-                <option value="INR">INR</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-              </select>
-            </div>
-            
-            <div className="po-entry-field po-entry-field-full">
-              <label htmlFor="poDescription" className="po-entry-label">
-                PO Description
-              </label>
-              <textarea
-                id="poDescription"
-                name="poDescription"
-                value={formData.poDescription}
-                onChange={handleChange}
-                className="po-entry-textarea"
-                rows="4"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poDeliveryLocation" className="po-entry-label">
-                Delivery Location
-              </label>
-              <input
-                type="text"
-                id="poDeliveryLocation"
-                name="poDeliveryLocation"
-                value={formData.poDeliveryLocation}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field po-entry-field-full">
-              <label htmlFor="poDeliveryAddress" className="po-entry-label">
-                Delivery Address
-              </label>
-              <textarea
-                id="poDeliveryAddress"
-                name="poDeliveryAddress"
-                value={formData.poDeliveryAddress}
-                onChange={handleChange}
-                className="po-entry-textarea"
-                rows="3"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poDeliveryCity" className="po-entry-label">
-                Delivery City
-              </label>
-              <input
-                type="text"
-                id="poDeliveryCity"
-                name="poDeliveryCity"
-                value={formData.poDeliveryCity}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poDeliveryState" className="po-entry-label">
-                Delivery State
-              </label>
-              <select
-                id="poDeliveryState"
-                name="poDeliveryState"
-                value={formData.poDeliveryState}
-                onChange={handleChange}
-                className="po-entry-select"
-              >
-                <option value="">Select State</option>
-                {INDIA_STATES.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poDeliveryPinCode" className="po-entry-label">
-                Delivery Pin Code
-              </label>
-              <input
-                type="text"
-                id="poDeliveryPinCode"
-                name="poDeliveryPinCode"
-                value={formData.poDeliveryPinCode}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poDeliveryDate" className="po-entry-label">
-                Delivery Date
-              </label>
-              <input
-                type="date"
-                id="poDeliveryDate"
-                name="poDeliveryDate"
-                value={formData.poDeliveryDate}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="paymentTermsId" className="po-entry-label">
-                Payment Terms
-              </label>
-              <select
-                id="paymentTermsId"
-                name="paymentTermsId"
-                value={formData.paymentTermsId}
-                onChange={handlePaymentTermsChange}
-                className="po-entry-select"
-              >
-                <option value="">Select Payment Terms from Master Data</option>
-                {paymentTerms.map((terms) => (
-                  <option key={terms.id} value={terms.id}>
-                    {terms.name}
-                  </option>
-                ))}
-              </select>
-              {paymentTerms.length === 0 && (
-                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
-                  No payment terms found. <a href="/master-data/new/payment-terms" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
-                </p>
-              )}
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poPaymentTerms" className="po-entry-label">
-                Payment Terms Description (Auto-filled)
-              </label>
-              <textarea
-                id="poPaymentTerms"
-                name="poPaymentTerms"
-                value={formData.poPaymentTerms}
-                onChange={handleChange}
-                className="po-entry-textarea"
-                rows="2"
-                readOnly
-                style={{ background: 'var(--color-bg-tertiary)' }}
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poWarrantyPeriod" className="po-entry-label">
-                Warranty Period
-              </label>
-              <input
-                type="text"
-                id="poWarrantyPeriod"
-                name="poWarrantyPeriod"
-                value={formData.poWarrantyPeriod}
-                onChange={handleChange}
-                className="po-entry-input"
-                placeholder="e.g., 12 months"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poValidityPeriod" className="po-entry-label">
-                Validity Period
-              </label>
-              <input
-                type="text"
-                id="poValidityPeriod"
-                name="poValidityPeriod"
-                value={formData.poValidityPeriod}
-                onChange={handleChange}
-                className="po-entry-input"
-                placeholder="e.g., 90 days"
-              />
-            </div>
           </div>
         </div>
 
-        {/* Tender & Agreement Details */}
+        {/* LOI, LOA & Tender References */}
         <div className="po-entry-section">
-          <h2 className="po-entry-section-title">Tender & Agreement Details</h2>
+          <h2 className="po-entry-section-title">LOI, LOA & Tender References</h2>
           <div className="po-entry-form-grid">
             <div className="po-entry-field">
+              <label htmlFor="loiNumber" className="po-entry-label">
+                Letter of Intent No
+              </label>
+              <input
+                type="text"
+                id="loiNumber"
+                name="loiNumber"
+                value={formData.loiNumber}
+                onChange={handleChange}
+                className="po-entry-input"
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="loiDate" className="po-entry-label">
+                Letter of Intent Date
+              </label>
+              <input
+                type="date"
+                id="loiDate"
+                name="loiDate"
+                value={formData.loiDate}
+                onChange={handleChange}
+                className="po-entry-input"
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="loaNumber" className="po-entry-label">
+                Letter of Award No
+              </label>
+              <input
+                type="text"
+                id="loaNumber"
+                name="loaNumber"
+                value={formData.loaNumber}
+                onChange={handleChange}
+                className="po-entry-input"
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="loaDate" className="po-entry-label">
+                Letter of Award Date
+              </label>
+              <input
+                type="date"
+                id="loaDate"
+                name="loaDate"
+                value={formData.loaDate}
+                onChange={handleChange}
+                className="po-entry-input"
+              />
+            </div>
+            
+            <div className="po-entry-field">
               <label htmlFor="tenderNumber" className="po-entry-label">
-                Tender Number
+                Tender Reference No
               </label>
               <input
                 type="text"
@@ -729,103 +879,119 @@ function POEntry() {
                 className="po-entry-input"
               />
             </div>
-            
+          </div>
+        </div>
+
+        {/* Project Description */}
+        <div className="po-entry-section">
+          <h2 className="po-entry-section-title">Project Description</h2>
+          <div className="po-entry-form-grid">
             <div className="po-entry-field po-entry-field-full">
-              <label htmlFor="tenderAuthority" className="po-entry-label">
-                Tender Authority
-              </label>
-              <input
-                type="text"
-                id="tenderAuthority"
-                name="tenderAuthority"
-                value={formData.tenderAuthority}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="agreementNumber" className="po-entry-label">
-                Agreement Number
-              </label>
-              <input
-                type="text"
-                id="agreementNumber"
-                name="agreementNumber"
-                value={formData.agreementNumber}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="agreementDate" className="po-entry-label">
-                Agreement Date
-              </label>
-              <input
-                type="date"
-                id="agreementDate"
-                name="agreementDate"
-                value={formData.agreementDate}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="agreementValue" className="po-entry-label">
-                Agreement Value
-              </label>
-              <input
-                type="number"
-                id="agreementValue"
-                name="agreementValue"
-                value={formData.agreementValue}
-                onChange={handleChange}
-                className="po-entry-input"
-                step="0.01"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="agreementStartDate" className="po-entry-label">
-                Agreement Start Date
-              </label>
-              <input
-                type="date"
-                id="agreementStartDate"
-                name="agreementStartDate"
-                value={formData.agreementStartDate}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="agreementEndDate" className="po-entry-label">
-                Agreement End Date
-              </label>
-              <input
-                type="date"
-                id="agreementEndDate"
-                name="agreementEndDate"
-                value={formData.agreementEndDate}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field po-entry-field-full">
-              <label htmlFor="agreementTerms" className="po-entry-label">
-                Agreement Terms
+              <label htmlFor="projectDescription" className="po-entry-label">
+                Project Description
               </label>
               <textarea
-                id="agreementTerms"
-                name="agreementTerms"
-                value={formData.agreementTerms}
+                id="projectDescription"
+                name="projectDescription"
+                value={formData.projectDescription}
                 onChange={handleChange}
                 className="po-entry-textarea"
                 rows="4"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Details */}
+        <div className="po-entry-section">
+          <h2 className="po-entry-section-title">Payment Details</h2>
+          <div className="po-entry-form-grid">
+            <div className="po-entry-field">
+              <label htmlFor="paymentType" className="po-entry-label">
+                Payment Type
+              </label>
+              <select
+                id="paymentType"
+                name="paymentType"
+                value={formData.paymentType}
+                onChange={handleChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Payment Type</option>
+                {PAYMENT_TYPES.filter((type) => type !== 'Other').map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+                <option value="Other">Other</option>
+              </select>
+              {formData.paymentType === 'Other' && (
+                <input
+                  type="text"
+                  id="paymentTypeOther"
+                  name="paymentTypeOther"
+                  value={formData.paymentTypeOther}
+                  onChange={handleChange}
+                  className="po-entry-input"
+                  placeholder="Enter payment type"
+                  style={{ marginTop: '8px' }}
+                />
+              )}
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="paymentTermsId" className="po-entry-label">
+                Payment Terms
+              </label>
+              <select
+                id="paymentTermsId"
+                name="paymentTermsId"
+                value={formData.paymentTermsId}
+                onChange={handlePaymentTermsChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Payment Terms from Master Data</option>
+                {paymentTerms.map((terms) => (
+                  <option key={terms.id} value={terms.id}>
+                    {terms.name || terms.paymentTermsDescription}
+                  </option>
+                ))}
+              </select>
+              {paymentTerms.length === 0 && (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                  No payment terms found. <a href="/master-data/new/payment-terms" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
+                </p>
+              )}
+            </div>
+            
+            <div className="po-entry-field po-entry-field-full">
+              <label htmlFor="poPaymentTerms" className="po-entry-label">
+                Payment Terms Description (Auto-filled)
+              </label>
+              <textarea
+                id="poPaymentTerms"
+                name="poPaymentTerms"
+                value={formData.poPaymentTerms}
+                onChange={handleChange}
+                className="po-entry-textarea"
+                rows="2"
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)' }}
+              />
+            </div>
+            
+            <div className="po-entry-field po-entry-field-full">
+              <label htmlFor="paymentTermsClauseInPO" className="po-entry-label">
+                Payment Terms Clause in PO
+              </label>
+              <textarea
+                id="paymentTermsClauseInPO"
+                name="paymentTermsClauseInPO"
+                value={formData.paymentTermsClauseInPO}
+                onChange={handleChange}
+                className="po-entry-textarea"
+                rows="4"
+                placeholder="Enter payment terms clause in PO..."
               />
             </div>
           </div>
@@ -835,23 +1001,6 @@ function POEntry() {
         <div className="po-entry-section">
           <h2 className="po-entry-section-title">Insurance Details</h2>
           <div className="po-entry-form-grid">
-            <div className="po-entry-field">
-              <label htmlFor="insuranceRequired" className="po-entry-label">
-                Insurance Required
-              </label>
-              <select
-                id="insuranceRequired"
-                name="insuranceRequired"
-                value={formData.insuranceRequired}
-                onChange={handleChange}
-                className="po-entry-select"
-              >
-                <option value="">Select</option>
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-              </select>
-            </div>
-            
             <div className="po-entry-field">
               <label htmlFor="insuranceType" className="po-entry-label">
                 Insurance Type
@@ -868,22 +1017,8 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="insuranceProvider" className="po-entry-label">
-                Insurance Provider
-              </label>
-              <input
-                type="text"
-                id="insuranceProvider"
-                name="insuranceProvider"
-                value={formData.insuranceProvider}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field">
               <label htmlFor="insurancePolicyNumber" className="po-entry-label">
-                Policy Number
+                Policy No
               </label>
               <input
                 type="text"
@@ -896,60 +1031,74 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="insuranceStartDate" className="po-entry-label">
-                Insurance Start Date
+              <label htmlFor="insurancePolicyDate" className="po-entry-label">
+                Policy Date
               </label>
               <input
                 type="date"
-                id="insuranceStartDate"
-                name="insuranceStartDate"
-                value={formData.insuranceStartDate}
+                id="insurancePolicyDate"
+                name="insurancePolicyDate"
+                value={formData.insurancePolicyDate}
                 onChange={handleChange}
                 className="po-entry-input"
               />
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="insuranceEndDate" className="po-entry-label">
-                Insurance End Date
+              <label htmlFor="insurancePolicyCompany" className="po-entry-label">
+                Policy Company
+              </label>
+              <input
+                type="text"
+                id="insurancePolicyCompany"
+                name="insurancePolicyCompany"
+                value={formData.insurancePolicyCompany}
+                onChange={handleChange}
+                className="po-entry-input"
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="insurancePolicyValidUpto" className="po-entry-label">
+                Policy Valid upto
               </label>
               <input
                 type="date"
-                id="insuranceEndDate"
-                name="insuranceEndDate"
-                value={formData.insuranceEndDate}
+                id="insurancePolicyValidUpto"
+                name="insurancePolicyValidUpto"
+                value={formData.insurancePolicyValidUpto}
                 onChange={handleChange}
                 className="po-entry-input"
               />
             </div>
             
-            <div className="po-entry-field">
-              <label htmlFor="insuranceAmount" className="po-entry-label">
-                Insurance Amount
+            <div className="po-entry-field po-entry-field-full">
+              <label htmlFor="insurancePolicyClauseInPO" className="po-entry-label">
+                Policy Clause in PO
               </label>
-              <input
-                type="number"
-                id="insuranceAmount"
-                name="insuranceAmount"
-                value={formData.insuranceAmount}
+              <textarea
+                id="insurancePolicyClauseInPO"
+                name="insurancePolicyClauseInPO"
+                value={formData.insurancePolicyClauseInPO}
                 onChange={handleChange}
-                className="po-entry-input"
-                step="0.01"
+                className="po-entry-textarea"
+                rows="4"
+                placeholder="Enter policy clause in PO..."
               />
             </div>
             
-            <div className="po-entry-field">
-              <label htmlFor="insurancePremium" className="po-entry-label">
-                Insurance Premium
+            <div className="po-entry-field po-entry-field-full">
+              <label htmlFor="insurancePolicyRemarks" className="po-entry-label">
+                Policy Remarks
               </label>
-              <input
-                type="number"
-                id="insurancePremium"
-                name="insurancePremium"
-                value={formData.insurancePremium}
+              <textarea
+                id="insurancePolicyRemarks"
+                name="insurancePolicyRemarks"
+                value={formData.insurancePolicyRemarks}
                 onChange={handleChange}
-                className="po-entry-input"
-                step="0.01"
+                className="po-entry-textarea"
+                rows="3"
+                placeholder="Enter policy remarks..."
               />
             </div>
           </div>
@@ -959,23 +1108,6 @@ function POEntry() {
         <div className="po-entry-section">
           <h2 className="po-entry-section-title">Bank Guarantee Details</h2>
           <div className="po-entry-form-grid">
-            <div className="po-entry-field">
-              <label htmlFor="bankGuaranteeRequired" className="po-entry-label">
-                Bank Guarantee Required
-              </label>
-              <select
-                id="bankGuaranteeRequired"
-                name="bankGuaranteeRequired"
-                value={formData.bankGuaranteeRequired}
-                onChange={handleChange}
-                className="po-entry-select"
-              >
-                <option value="">Select</option>
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-              </select>
-            </div>
-            
             <div className="po-entry-field">
               <label htmlFor="bankGuaranteeType" className="po-entry-label">
                 Bank Guarantee Type
@@ -992,22 +1124,8 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="bankName" className="po-entry-label">
-                Bank Name
-              </label>
-              <input
-                type="text"
-                id="bankName"
-                name="bankName"
-                value={formData.bankName}
-                onChange={handleChange}
-                className="po-entry-input"
-              />
-            </div>
-            
-            <div className="po-entry-field">
               <label htmlFor="bankGuaranteeNumber" className="po-entry-label">
-                Bank Guarantee Number
+                Bank Guarantee No
               </label>
               <input
                 type="text"
@@ -1034,14 +1152,14 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="bankGuaranteeAmount" className="po-entry-label">
-                Bank Guarantee Amount
+              <label htmlFor="bankGuaranteeValue" className="po-entry-label">
+                Bank Guarantee Value
               </label>
               <input
                 type="number"
-                id="bankGuaranteeAmount"
-                name="bankGuaranteeAmount"
-                value={formData.bankGuaranteeAmount}
+                id="bankGuaranteeValue"
+                name="bankGuaranteeValue"
+                value={formData.bankGuaranteeValue}
                 onChange={handleChange}
                 className="po-entry-input"
                 step="0.01"
@@ -1049,32 +1167,515 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="bankGuaranteeValidityDate" className="po-entry-label">
-                Bank Guarantee Validity Date
+              <label htmlFor="bankName" className="po-entry-label">
+                Bank Name
+              </label>
+              <input
+                type="text"
+                id="bankName"
+                name="bankName"
+                value={formData.bankName}
+                onChange={handleChange}
+                className="po-entry-input"
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="bankGuaranteeValidity" className="po-entry-label">
+                Bank Guarantee Validity
               </label>
               <input
                 type="date"
-                id="bankGuaranteeValidityDate"
-                name="bankGuaranteeValidityDate"
-                value={formData.bankGuaranteeValidityDate}
+                id="bankGuaranteeValidity"
+                name="bankGuaranteeValidity"
+                value={formData.bankGuaranteeValidity}
+                onChange={handleChange}
+                className="po-entry-input"
+              />
+            </div>
+            
+            <div className="po-entry-field po-entry-field-full">
+              <label htmlFor="bankGuaranteeReleaseValidityClauseInPO" className="po-entry-label">
+                Bank Guarantee Release & Validity Clause in PO
+              </label>
+              <textarea
+                id="bankGuaranteeReleaseValidityClauseInPO"
+                name="bankGuaranteeReleaseValidityClauseInPO"
+                value={formData.bankGuaranteeReleaseValidityClauseInPO}
+                onChange={handleChange}
+                className="po-entry-textarea"
+                rows="4"
+                placeholder="Enter bank guarantee release & validity clause in PO..."
+              />
+            </div>
+            
+            <div className="po-entry-field po-entry-field-full">
+              <label htmlFor="bankGuaranteeRemarks" className="po-entry-label">
+                Bank Guarantee Remarks
+              </label>
+              <textarea
+                id="bankGuaranteeRemarks"
+                name="bankGuaranteeRemarks"
+                value={formData.bankGuaranteeRemarks}
+                onChange={handleChange}
+                className="po-entry-textarea"
+                rows="3"
+                placeholder="Enter bank guarantee remarks..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Role Assignments */}
+        <div className="po-entry-section">
+          <h2 className="po-entry-section-title">Role Assignments</h2>
+          <div className="po-entry-form-grid">
+            <div className="po-entry-field">
+              <label htmlFor="salesManagerId" className="po-entry-label">
+                Sales Manager
+              </label>
+              <select
+                id="salesManagerId"
+                name="salesManagerId"
+                value={formData.salesManagerId}
+                onChange={handleChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Sales Manager</option>
+                {salesManagers.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="salesHeadId" className="po-entry-label">
+                Sales Head
+              </label>
+              <select
+                id="salesHeadId"
+                name="salesHeadId"
+                value={formData.salesHeadId}
+                onChange={handleChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Sales Head</option>
+                {salesHeads.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="businessHeadId" className="po-entry-label">
+                Business Head
+              </label>
+              <select
+                id="businessHeadId"
+                name="businessHeadId"
+                value={formData.businessHeadId}
+                onChange={handleChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Business Head</option>
+                {businessHeads.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="projectManagerId" className="po-entry-label">
+                Project Manager
+              </label>
+              <select
+                id="projectManagerId"
+                name="projectManagerId"
+                value={formData.projectManagerId}
+                onChange={handleChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Project Manager</option>
+                {projectManagers.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="projectHeadId" className="po-entry-label">
+                Project Head
+              </label>
+              <select
+                id="projectHeadId"
+                name="projectHeadId"
+                value={formData.projectHeadId}
+                onChange={handleChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Project Head</option>
+                {projectHeads.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="collectionInchargeId" className="po-entry-label">
+                Collection Incharge
+              </label>
+              <select
+                id="collectionInchargeId"
+                name="collectionInchargeId"
+                value={formData.collectionInchargeId}
+                onChange={handleChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Collection Incharge</option>
+                {collectionIncharges.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="salesAgentName" className="po-entry-label">
+                Sales Agent Name
+              </label>
+              <select
+                id="salesAgentName"
+                name="salesAgentName"
+                value={formData.salesAgentName}
+                onChange={handleChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Sales Agent</option>
+                {salesAgents.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="salesAgentCommission" className="po-entry-label">
+                Sales Agent Commission
+              </label>
+              <input
+                type="number"
+                id="salesAgentCommission"
+                name="salesAgentCommission"
+                value={formData.salesAgentCommission}
+                onChange={handleChange}
+                className="po-entry-input"
+                step="0.01"
+                placeholder="0.00"
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="collectionAgentName" className="po-entry-label">
+                Collection Agent Name
+              </label>
+              <select
+                id="collectionAgentName"
+                name="collectionAgentName"
+                value={formData.collectionAgentName}
+                onChange={handleChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Collection Agent</option>
+                {collectionAgents.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="collectionAgentCommission" className="po-entry-label">
+                Collection Agent Commission
+              </label>
+              <input
+                type="number"
+                id="collectionAgentCommission"
+                name="collectionAgentCommission"
+                value={formData.collectionAgentCommission}
+                onChange={handleChange}
+                className="po-entry-input"
+                step="0.01"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Delivery Schedule & Other Details */}
+        <div className="po-entry-section">
+          <h2 className="po-entry-section-title">Delivery Schedule & Other Details</h2>
+          <div className="po-entry-form-grid">
+            <div className="po-entry-field po-entry-field-full">
+              <label htmlFor="deliveryScheduleClause" className="po-entry-label">
+                Delivery Schedule Clause
+              </label>
+              <textarea
+                id="deliveryScheduleClause"
+                name="deliveryScheduleClause"
+                value={formData.deliveryScheduleClause}
+                onChange={handleChange}
+                className="po-entry-textarea"
+                rows="6"
+                placeholder="Enter delivery schedule clause..."
+              />
+            </div>
+            
+            <div className="po-entry-field po-entry-field-full">
+              <label htmlFor="liquidatedDamagesClause" className="po-entry-label">
+                Liquidated Damages Clause
+              </label>
+              <textarea
+                id="liquidatedDamagesClause"
+                name="liquidatedDamagesClause"
+                value={formData.liquidatedDamagesClause}
+                onChange={handleChange}
+                className="po-entry-textarea"
+                rows="4"
+                placeholder="Enter liquidated damages clause..."
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="lastDateOfDelivery" className="po-entry-label">
+                Last Date of Delivery
+              </label>
+              <input
+                type="date"
+                id="lastDateOfDelivery"
+                name="lastDateOfDelivery"
+                value={formData.lastDateOfDelivery}
                 onChange={handleChange}
                 className="po-entry-input"
               />
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="bankGuaranteePercentage" className="po-entry-label">
-                Bank Guarantee Percentage
+              <label htmlFor="poValidity" className="po-entry-label">
+                PO Validity
               </label>
               <input
-                type="number"
-                id="bankGuaranteePercentage"
-                name="bankGuaranteePercentage"
-                value={formData.bankGuaranteePercentage}
+                type="text"
+                id="poValidity"
+                name="poValidity"
+                value={formData.poValidity}
                 onChange={handleChange}
                 className="po-entry-input"
-                step="0.01"
-                placeholder="e.g., 5.00"
+                placeholder="e.g., 90 days"
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label htmlFor="poSignedConcernName" className="po-entry-label">
+                PO Signed Concern Name
+              </label>
+              <input
+                type="text"
+                id="poSignedConcernName"
+                name="poSignedConcernName"
+                value={formData.poSignedConcernName}
+                onChange={handleChange}
+                className="po-entry-input"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* BOQ Section */}
+        <div className="po-entry-section">
+          <h2 className="po-entry-section-title">Bill of Quantities (BOQ)</h2>
+          <div className="po-entry-boq-container">
+            <div className="po-entry-boq-table-wrapper">
+              <table className="po-entry-boq-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '30%' }}>Material Description</th>
+                    <th style={{ width: '10%' }}>Quantity</th>
+                    <th style={{ width: '8%' }}>UOM</th>
+                    <th style={{ width: '10%' }}>Unit Price</th>
+                    <th style={{ width: '10%' }}>Unit Cost</th>
+                    <th style={{ width: '10%' }}>Freight</th>
+                    <th style={{ width: '10%' }}>GST</th>
+                    <th style={{ width: '10%' }}>Total Cost</th>
+                    <th style={{ width: '2%' }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {boqItems.map((item, index) => (
+                    <tr key={item.id}>
+                      <td>
+                        <input
+                          type="text"
+                          value={item.materialDescription}
+                          onChange={(e) => handleBOQItemChange(item.id, 'materialDescription', e.target.value)}
+                          className="po-entry-boq-input"
+                          placeholder="Enter material description"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => handleBOQItemChange(item.id, 'quantity', e.target.value)}
+                          className="po-entry-boq-input"
+                          placeholder="0"
+                          step="0.01"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          value={item.uom}
+                          onChange={(e) => handleBOQItemChange(item.id, 'uom', e.target.value)}
+                          className="po-entry-boq-input"
+                          placeholder="UOM"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          value={item.unitPrice}
+                          onChange={(e) => handleBOQItemChange(item.id, 'unitPrice', e.target.value)}
+                          className="po-entry-boq-input"
+                          placeholder="0.00"
+                          step="0.01"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          value={item.unitCost}
+                          onChange={(e) => handleBOQItemChange(item.id, 'unitCost', e.target.value)}
+                          className="po-entry-boq-input"
+                          placeholder="0.00"
+                          step="0.01"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          value={item.freight}
+                          onChange={(e) => handleBOQItemChange(item.id, 'freight', e.target.value)}
+                          className="po-entry-boq-input"
+                          placeholder="0.00"
+                          step="0.01"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          value={item.gst}
+                          onChange={(e) => handleBOQItemChange(item.id, 'gst', e.target.value)}
+                          className="po-entry-boq-input"
+                          placeholder="0.00"
+                          step="0.01"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          value={item.totalCost}
+                          readOnly
+                          className="po-entry-boq-input po-entry-boq-input-readonly"
+                          style={{ background: 'var(--color-bg-tertiary)' }}
+                        />
+                      </td>
+                      <td>
+                        {boqItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBOQItem(item.id)}
+                            className="po-entry-boq-remove-button"
+                            aria-label="Remove row"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleAddBOQItem}
+              className="po-entry-boq-add-button"
+            >
+              <Plus className="po-entry-action-icon" />
+              <span>Add Row</span>
+            </button>
+          </div>
+        </div>
+
+        {/* BOQ Summary */}
+        <div className="po-entry-section">
+          <h2 className="po-entry-section-title">BOQ Summary</h2>
+          <div className="po-entry-form-grid">
+            <div className="po-entry-field">
+              <label className="po-entry-label">Total Ex-Works</label>
+              <input
+                type="text"
+                value={boqTotals.totalExWorks}
+                readOnly
+                className="po-entry-input po-entry-input-readonly"
+                style={{ background: 'var(--color-bg-tertiary)', fontWeight: 600 }}
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label className="po-entry-label">Total Freight</label>
+              <input
+                type="text"
+                value={boqTotals.totalFreight}
+                readOnly
+                className="po-entry-input po-entry-input-readonly"
+                style={{ background: 'var(--color-bg-tertiary)', fontWeight: 600 }}
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label className="po-entry-label">Total GST</label>
+              <input
+                type="text"
+                value={boqTotals.totalGST}
+                readOnly
+                className="po-entry-input po-entry-input-readonly"
+                style={{ background: 'var(--color-bg-tertiary)', fontWeight: 600 }}
+              />
+            </div>
+            
+            <div className="po-entry-field">
+              <label className="po-entry-label">Total PO Value</label>
+              <input
+                type="text"
+                value={boqTotals.totalPOValue}
+                readOnly
+                className="po-entry-input po-entry-input-readonly"
+                style={{ background: 'var(--color-bg-tertiary)', fontWeight: 700, fontSize: '1.1em' }}
               />
             </div>
           </div>
@@ -1102,4 +1703,3 @@ function POEntry() {
 }
 
 export default POEntry
-

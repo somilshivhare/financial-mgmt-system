@@ -35,12 +35,32 @@ export const saveMoM = async (momData) => {
   }
 }
 
+export const deleteMoM = async (id) => {
+  try {
+    const response = await momApi.deleteMoM(id)
+    return response.data
+  } catch (error) {
+    console.error(`Failed to delete MoM ${id}:`, error)
+    throw error
+  }
+}
+
 export const getMoMsByUser = async (userId) => {
   try {
     const response = await momApi.getMoMsByUser(userId)
     return response.data || []
   } catch (error) {
     console.error(`Failed to load MoMs for user ${userId}:`, error)
+    return []
+  }
+}
+
+export const getMoMsByDate = async (date) => {
+  try {
+    const response = await momApi.getMoMsByDate(date)
+    return response.data || []
+  } catch (error) {
+    console.error(`Failed to load MoMs for date ${date}:`, error)
     return []
   }
 }

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, Download, Edit3, Plus, Save, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { CalendarDays, Download, Edit3, Plus, Save, X, AlertCircle } from 'lucide-react'
 import '../styles/Meetings.css'
+import * as masterDataApi from '../api/masterData'
+import { me } from '../api/auth'
 
 function safeParse(json) {
   try {
@@ -47,20 +50,6 @@ function formatDateTime(iso) {
   return d.toLocaleString('en-IN', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-const MOCK_USERS = [
-  { id: 'u-1', label: 'User (You)', type: 'User' },
-  { id: 'u-2', label: 'Finance Manager', type: 'User' },
-  { id: 'u-3', label: 'Accounts Executive', type: 'User' },
-]
-
-const MOCK_CUSTOMERS = [
-  { id: 'c-1', label: 'Acme Corp. (Client)', type: 'Customer' },
-  { id: 'c-2', label: 'Northwind (Client)', type: 'Customer' },
-  { id: 'v-1', label: 'Contoso Supplies (Vendor)', type: 'Vendor' },
-]
-
-const PARTICIPANTS = [...MOCK_USERS, ...MOCK_CUSTOMERS]
-
 const DEFAULT_MOM = () => ({
   id: `MOM-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
   title: '',
@@ -83,7 +72,7 @@ function canEdit(role) {
   return r === 'admin' || r === 'administrator' || r === 'manager'
 }
 
-function buildPrintableHTML(mom) {
+function buildPrintableHTML(mom, participantsMap) {
   const esc = (s) =>
     String(s || '')
       .replaceAll('&', '&amp;')
@@ -93,12 +82,12 @@ function buildPrintableHTML(mom) {
       .replaceAll("'", '&#039;')
 
   const participants = mom.participants
-    .map((id) => PARTICIPANTS.find((p) => p.id === id)?.label || id)
+    .map((id) => participantsMap.get(id)?.label || id)
     .join(', ')
 
   const actions = mom.actionItems
     .map((a) => {
-      const owner = PARTICIPANTS.find((p) => p.id === a.ownerId)?.label || '—'
+      const owner = participantsMap.get(a.ownerId)?.label || '—'
       return `<tr>
         <td>${esc(a.task)}</td>
         <td>${esc(owner)}</td>
@@ -163,6 +152,7 @@ function buildPrintableHTML(mom) {
 }
 
 export default function Meetings() {
+  const navigate = useNavigate()
   const [userRole, setUserRole] = useState('User')
 
   const [view, setView] = useState('month') // month | week
@@ -176,7 +166,145 @@ export default function Meetings() {
   const [draft, setDraft] = useState(DEFAULT_MOM)
   const [errors, setErrors] = useState({})
 
+  // Participants data state
+  const [participants, setParticipants] = useState([])
+  const [participantsLoading, setParticipantsLoading] = useState(true)
+  const [participantsError, setParticipantsError] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null)
+
   const filePrintRef = useRef(null)
+
+  // Create participants map for quick lookup
+  const participantsMap = useMemo(() => {
+    const map = new Map()
+    participants.forEach((p) => {
+      map.set(p.id, p)
+    })
+    return map
+  }, [participants])
+
+  // Fetch participants (users and customers) from backend
+  useEffect(() => {
+    const fetchParticipants = async () => {
+      setParticipantsLoading(true)
+      setParticipantsError(null)
+
+      try {
+        // Fetch current user
+        let userData = null
+        try {
+          const userResponse = await me()
+          if (userResponse?.data?.data?.user) {
+            const user = userResponse.data.data.user
+            userData = {
+              id: user.id,
+              fullName: user.fullName || user.full_name,
+              email: user.email,
+              role: user.role,
+            }
+            setCurrentUser(userData)
+            setUserRole(user.role || 'User')
+          }
+        } catch (userError) {
+          console.warn('Failed to fetch current user:', userError)
+          // Continue without current user data
+        }
+
+        // Fetch employees (internal users) from masterData
+        let employees = []
+        try {
+          const employeesResponse = await masterDataApi.getMasterDataByType('employee-profile')
+          // Handle different response structures: response.data.data, response.data, or direct array
+          let employeesData = []
+          if (employeesResponse?.data?.data && Array.isArray(employeesResponse.data.data)) {
+            employeesData = employeesResponse.data.data
+          } else if (employeesResponse?.data && Array.isArray(employeesResponse.data)) {
+            employeesData = employeesResponse.data
+          } else if (Array.isArray(employeesResponse)) {
+            employeesData = employeesResponse
+          }
+
+          employees = employeesData.map((emp) => {
+            const name = emp.values?.nameOfEmployee || emp.values?.name || 'Unnamed Employee'
+            const designation = emp.values?.designation || ''
+            const label = designation ? `${name} (${designation})` : name
+            return {
+              id: `emp-${emp.id}`,
+              label,
+              type: 'User',
+              originalId: emp.id,
+              name,
+              designation,
+            }
+          })
+        } catch (empError) {
+          console.warn('Failed to fetch employees:', empError)
+          // Continue without employees
+        }
+
+        // Add current user to employees list if not already present
+        if (userData && !employees.find((e) => e.originalId === userData.id)) {
+          employees.unshift({
+            id: `user-${userData.id}`,
+            label: `${userData.fullName} (You)`,
+            type: 'User',
+            originalId: userData.id,
+            name: userData.fullName,
+            role: userData.role,
+          })
+        }
+
+        // Fetch customers from masterData
+        let customers = []
+        try {
+          const customersResponse = await masterDataApi.getMasterDataByType('customer-profile')
+          // Handle different response structures: response.data.data, response.data, or direct array
+          let customersData = []
+          if (customersResponse?.data?.data && Array.isArray(customersResponse.data.data)) {
+            customersData = customersResponse.data.data
+          } else if (customersResponse?.data && Array.isArray(customersResponse.data)) {
+            customersData = customersResponse.data
+          } else if (Array.isArray(customersResponse)) {
+            customersData = customersResponse
+          }
+
+          customers = customersData.map((cust) => {
+            const name = cust.values?.customerName || cust.values?.name || cust.name || 'Unnamed Customer'
+            return {
+              id: `cust-${cust.id}`,
+              label: `${name} (Client)`,
+              type: 'Customer',
+              originalId: cust.id,
+              name,
+            }
+          })
+        } catch (custError) {
+          console.warn('Failed to fetch customers:', custError)
+          // Continue without customers
+        }
+
+        // Combine all participants
+        const allParticipants = [...employees, ...customers]
+
+        if (allParticipants.length === 0) {
+          setParticipantsError('No participants available. Please ensure employees and customers are configured in Master Data.')
+        } else {
+          setParticipants(allParticipants)
+          setParticipantsError(null)
+        }
+      } catch (error) {
+        console.error('Failed to fetch participants:', error)
+        setParticipantsError(
+          error.message || 'Failed to load participants. Please check your connection and try again.'
+        )
+        setParticipants([])
+      } finally {
+        setParticipantsLoading(false)
+      }
+    }
+
+    fetchParticipants()
+  }, [])
 
   useEffect(() => {
     const user = safeParse(localStorage.getItem('user') || '') || {}
@@ -193,13 +321,13 @@ export default function Meetings() {
       title: 'Collections Review - Weekly',
       datetime: new Date().toISOString(),
       meetingType: 'Internal',
-      participants: ['u-1', 'u-2'],
+      participants: [],
       agenda: 'Review overdue invoices and plan follow-up schedule.',
       discussionPoints: 'Discuss top delinquent accounts and escalation rules.',
       decisionsTaken: 'Prioritize invoices overdue > 30 days. Escalate critical accounts.',
       actionItems: [
-        { id: 'AI-SEED1', task: 'Prepare list of invoices overdue > 30 days', ownerId: 'u-3', dueDate: toISODate(addDays(new Date(), 2)), status: 'Pending' },
-        { id: 'AI-SEED2', task: 'Schedule client follow-up calls for top 5 accounts', ownerId: 'u-2', dueDate: toISODate(addDays(new Date(), 3)), status: 'In Progress' },
+        { id: 'AI-SEED1', task: 'Prepare list of invoices overdue > 30 days', ownerId: '', dueDate: toISODate(addDays(new Date(), 2)), status: 'Pending' },
+        { id: 'AI-SEED2', task: 'Schedule client follow-up calls for top 5 accounts', ownerId: '', dueDate: toISODate(addDays(new Date(), 3)), status: 'In Progress' },
       ],
       nextMeetingDate: toISODate(addDays(new Date(), 7)),
     }
@@ -340,11 +468,16 @@ export default function Meetings() {
     const w = window.open('', '_blank', 'noopener,noreferrer')
     if (!w) return
     w.document.open()
-    w.document.write(buildPrintableHTML(mom))
+    w.document.write(buildPrintableHTML(mom, participantsMap))
     w.document.close()
     w.focus()
     w.print()
   }
+
+  // Filter participants by type for action item owners (only users)
+  const userParticipants = useMemo(() => {
+    return participants.filter((p) => p.type === 'User')
+  }, [participants])
 
   return (
     <div className="mom-page">
@@ -376,7 +509,11 @@ export default function Meetings() {
             </button>
           </div>
 
-          <button type="button" className="mom-btn mom-btn-primary" onClick={openCreate}>
+          <button 
+            type="button" 
+            className="mom-btn mom-btn-primary" 
+            onClick={() => navigate('/mom/new')}
+          >
             <Plus className="mom-btn-icon" />
             Create MoM
           </button>
@@ -521,7 +658,9 @@ export default function Meetings() {
               <div className="mom-section">
                 <div className="mom-section-label">Participants</div>
                 <div className="mom-section-body">
-                  {(selected.participants || []).map((id) => PARTICIPANTS.find((p) => p.id === id)?.label || id).join(', ') || '—'}
+                  {(selected.participants || [])
+                    .map((id) => participantsMap.get(id)?.label || id)
+                    .join(', ') || '—'}
                 </div>
               </div>
 
@@ -544,7 +683,7 @@ export default function Meetings() {
                 <div className="mom-section-label">Action Items</div>
                 <div className="mom-actions">
                   {(selected.actionItems || []).map((a) => {
-                    const owner = PARTICIPANTS.find((p) => p.id === a.ownerId)?.label || '—'
+                    const owner = participantsMap.get(a.ownerId)?.label || '—'
                     return (
                       <div key={a.id} className="mom-action">
                         <div className="mom-action-main">
@@ -600,6 +739,23 @@ export default function Meetings() {
                 </div>
               </div>
 
+              {participantsError && (
+                <div className="mom-error-banner" role="alert">
+                  <AlertCircle className="mom-error-icon" />
+                  <div>
+                    <strong>Unable to load participants</strong>
+                    <p>{participantsError}</p>
+                  </div>
+                </div>
+              )}
+
+              {participantsLoading && (
+                <div className="mom-loading-banner">
+                  <div className="mom-spinner" />
+                  <span>Loading participants...</span>
+                </div>
+              )}
+
               <div className="mom-form-grid">
                 <div className="mom-field mom-field--span">
                   <label className="mom-label">Meeting Title <span className="mom-required">*</span></label>
@@ -638,20 +794,32 @@ export default function Meetings() {
 
                 <div className="mom-field mom-field--span">
                   <label className="mom-label">Participants <span className="mom-required">*</span></label>
-                  <div className={`mom-participants ${errors.participants ? 'is-error' : ''}`}>
-                    {PARTICIPANTS.map((p) => (
-                      <label key={p.id} className="mom-participant">
-                        <input
-                          type="checkbox"
-                          checked={draft.participants.includes(p.id)}
-                          onChange={() => toggleParticipant(p.id)}
-                        />
-                        <span className="mom-participant-text">{p.label}</span>
-                        <span className="mom-participant-type">{p.type}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {errors.participants && <div className="mom-error" role="alert">{errors.participants}</div>}
+                  {participantsLoading ? (
+                    <div className="mom-loading-text">Loading participants...</div>
+                  ) : participants.length === 0 ? (
+                    <div className="mom-empty-state">
+                      <AlertCircle className="mom-empty-icon" />
+                      <p>No participants available. Please configure employees and customers in Master Data.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`mom-participants ${errors.participants ? 'is-error' : ''}`}>
+                        {participants.map((p) => (
+                          <label key={p.id} className="mom-participant">
+                            <input
+                              type="checkbox"
+                              checked={draft.participants.includes(p.id)}
+                              onChange={() => toggleParticipant(p.id)}
+                              disabled={participantsLoading}
+                            />
+                            <span className="mom-participant-text">{p.label}</span>
+                            <span className="mom-participant-type">{p.type}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {errors.participants && <div className="mom-error" role="alert">{errors.participants}</div>}
+                    </>
+                  )}
                 </div>
 
                 <div className="mom-field mom-field--span">
@@ -698,9 +866,14 @@ export default function Meetings() {
                           onChange={(e) => updateActionItem(a.id, { task: e.target.value })}
                           placeholder="Action item"
                         />
-                        <select className="mom-input mom-select" value={a.ownerId} onChange={(e) => updateActionItem(a.id, { ownerId: e.target.value })}>
+                        <select 
+                          className="mom-input mom-select" 
+                          value={a.ownerId} 
+                          onChange={(e) => updateActionItem(a.id, { ownerId: e.target.value })}
+                          disabled={userParticipants.length === 0}
+                        >
                           <option value="">Select owner</option>
-                          {MOCK_USERS.map((u) => (
+                          {userParticipants.map((u) => (
                             <option key={u.id} value={u.id}>{u.label}</option>
                           ))}
                         </select>
@@ -716,6 +889,11 @@ export default function Meetings() {
                       </div>
                     ))}
                   </div>
+                  {userParticipants.length === 0 && !participantsLoading && (
+                    <div className="mom-warning-text">
+                      No users available for action item assignment. Please configure employees in Master Data.
+                    </div>
+                  )}
                 </div>
 
                 <div className="mom-field">
@@ -730,5 +908,3 @@ export default function Meetings() {
     </div>
   )
 }
-
-

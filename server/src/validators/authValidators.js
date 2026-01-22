@@ -8,8 +8,13 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
+  email: z.string()
+    .min(1, 'Email is required')
+    .email('Invalid email format')
+    .transform(val => val.trim().toLowerCase()), // Normalize email
+  password: z.string()
+    .min(1, 'Password is required')
+    .min(8, 'Password must be at least 8 characters'),
 });
 
 const requestPasswordResetSchema = z.object({

@@ -32,7 +32,7 @@
   justify-content: center;
   align-items: stretch;
   padding: var(--space-8);
-  background: linear-gradient(135deg, #020617 0%, #0b1120 30%, #111827 55%, #1e293b 75%, #312e81 100%);
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%);
   position: relative;
   overflow: hidden;
   min-height: 100vh;
@@ -52,10 +52,10 @@
   right: 0;
   bottom: 0;
   background: 
-    radial-gradient(circle at 10% 0%, rgba(212, 175, 55, 0.16) 0%, transparent 45%),
-    radial-gradient(circle at 90% 30%, rgba(30, 64, 175, 0.40) 0%, transparent 55%),
-    radial-gradient(circle at 0% 80%, rgba(15, 23, 42, 0.65) 0%, transparent 60%),
-    linear-gradient(165deg, rgba(148, 163, 184, 0.22) 0%, transparent 40%);
+    radial-gradient(circle at 10% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 90% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 55%),
+    radial-gradient(circle at 0% 80%, rgba(15, 23, 42, 0.15) 0%, transparent 60%),
+    linear-gradient(165deg, rgba(148, 163, 184, 0.10) 0%, transparent 40%);
   pointer-events: none;
 }
 
@@ -71,13 +71,14 @@
 }
 
 .auth-brand-panel-logo-container {
-  background: rgba(15, 23, 42, 0.68);
+  background: rgba(255, 255, 255, 0.15);
   padding: var(--space-4);
   border-radius: var(--radius-lg);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.6);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  backdrop-filter: blur(10px);
   width: fit-content;
   margin: 0 auto;
-  backdrop-filter: blur(10px);
 }
 
 .auth-brand-panel-logo {
@@ -122,14 +123,14 @@
 .auth-brand-headline {
   font-size: 1.35rem;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #ffffff;
   margin: 0 0 var(--space-2) 0;
   letter-spacing: -0.01em;
 }
 
 .auth-brand-subcopy {
   font-size: var(--font-size-sm);
-  color: rgba(226, 232, 240, 0.92);
+  color: rgba(255, 255, 255, 0.90);
   margin: 0;
   line-height: 1.7;
 }
@@ -144,10 +145,10 @@
   gap: var(--space-4);
   padding: var(--space-4);
   border-radius: var(--radius-lg);
-  background: linear-gradient(145deg, rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.92));
+  background: #ffffff;
   box-shadow:
-    0 18px 40px rgba(15, 23, 42, 0.7),
-    0 0 0 1px rgba(148, 163, 184, 0.35);
+    0 12px 32px rgba(15, 23, 42, 0.30),
+    0 0 0 1px rgba(255, 255, 255, 0.20);
 }
 
 .auth-brand-illustration-sidebar {
@@ -176,7 +177,7 @@
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(226, 232, 240, 0.9);
+  color: rgba(15, 23, 42, 0.90);
 }
 
 .auth-brand-illustration-nav-item {
@@ -186,13 +187,14 @@
   padding: 6px 10px;
   border-radius: var(--radius-md);
   font-size: 0.75rem;
-  color: rgba(226, 232, 240, 0.8);
+  color: rgba(15, 23, 42, 0.75);
   background: transparent;
 }
 
 .auth-brand-illustration-nav-item--active {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.3), rgba(15, 23, 42, 0.9));
-  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.65);
+  background: rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+  color: rgba(15, 23, 42, 0.95);
 }
 
 .auth-brand-illustration-nav-icon {
@@ -215,14 +217,15 @@
 
 .auth-brand-illustration-kpi-card {
   border-radius: var(--radius-md);
-  background: radial-gradient(circle at 0% 0%, rgba(234, 179, 8, 0.16), rgba(15, 23, 42, 0.9));
+  background: #ffffff;
   padding: 10px 12px;
-  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.5);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.10);
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .auth-brand-illustration-kpi-label {
   font-size: 0.7rem;
-  color: rgba(226, 232, 240, 0.8);
+  color: rgba(15, 23, 42, 0.70);
 }
 
 .auth-brand-illustration-kpi-value {
@@ -230,7 +233,7 @@
   margin-top: 4px;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #f9fafb;
+  color: #0f172a;
 }
 
 .auth-brand-illustration-kpi-bar {
@@ -238,12 +241,12 @@
   width: 100%;
   height: 5px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(15, 23, 42, 0.10);
   overflow: hidden;
 }
 
 .auth-brand-illustration-kpi-bar--soft {
-  background: rgba(15, 118, 110, 0.35);
+  background: rgba(15, 118, 110, 0.15);
 }
 
 .auth-brand-illustration-kpi-bar-fill {
@@ -256,19 +259,21 @@
 
 .auth-brand-illustration-chart {
   border-radius: var(--radius-md);
-  background: radial-gradient(circle at 10% 0%, rgba(59, 130, 246, 0.35), rgba(15, 23, 42, 0.95));
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(15, 23, 42, 0.04));
   height: 72px;
-  box-shadow: inset 0 0 0 1px rgba(30, 64, 175, 0.65);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.10);
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .auth-brand-illustration-table {
   margin-top: 2px;
   border-radius: var(--radius-md);
-  background: rgba(15, 23, 42, 0.95);
-  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.45);
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.10);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   padding: 8px 10px;
   font-size: 0.72rem;
-  color: rgba(226, 232, 240, 0.9);
+  color: rgba(15, 23, 42, 0.85);
 }
 
 .auth-brand-illustration-table-header,
@@ -281,8 +286,8 @@
 
 .auth-brand-illustration-table-header {
   font-weight: 600;
-  color: rgba(249, 250, 251, 0.9);
-  opacity: 0.85;
+  color: rgba(15, 23, 42, 0.75);
+  opacity: 1;
   margin-bottom: 4px;
 }
 
@@ -294,8 +299,8 @@
   justify-self: flex-start;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(51, 65, 85, 0.95);
-  color: rgba(226, 232, 240, 0.9);
+  background: rgba(15, 23, 42, 0.08);
+  color: rgba(15, 23, 42, 0.80);
 }
 
 .auth-brand-illustration-pill--warning {
@@ -405,6 +410,14 @@
   flex-direction: column;
   gap: var(--space-6);
   position: relative;
+}
+
+/* Desktop: wider container for register form to accommodate two columns */
+@media (min-width: 1024px) {
+  .auth-page--register .auth-container {
+    max-width: 900px;
+    width: 100%;
+  }
 }
 
 /* Mobile: Show compact brand header */
@@ -773,50 +786,110 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-4);
+  width: 100%;
 }
 
 .auth-form-col {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  width: 100%;
 }
 
 @media (min-width: 1024px) {
   .auth-page--register .auth-form-grid {
     grid-template-columns: 1fr 1fr;
-    column-gap: var(--space-5);
-    row-gap: var(--space-3);
+    column-gap: var(--space-6);
+    row-gap: var(--space-4);
+    align-items: start;
   }
 
   .auth-page--register .auth-form-col {
-    gap: var(--space-3);
+    gap: var(--space-4);
+    display: flex;
+    flex-direction: column;
   }
 
+  /* Ensure columns are balanced and aligned */
+  .auth-page--register .auth-form-col:first-child {
+    padding-right: 0;
+  }
+
+  .auth-page--register .auth-form-col:last-child {
+    padding-left: 0;
+  }
+
+  /* Perfect alignment for form groups */
+  .auth-page--register .auth-form-group {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  /* Role field spanning full width below grid */
   .auth-page--register .auth-form-group--span {
-    margin-top: -2px;
+    grid-column: 1 / -1;
+    margin-top: var(--space-2);
+    width: 100%;
   }
 
+  /* Card padding optimized for desktop */
   .auth-page--register .auth-card {
-    padding: var(--space-6);
+    padding: var(--space-8);
+    max-width: 100%;
   }
 
   .auth-page--register .auth-card-header {
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+
+  /* Form spacing */
+  .auth-page--register .auth-form {
+    gap: var(--space-6);
   }
 
   .auth-page--register .auth-footer {
-    margin-top: var(--space-3);
+    margin-top: var(--space-4);
   }
 
   .auth-page--register .auth-page-footer {
-    padding-top: var(--space-3);
+    padding-top: var(--space-4);
     margin-top: 0;
   }
 
-  /* Remove extra panel padding on desktop register so the card can fit without overflow */
+  /* Perfect panel padding for desktop */
   .auth-page--register .auth-form-panel {
-    padding: var(--space-5);
-    overflow-y: hidden;
+    padding: var(--space-8) var(--space-10);
+    overflow-y: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Ensure inputs are perfectly aligned */
+  .auth-page--register .auth-input,
+  .auth-page--register .auth-select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Password toggle perfect alignment on desktop */
+  .auth-page--register .auth-password-toggle {
+    right: var(--space-3);
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  /* Ensure password requirements don't break layout */
+  .auth-page--register .auth-password-requirements {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Visual balance - ensure both columns have same visual weight */
+  .auth-page--register .auth-form-col {
+    min-height: 0;
   }
 }
 
@@ -1045,6 +1118,66 @@
 }
 
 /* ============================================
+   PASSWORD VISIBILITY INDICATOR
+   ============================================ */
+
+/* Password visibility indicator - hidden on mobile, visible on desktop/tablet */
+.auth-password-visibility-indicator {
+  display: none; /* Hidden by default on mobile */
+  align-items: center;
+  justify-content: center;
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  width: fit-content;
+  font-family: var(--font-family);
+}
+
+/* Show on tablet and desktop */
+@media (min-width: 768px) {
+  .auth-password-visibility-indicator {
+    display: inline-flex;
+  }
+}
+
+.auth-password-visibility-indicator:hover {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  transform: translateY(-1px);
+}
+
+.auth-password-visibility-indicator:active {
+  transform: translateY(0);
+}
+
+.auth-password-visibility-indicator:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.auth-password-visibility-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  transition: transform var(--transition-base);
+  object-fit: contain;
+  display: block;
+}
+
+.auth-password-visibility-indicator:hover .auth-password-visibility-icon {
+  transform: scale(1.1);
+}
+
+/* Smooth transition when toggling */
+.auth-password-visibility-indicator * {
+  transition: all var(--transition-base);
+}
+
+/* ============================================
    MOBILE RESPONSIVE
    ============================================ */
 
@@ -1071,6 +1204,124 @@
   
   .auth-link {
     align-self: flex-end;
+  }
+
+  /* Register page mobile fixes - ensure proper stacking and alignment */
+  .auth-page--register .auth-form-grid {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-4);
+    width: 100%;
+  }
+
+  .auth-page--register .auth-form-col {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: var(--space-4) !important;
+    width: 100% !important;
+  }
+
+  /* Ensure password fields stack vertically with consistent spacing */
+  .auth-page--register .auth-form-group {
+    width: 100%;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  /* Password input wrapper - ensure proper alignment on mobile */
+  .auth-page--register .auth-input-wrapper {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: stretch;
+    min-height: 44px;
+  }
+
+  /* Password input - full width on mobile with proper padding for eye icon */
+  .auth-page--register .auth-input-password {
+    width: 100% !important;
+    padding-right: calc(var(--space-4) + 40px) !important;
+    min-height: 44px;
+    box-sizing: border-box;
+    flex: 1;
+  }
+
+  /* Password toggle button - properly aligned inside input on mobile */
+  .auth-page--register .auth-password-toggle {
+    position: absolute !important;
+    right: var(--space-3) !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 2;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Ensure toggle icon is properly sized on mobile */
+  .auth-page--register .auth-password-toggle-icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  /* Prevent any overflow or clipping on mobile */
+  .auth-page--register .auth-form-group {
+    overflow: visible;
+  }
+
+  /* Ensure inputs don't overlap - consistent spacing */
+  .auth-page--register .auth-form-col > .auth-form-group + .auth-form-group {
+    margin-top: 0;
+  }
+
+  /* Consistent spacing between password and confirm password fields */
+  .auth-page--register .auth-form-col:first-of-type .auth-form-group:last-of-type {
+    margin-bottom: 0;
+  }
+
+  /* Full width inputs on mobile with touch-friendly height */
+  .auth-page--register .auth-input,
+  .auth-page--register .auth-select {
+    width: 100% !important;
+    box-sizing: border-box;
+    min-height: 44px;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  /* Password requirements - ensure it doesn't overflow on mobile */
+  .auth-page--register .auth-password-requirements {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: var(--space-2);
+    max-width: 100%;
+  }
+
+  /* Ensure form maintains visual consistency with Login page */
+  .auth-page--register .auth-form {
+    gap: var(--space-5);
+  }
+
+  /* Card padding adjustment for mobile */
+  .auth-page--register .auth-card {
+    padding: var(--space-6);
+  }
+
+  /* Form panel padding for mobile */
+  .auth-page--register .auth-form-panel {
+    padding: var(--space-4);
+  }
+
+  /* Ensure no horizontal overflow */
+  .auth-page--register .auth-form-grid,
+  .auth-page--register .auth-form-col,
+  .auth-page--register .auth-form-group {
+    max-width: 100%;
+    overflow-x: hidden;
   }
 }
 

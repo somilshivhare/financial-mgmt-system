@@ -35,3 +35,13 @@ export const getMoMsByDate = async (date) => {
   const response = await client.get(`/mom/date/${date}`)
   return response.data
 }
+
+export const getMoMMinutes = async (meetingId) => {
+  const response = await client.get(`/mom/${meetingId}/minutes`)
+  return response.data
+}
+
+export const addMoMMinute = async (meetingId, minuteData) => {
+  const response = await client.post(`/mom/${meetingId}/minutes`, minuteData)
+  return response.data
+}

@@ -9,11 +9,15 @@ const {
   updatePlanStatus,
   addAction,
   listActions,
+  getCollectionPlanData,
+  getCollectionAnalytics,
 } = require('../../controllers/collectionController');
 
 const router = express.Router();
 
 router.get('/plans', requireAuth, listPlans);
+router.get('/data', requireAuth, getCollectionPlanData);
+router.get('/analytics', requireAuth, getCollectionAnalytics);
 router.post('/plans', requireAuth, requireRole('admin', 'finance', 'operations'), validate(collectionPlanSchema), createPlan);
 router.patch('/plans/:id/status', requireAuth, requireRole('admin', 'finance', 'operations'), updatePlanStatus);
 router.get('/plans/:id/actions', requireAuth, listActions);

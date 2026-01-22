@@ -8,11 +8,13 @@ const {
   createInvoice,
   getInvoice,
   listInvoiceLines,
+  getInvoicesByPONumber,
 } = require('../../controllers/invoiceController');
 
 const router = express.Router();
 
 router.get('/', requireAuth, listInvoices);
+router.get('/po/:poNumber', requireAuth, getInvoicesByPONumber);
 router.get('/:id', requireAuth, getInvoice);
 router.get('/:id/lines', requireAuth, listInvoiceLines);
 router.post('/', requireAuth, requireRole('admin', 'finance'), validate(invoiceSchema), createInvoice);

@@ -34,3 +34,10 @@ export const getUsageStats = async () => {
   const response = await client.get('/subscription/usage')
   return response.data
 }
+
+export const downloadInvoice = async (invoiceId) => {
+  const response = await client.get(`/subscription/invoices/${invoiceId}/download`, {
+    responseType: 'blob',
+  })
+  return response
+}

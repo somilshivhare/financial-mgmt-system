@@ -16,11 +16,22 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(160) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   role_id INT NOT NULL,
-  status ENUM('active','disabled') NOT NULL DEFAULT 'active',
+  status ENUM('active','disabled','locked','suspended') NOT NULL DEFAULT 'active',
   last_login_at DATETIME NULL,
+  last_login_ip VARCHAR(45),
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  email_verified_at DATETIME NULL,
+  phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by CHAR(36),
+  updated_by CHAR(36),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_users_role FOREIGN KEY (role_id) REFERENCES roles(id)
+  CONSTRAINT fk_users_role FOREIGN KEY (role_id) REFERENCES roles(id),
+  CONSTRAINT fk_users_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_users_updated_by FOREIGN KEY (updated_by) REFERENCES users(id),
+  KEY idx_users_email (email),
+  KEY idx_users_status (status),
+  KEY idx_users_role (role_id)
 );
 
 CREATE TABLE IF NOT EXISTS password_resets (

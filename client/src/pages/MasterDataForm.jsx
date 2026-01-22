@@ -10,6 +10,7 @@ import {
   Edit,
 } from 'lucide-react'
 import { COUNTRIES, INDIA_STATES } from '../utils/indiaStates'
+import { saveMasterDataRecord } from '../services/masterDataService'
 import '../styles/MasterData.css'
 
 const FORM_DEFS = {
@@ -100,7 +101,7 @@ const FORM_DEFS = {
       {
         title: 'Business Details',
         fields: [
-          { key: 'segment', label: 'Segment', type: 'select', options: ['Domestic', 'Export', 'Other'] },
+          { key: 'segment', label: 'Segment', type: 'select', options: ['Domestic', 'Export'] },
           { key: 'gstNo', label: 'GST No', type: 'text' },
         ],
       },
@@ -121,6 +122,7 @@ const FORM_DEFS = {
     groups: [
       {
         title: 'Consignee Information',
+        allowMultiple: true,
         fields: [
           { key: 'logo', label: 'Logo', type: 'file', accept: 'image/*' },
           { key: 'consigneeName', label: 'Consignee Name', type: 'text', required: true },
@@ -135,6 +137,7 @@ const FORM_DEFS = {
       },
       {
         title: 'Customer Details',
+        allowMultiple: true,
         fields: [
           { key: 'customerName', label: 'Customer Name', type: 'text' },
           { key: 'legalEntityName', label: 'Legal Entity Name', type: 'text' },
@@ -142,14 +145,17 @@ const FORM_DEFS = {
       },
       {
         title: 'Location Details',
+        allowMultiple: true,
         fields: [
           { key: 'city', label: 'City', type: 'text' },
           { key: 'state', label: 'State', type: 'state' },
+          { key: 'country', label: 'Country', type: 'country' },
           { key: 'consigneeGSTNo', label: 'Consignee GST No', type: 'text' },
         ],
       },
       {
         title: 'Contact Information',
+        allowMultiple: true,
         fields: [
           { key: 'contactPersonName', label: 'Contact Person Name', type: 'text' },
           { key: 'designation', label: 'Designation', type: 'text' },
@@ -165,6 +171,7 @@ const FORM_DEFS = {
     groups: [
       {
         title: 'Payer Information',
+        allowMultiple: true,
         fields: [
           { key: 'logo', label: 'Logo', type: 'file', accept: 'image/*' },
           { key: 'payerName', label: 'Payer Name', type: 'text', required: true },
@@ -179,6 +186,7 @@ const FORM_DEFS = {
       },
       {
         title: 'Customer Details',
+        allowMultiple: true,
         fields: [
           { key: 'customerName', label: 'Customer Name', type: 'text' },
           { key: 'legalEntityName', label: 'Legal Entity Name', type: 'text' },
@@ -186,14 +194,17 @@ const FORM_DEFS = {
       },
       {
         title: 'Location Details',
+        allowMultiple: true,
         fields: [
           { key: 'city', label: 'City', type: 'text' },
           { key: 'state', label: 'State', type: 'state' },
+          { key: 'country', label: 'Country', type: 'country' },
           { key: 'payerGSTNo', label: 'Payer GST No', type: 'text' },
         ],
       },
       {
         title: 'Contact Information',
+        allowMultiple: true,
         fields: [
           { key: 'contactPersonName', label: 'Contact Person Name', type: 'text' },
           { key: 'designation', label: 'Designation', type: 'text' },
@@ -211,10 +222,11 @@ const FORM_DEFS = {
         title: 'Role & Identity',
         allowMultiple: true,
         fields: [
-          { key: 'role', label: 'Role', type: 'select', options: ['Sales Manager', 'Sales Head', 'Business Head', 'Collection Incharge', 'Sales Agent', 'Collection Agent', 'Project Manager', 'Project Head', 'Other'] },
+          { key: 'role', label: 'Role', type: 'select', options: ['Sales Manager', 'Sales Head', 'Business Head', 'Collection Incharge', 'Sales Agent', 'Collection Agent', 'Project Manager', 'Project Head', 'Transporter'] },
           { key: 'photo', label: 'Photo', type: 'file', accept: 'image/*' },
           { key: 'nameOfEmployee', label: 'Name of Employee', type: 'text', required: true },
           { key: 'designation', label: 'Designation', type: 'text' },
+          { key: 'transporterName', label: 'Transporter Name', type: 'text' },
         ],
       },
       {
@@ -227,6 +239,7 @@ const FORM_DEFS = {
       },
       {
         title: 'Employment Details',
+        allowMultiple: true,
         fields: [
           { key: 'department', label: 'Department', type: 'text' },
           { key: 'jobRole', label: 'Job Role', type: 'text' },
@@ -275,13 +288,25 @@ function MasterDataForm() {
   const [multipleEntries, setMultipleEntries] = useState({})
   const [logoPreviews, setLogoPreviews] = useState({})
   const [showReview, setShowReview] = useState(false)
+  
+  // Special state for array-based forms: array of complete objects
+  const [consignees, setConsignees] = useState([{ id: 0, values: {}, logoPreviews: {} }])
+  const [payers, setPayers] = useState([{ id: 0, values: {}, logoPreviews: {} }])
+  const [employees, setEmployees] = useState([{ id: 0, values: {}, logoPreviews: {} }])
+  const [paymentTerms, setPaymentTerms] = useState([{ id: 0, values: {} }])
 
   const title = def?.title || 'Master Data'
   const description = def?.description || 'Fill the form to continue.'
+  
+  const isConsigneeProfile = type === 'consignee-profile'
+  const isPayerProfile = type === 'payer-profile'
+  const isEmployeeProfile = type === 'employee-profile'
+  const isPaymentTerms = type === 'payment-terms'
+  const isArrayBasedForm = isConsigneeProfile || isPayerProfile || isEmployeeProfile || isPaymentTerms
 
-  // Initialize multiple entries for groups that allow it
+  // Initialize multiple entries for groups that allow it (skip for array-based forms)
   useEffect(() => {
-    if (!def) return
+    if (!def || isArrayBasedForm) return
     const initialEntries = {}
     def.groups.forEach((group, groupIndex) => {
       if (group.allowMultiple) {
@@ -289,10 +314,116 @@ function MasterDataForm() {
       }
     })
     setMultipleEntries(initialEntries)
-  }, [def])
+  }, [def, isArrayBasedForm])
+  
+  // Generic handler factory for array-based forms
+  const createArrayHandlers = (items, setItems, formType, itemName) => {
+    const handleAdd = () => {
+      const newId = Math.max(...items.map(item => item.id), -1) + 1
+      const newItem = formType === 'payment-terms' 
+        ? { id: newId, values: {} }
+        : { id: newId, values: {}, logoPreviews: {} }
+      setItems(prev => [...prev, newItem])
+      
+      // Scroll to new item after a brief delay
+      setTimeout(() => {
+        const element = document.getElementById(`${itemName}-${newId}`)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          element.focus()
+        }
+      }, 100)
+    }
+    
+    const handleRemove = (itemId) => {
+      if (items.length === 1) {
+        setStatus({ kind: 'error', message: `At least one ${itemName} is required.` })
+        return
+      }
+      setItems(prev => prev.filter(item => item.id !== itemId))
+    }
+    
+    const handleChange = (itemId, key, value) => {
+      setItems(prev => prev.map(item => 
+        item.id === itemId 
+          ? { ...item, values: { ...item.values, [key]: value } }
+          : item
+      ))
+      setStatus({ kind: 'idle', message: '' })
+    }
+    
+    const handleFileChange = (itemId, key, file) => {
+      setItems(prev => prev.map(item => 
+        item.id === itemId 
+          ? { ...item, values: { ...item.values, [key]: file } }
+          : item
+      ))
+      
+      // Create preview for logo/photo files
+      if (file && (key === 'logo' || key === 'photo')) {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          setItems(prev => prev.map(item => 
+            item.id === itemId 
+              ? { ...item, logoPreviews: { ...item.logoPreviews, [key]: reader.result } }
+              : item
+          ))
+        }
+        reader.readAsDataURL(file)
+      }
+      setStatus({ kind: 'idle', message: '' })
+    }
+    
+    return { handleAdd, handleRemove, handleChange, handleFileChange }
+  }
+  
+  // Consignee-specific handlers
+  const consigneeHandlers = createArrayHandlers(consignees, setConsignees, 'consignee-profile', 'consignee')
+  const handleAddConsignee = consigneeHandlers.handleAdd
+  const handleRemoveConsignee = consigneeHandlers.handleRemove
+  const handleConsigneeChange = consigneeHandlers.handleChange
+  const handleConsigneeFileChange = consigneeHandlers.handleFileChange
+  
+  // Payer-specific handlers
+  const payerHandlers = createArrayHandlers(payers, setPayers, 'payer-profile', 'payer')
+  const handleAddPayer = payerHandlers.handleAdd
+  const handleRemovePayer = payerHandlers.handleRemove
+  const handlePayerChange = payerHandlers.handleChange
+  const handlePayerFileChange = payerHandlers.handleFileChange
+  
+  // Employee-specific handlers
+  const employeeHandlers = createArrayHandlers(employees, setEmployees, 'employee-profile', 'employee')
+  const handleAddEmployee = employeeHandlers.handleAdd
+  const handleRemoveEmployee = employeeHandlers.handleRemove
+  const handleEmployeeChange = employeeHandlers.handleChange
+  const handleEmployeeFileChange = employeeHandlers.handleFileChange
+  
+  // Payment Terms-specific handlers
+  const paymentTermsHandlers = createArrayHandlers(paymentTerms, setPaymentTerms, 'payment-terms', 'payment term')
+  const handleAddPaymentTerm = paymentTermsHandlers.handleAdd
+  const handleRemovePaymentTerm = paymentTermsHandlers.handleRemove
+  const handlePaymentTermChange = paymentTermsHandlers.handleChange
 
   const requiredMissing = useMemo(() => {
     if (!def) return false
+    
+    // Special handling for array-based forms
+    if (isArrayBasedForm) {
+      let items = []
+      if (isConsigneeProfile) items = consignees
+      else if (isPayerProfile) items = payers
+      else if (isEmployeeProfile) items = employees
+      else if (isPaymentTerms) items = paymentTerms
+      
+      return items.some(item =>
+        def.groups.some(group =>
+          group.fields.some(f => 
+            f.required && !String(item.values[f.key] || '').trim()
+          )
+        )
+      )
+    }
+    
     return def.groups.some((group, groupIndex) => {
       const entries = group.allowMultiple ? (multipleEntries[groupIndex] || [0]) : [0]
       return entries.some((entryIndex) =>
@@ -302,7 +433,7 @@ function MasterDataForm() {
         })
       )
     })
-  }, [def, values, multipleEntries])
+  }, [def, values, multipleEntries, isArrayBasedForm, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, consignees, payers, employees, paymentTerms])
 
   const onChange = (key, next, entryIndex = null) => {
     const finalKey = entryIndex !== null ? `${key}_${entryIndex}` : key
@@ -325,7 +456,7 @@ function MasterDataForm() {
     }
   }
 
-  const getStateOptions = (stateKey, entryIndex = null, groupFields = []) => {
+  const getStateOptions = (stateKey, entryIndex = null, groupFields = [], itemValues = null) => {
     // Find corresponding country field in the same group
     const countryField = groupFields.find(f => 
       (f.key.includes('Country') || f.key.includes('country')) &&
@@ -335,11 +466,238 @@ function MasterDataForm() {
     
     if (!countryField) return []
     
-    const countryFieldKey = entryIndex !== null ? `${countryField.key}_${entryIndex}` : countryField.key
-    const selectedCountry = values[countryFieldKey]
+    // Use item values if provided, otherwise use regular values
+    const selectedCountry = itemValues 
+      ? itemValues[countryField.key]
+      : (entryIndex !== null ? values[`${countryField.key}_${entryIndex}`] : values[countryField.key])
     return selectedCountry === 'India' ? INDIA_STATES : []
   }
-
+  
+  // Generic render function for array-based forms
+  const renderArrayForm = (item, index, formType, itemName, items, handlers) => {
+    const itemValues = item.values
+    const itemLogoPreviews = item.logoPreviews || {}
+    const { handleChange, handleFileChange, handleRemove } = handlers
+    
+    const getItemLabel = () => {
+      if (formType === 'consignee-profile') return `Consignee #${index + 1}`
+      if (formType === 'payer-profile') return `Payer #${index + 1}`
+      if (formType === 'employee-profile') return `Employee #${index + 1}`
+      if (formType === 'payment-terms') return `Payment Term #${index + 1}`
+      return `${itemName} #${index + 1}`
+    }
+    
+    return (
+      <div 
+        key={item.id} 
+        id={`${itemName}-${item.id}`}
+        className="md-form-entry-block"
+        style={{ marginBottom: '2rem' }}
+      >
+        <div className="md-form-entry-header">
+          <span className="md-form-entry-number" style={{ fontSize: '1.125rem', fontWeight: 700 }}>
+            {getItemLabel()}
+          </span>
+          {items.length > 1 && (
+            <button
+              type="button"
+              className="md-form-entry-remove"
+              onClick={() => handleRemove(item.id)}
+              aria-label={`Remove ${itemName}`}
+            >
+              <X className="md-form-entry-remove-icon" />
+            </button>
+          )}
+        </div>
+        
+        {def.groups.map((group, groupIndex) => (
+          <div key={groupIndex} className="md-form-group" style={{ marginBottom: '1.5rem' }}>
+            {group.title && (
+              <div className="md-form-group-title">{group.title}</div>
+            )}
+            
+            <div className="md-form-grid">
+              {group.fields.map((f) => {
+                const fieldId = `${itemName}-${item.id}-${f.key}`
+                const fieldValue = itemValues[f.key] || ''
+                
+                return (
+                  <div
+                    key={f.key}
+                    className={`md-form-field ${f.type === 'textarea' || f.type === 'file' ? 'md-form-field-full' : ''}`}
+                  >
+                    <label className="md-form-label" htmlFor={fieldId}>
+                      {f.label}
+                      {f.required && <span className="md-form-required">*</span>}
+                    </label>
+                    {f.type === 'file' ? (
+                      <div className="md-form-logo-viewer">
+                        {itemLogoPreviews[f.key] ? (
+                          <div className="md-form-logo-preview">
+                            <img src={itemLogoPreviews[f.key]} alt="Preview" className="md-form-logo-image" />
+                            <button
+                              type="button"
+                              className="md-form-logo-remove"
+                              onClick={() => {
+                                handleChange(item.id, f.key, null)
+                                if (formType !== 'payment-terms') {
+                                  // Update logoPreviews for forms that have it
+                                  const setter = formType === 'consignee-profile' ? setConsignees
+                                    : formType === 'payer-profile' ? setPayers
+                                    : setEmployees
+                                  setter(prev => prev.map(i => 
+                                    i.id === item.id 
+                                      ? { ...i, logoPreviews: { ...i.logoPreviews, [f.key]: null } }
+                                      : i
+                                  ))
+                                }
+                              }}
+                            >
+                              <X className="md-form-logo-remove-icon" />
+                            </button>
+                          </div>
+                        ) : (
+                          <label htmlFor={fieldId} className="md-form-logo-upload">
+                            <div className="md-form-logo-upload-icon">
+                              <Plus />
+                            </div>
+                            <span className="md-form-logo-upload-text">Upload {f.label}</span>
+                            <input
+                              id={fieldId}
+                              className="md-form-file-input"
+                              type="file"
+                              accept={f.accept}
+                              onChange={(e) => handleFileChange(item.id, f.key, e.target.files[0])}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    ) : f.type === 'country' ? (
+                      <select
+                        id={fieldId}
+                        className="md-form-select"
+                        value={fieldValue}
+                        onChange={(e) => {
+                          handleChange(item.id, f.key, e.target.value)
+                          // Clear state when country changes
+                          const stateField = group.fields.find(field => 
+                            (field.key.includes('State') || field.key.includes('state')) &&
+                            f.key.replace('Country', '').replace('country', '') === field.key.replace('State', '').replace('state', '')
+                          )
+                          if (stateField) {
+                            handleChange(item.id, stateField.key, '')
+                          }
+                        }}
+                      >
+                        <option value="">Select country...</option>
+                        {COUNTRIES.map((country) => (
+                          <option key={country} value={country}>
+                            {country}
+                          </option>
+                        ))}
+                      </select>
+                    ) : f.type === 'state' ? (
+                      <select
+                        id={fieldId}
+                        className="md-form-select"
+                        value={fieldValue}
+                        onChange={(e) => handleChange(item.id, f.key, e.target.value)}
+                        disabled={!getStateOptions(f.key, null, group.fields, itemValues).length}
+                      >
+                        <option value="">Select state...</option>
+                        {getStateOptions(f.key, null, group.fields, itemValues).map((state) => (
+                          <option key={state} value={state}>
+                            {state}
+                          </option>
+                        ))}
+                      </select>
+                    ) : f.type === 'textarea' ? (
+                      <textarea
+                        id={fieldId}
+                        className="md-form-textarea"
+                        rows={4}
+                        value={fieldValue}
+                        onChange={(e) => handleChange(item.id, f.key, e.target.value)}
+                        placeholder={`Enter ${f.label.toLowerCase()}...`}
+                      />
+                    ) : f.type === 'select' ? (
+                      <>
+                        <select
+                          id={fieldId}
+                          className="md-form-select"
+                          value={fieldValue}
+                          onChange={(e) => handleChange(item.id, f.key, e.target.value)}
+                        >
+                          <option value="">Select {f.label.toLowerCase()}...</option>
+                          {f.options?.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                          <option value="Other">Other</option>
+                        </select>
+                        {fieldValue === 'Other' && (
+                          <input
+                            id={`${fieldId}Other`}
+                            className="md-form-input md-form-input-other"
+                            type="text"
+                            value={itemValues[`${f.key}Other`] || ''}
+                            onChange={(e) => handleChange(item.id, `${f.key}Other`, e.target.value)}
+                            placeholder={`Enter ${f.label.toLowerCase()}...`}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <input
+                        id={fieldId}
+                        className="md-form-input"
+                        type={f.type}
+                        value={fieldValue}
+                        onChange={(e) => handleChange(item.id, f.key, e.target.value)}
+                        placeholder={`Enter ${f.label.toLowerCase()}...`}
+                      />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            
+            {groupIndex < def.groups.length - 1 && <div className="md-form-group-divider" />}
+          </div>
+        ))}
+      </div>
+    )
+  }
+  
+  // Specific render functions using the generic one
+  const renderConsigneeForm = (consignee, index) => 
+    renderArrayForm(consignee, index, 'consignee-profile', 'consignee', consignees, {
+      handleChange: handleConsigneeChange,
+      handleFileChange: handleConsigneeFileChange,
+      handleRemove: handleRemoveConsignee
+    })
+  
+  const renderPayerForm = (payer, index) => 
+    renderArrayForm(payer, index, 'payer-profile', 'payer', payers, {
+      handleChange: handlePayerChange,
+      handleFileChange: handlePayerFileChange,
+      handleRemove: handleRemovePayer
+    })
+  
+  const renderEmployeeForm = (employee, index) => 
+    renderArrayForm(employee, index, 'employee-profile', 'employee', employees, {
+      handleChange: handleEmployeeChange,
+      handleFileChange: handleEmployeeFileChange,
+      handleRemove: handleRemoveEmployee
+    })
+  
+  const renderPaymentTermForm = (paymentTerm, index) => 
+    renderArrayForm(paymentTerm, index, 'payment-terms', 'payment-term', paymentTerms, {
+      handleChange: handlePaymentTermChange,
+      handleFileChange: () => {}, // Payment terms don't have files
+      handleRemove: handleRemovePaymentTerm
+    })
+  
   const handleAddEntry = (groupIndex) => {
     setMultipleEntries((prev) => {
       const currentEntries = prev[groupIndex] || [0]
@@ -380,6 +738,12 @@ function MasterDataForm() {
       return
     }
     
+    // Skip review for array-based forms (submit directly)
+    if (isArrayBasedForm) {
+      onSubmit({ preventDefault: () => {} })
+      return
+    }
+    
     // Save current form data before showing review
     const formData = {
       type,
@@ -414,7 +778,72 @@ function MasterDataForm() {
     setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
   }
 
-  const onSubmit = (e) => {
+  // Transform multiple entries into tabular format (separate records)
+  const transformToTabularRecords = () => {
+    // Check if this form type supports multiple entries
+    const hasMultipleEntries = def.groups.some(group => group.allowMultiple)
+    
+    if (!hasMultipleEntries) {
+      // Single record - return as is
+      return [{
+        values,
+        logoPreviews,
+      }]
+    }
+
+    // Get entry indices from the first group that allows multiple
+    const firstMultipleGroup = def.groups.find(group => group.allowMultiple)
+    if (!firstMultipleGroup) {
+      return [{
+        values,
+        logoPreviews,
+      }]
+    }
+
+    const firstGroupIndex = def.groups.indexOf(firstMultipleGroup)
+    const entryIndices = multipleEntries[firstGroupIndex] || [0]
+
+    // Transform each entry into a separate record
+    const records = entryIndices.map(entryIndex => {
+      const recordValues = {}
+      const recordLogoPreviews = {}
+
+      // Collect all field values for this entry across all groups
+      def.groups.forEach((group, groupIndex) => {
+        const groupEntryIndices = group.allowMultiple 
+          ? (multipleEntries[groupIndex] || [0])
+          : [0]
+        
+        // Use the same entry index if group allows multiple, otherwise use 0
+        const currentEntryIndex = group.allowMultiple 
+          ? (groupEntryIndices.includes(entryIndex) ? entryIndex : groupEntryIndices[0] || 0)
+          : 0
+
+        group.fields.forEach(field => {
+          const fieldKey = group.allowMultiple 
+            ? `${field.key}_${currentEntryIndex}`
+            : field.key
+          
+          if (values[fieldKey] !== undefined) {
+            recordValues[field.key] = values[fieldKey]
+          }
+          
+          if (logoPreviews[fieldKey]) {
+            recordLogoPreviews[field.key] = logoPreviews[fieldKey]
+          }
+        })
+      })
+
+      return {
+        values: recordValues,
+        logoPreviews: recordLogoPreviews,
+      }
+    })
+
+    return records
+  }
+
+  const onSubmit = async (e) => {
     e.preventDefault()
     if (!def) return
 
@@ -423,23 +852,109 @@ function MasterDataForm() {
       return
     }
 
-    // Save form data to localStorage for review step
-    const formData = {
-      type,
-      title: def.title,
-      values,
-      logoPreviews,
-      groups: def.groups,
-      multipleEntries,
-      savedAt: new Date().toISOString(),
+    // Special handling for array-based forms: save as array
+    if (isArrayBasedForm) {
+      try {
+        let items = []
+        let itemName = ''
+        if (isConsigneeProfile) {
+          items = consignees
+          itemName = 'consignee(s)'
+        } else if (isPayerProfile) {
+          items = payers
+          itemName = 'payer(s)'
+        } else if (isEmployeeProfile) {
+          items = employees
+          itemName = 'employee(s)'
+        } else if (isPaymentTerms) {
+          items = paymentTerms
+          itemName = 'payment term(s)'
+        }
+        
+        setStatus({ kind: 'idle', message: `Saving ${itemName} to database...` })
+        
+        // Save all items as separate records
+        const savePromises = items.map(item => 
+          saveMasterDataRecord(type, {
+            values: item.values,
+            logoPreviews: item.logoPreviews || {},
+          })
+        )
+        
+        await Promise.all(savePromises)
+        
+        setStatus({ kind: 'success', message: `${items.length} ${itemName} saved successfully to database!` })
+        setTimeout(() => {
+          setStatus({ kind: 'idle', message: '' })
+          navigate('/master-data')
+        }, 2000)
+      } catch (error) {
+        console.error(`Failed to save ${type}:`, error)
+        setStatus({ kind: 'error', message: `Failed to save ${type}. Please try again.` })
+      }
+      return
     }
-    
-    localStorage.setItem(`masterDataForm_${type}`, JSON.stringify(formData))
 
-    setStatus({ kind: 'success', message: 'Form saved! Proceed to Review & Submit to finalize.' })
-    setTimeout(() => {
-      setStatus({ kind: 'idle', message: '' })
-    }, 2000)
+    // For other forms that need database saving
+    const shouldSaveToDatabase = false
+    
+    if (shouldSaveToDatabase) {
+      try {
+        setStatus({ kind: 'idle', message: 'Saving records to database...' })
+        
+        // Transform multiple entries into tabular format
+        const records = transformToTabularRecords()
+        
+        // Save each record separately to database
+        const savePromises = records.map(record => 
+          saveMasterDataRecord(type, {
+            values: record.values,
+            logoPreviews: record.logoPreviews,
+          })
+        )
+        
+        await Promise.all(savePromises)
+        
+        // Also save to localStorage for review
+        const formData = {
+          type,
+          title: def.title,
+          values,
+          logoPreviews,
+          groups: def.groups,
+          multipleEntries,
+          savedAt: new Date().toISOString(),
+        }
+        localStorage.setItem(`masterDataForm_${type}`, JSON.stringify(formData))
+        
+        setStatus({ kind: 'success', message: `${records.length} record(s) saved successfully to database!` })
+        setTimeout(() => {
+          setStatus({ kind: 'idle', message: '' })
+          navigate('/master-data')
+        }, 2000)
+      } catch (error) {
+        console.error('Failed to save records:', error)
+        setStatus({ kind: 'error', message: 'Failed to save records. Please try again.' })
+      }
+    } else {
+      // For other forms, save to localStorage only
+      const formData = {
+        type,
+        title: def.title,
+        values,
+        logoPreviews,
+        groups: def.groups,
+        multipleEntries,
+        savedAt: new Date().toISOString(),
+      }
+      
+      localStorage.setItem(`masterDataForm_${type}`, JSON.stringify(formData))
+
+      setStatus({ kind: 'success', message: 'Form saved! Proceed to Review & Submit to finalize.' })
+      setTimeout(() => {
+        setStatus({ kind: 'idle', message: '' })
+      }, 2000)
+    }
   }
 
   if (!def) {
@@ -473,8 +988,33 @@ function MasterDataForm() {
       {/* Page Header */}
       <div className="md-form-header">
         <div className="md-form-eyebrow">{title}</div>
-        <h1 className="md-form-title">Create {title}</h1>
-        <p className="md-form-description">{description}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+          <div style={{ flex: 1 }}>
+            <h1 className="md-form-title">Create {title}</h1>
+            <p className="md-form-description">{description}</p>
+          </div>
+          {isArrayBasedForm && (
+            <button
+              type="button"
+              className="md-form-button md-form-button-primary"
+              onClick={() => {
+                if (isConsigneeProfile) handleAddConsignee()
+                else if (isPayerProfile) handleAddPayer()
+                else if (isEmployeeProfile) handleAddEmployee()
+                else if (isPaymentTerms) handleAddPaymentTerm()
+              }}
+              style={{ marginTop: '0.5rem', whiteSpace: 'nowrap' }}
+            >
+              <Plus className="md-form-button-icon" />
+              <span>
+                {isConsigneeProfile && 'Add Consignee'}
+                {isPayerProfile && 'Add Payer'}
+                {isEmployeeProfile && 'Add Employee'}
+                {isPaymentTerms && 'Add Payment Term'}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Review Step */}
@@ -540,10 +1080,19 @@ function MasterDataForm() {
         </div>
       ) : (
         /* Form Container */
-        <form className="md-form-container" onSubmit={(e) => { e.preventDefault(); handleReview(); }}>
+        <form className="md-form-container" onSubmit={(e) => { e.preventDefault(); isConsigneeProfile ? onSubmit(e) : handleReview(); }}>
         <div className="md-form-body">
-          {def.groups.map((group, groupIndex) => {
-            const entries = group.allowMultiple ? (multipleEntries[groupIndex] || [0]) : [0]
+          {isArrayBasedForm ? (
+            /* Render array-based forms */
+            isConsigneeProfile ? consignees.map((consignee, index) => renderConsigneeForm(consignee, index))
+            : isPayerProfile ? payers.map((payer, index) => renderPayerForm(payer, index))
+            : isEmployeeProfile ? employees.map((employee, index) => renderEmployeeForm(employee, index))
+            : isPaymentTerms ? paymentTerms.map((paymentTerm, index) => renderPaymentTermForm(paymentTerm, index))
+            : null
+          ) : (
+            /* Regular form rendering */
+            def.groups.map((group, groupIndex) => {
+              const entries = group.allowMultiple ? (multipleEntries[groupIndex] || [0]) : [0]
             
             return (
               <div key={groupIndex} className="md-form-group">
@@ -553,17 +1102,19 @@ function MasterDataForm() {
                 
                 {entries.map((entryIndex, entryArrayIndex) => (
                   <div key={entryIndex} className="md-form-entry-block">
-                    {group.allowMultiple && entries.length > 1 && (
+                    {group.allowMultiple && (
                       <div className="md-form-entry-header">
                         <span className="md-form-entry-number">Entry {entryArrayIndex + 1}</span>
-                        <button
-                          type="button"
-                          className="md-form-entry-remove"
-                          onClick={() => handleRemoveEntry(groupIndex, entryIndex)}
-                          aria-label="Remove entry"
-                        >
-                          <X className="md-form-entry-remove-icon" />
-                        </button>
+                        {entries.length > 1 && (
+                          <button
+                            type="button"
+                            className="md-form-entry-remove"
+                            onClick={() => handleRemoveEntry(groupIndex, entryIndex)}
+                            aria-label="Remove entry"
+                          >
+                            <X className="md-form-entry-remove-icon" />
+                          </button>
+                        )}
                       </div>
                     )}
                     
@@ -684,6 +1235,7 @@ function MasterDataForm() {
                                       {option}
                                     </option>
                                   ))}
+                                  <option value="Other">Other</option>
                                 </select>
                                 {values[fieldKey] === 'Other' && (
                                   <input
@@ -711,13 +1263,10 @@ function MasterDataForm() {
                       })}
                     </div>
                     
-                    {group.allowMultiple && entryArrayIndex < entries.length - 1 && (
-                      <div className="md-form-entry-divider" />
-                    )}
                   </div>
                 ))}
                 
-                {group.allowMultiple && (
+                {group.allowMultiple && !isArrayBasedForm && (
                   <div className="md-form-entry-add-wrapper">
                     <button
                       type="button"
@@ -725,7 +1274,13 @@ function MasterDataForm() {
                       onClick={() => handleAddEntry(groupIndex)}
                     >
                       <Plus className="md-form-button-icon" />
-                      <span>Add {group.title}</span>
+                      <span>
+                        {type === 'payer-profile' && groupIndex === 0
+                          ? 'Add New Payer'
+                          : type === 'employee-profile' && groupIndex === 0
+                          ? 'Add New Employee'
+                          : `Add ${group.title}`}
+                      </span>
                     </button>
                   </div>
                 )}
@@ -733,7 +1288,8 @@ function MasterDataForm() {
                 {groupIndex < def.groups.length - 1 && <div className="md-form-group-divider" />}
               </div>
             )
-          })}
+          })
+          )}
         </div>
 
         {/* Status Message */}
@@ -768,7 +1324,7 @@ function MasterDataForm() {
             type="submit"
             className="md-form-button md-form-button-primary"
           >
-            Review & Submit
+            {isArrayBasedForm ? 'Submit' : 'Review & Submit'}
           </button>
         </div>
       </form>

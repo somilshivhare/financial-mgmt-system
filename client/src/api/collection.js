@@ -27,14 +27,30 @@ export const deleteCollectionPlan = async (id) => {
 }
 
 export const getCollectionPlanData = async (filters = {}) => {
-  const query = new URLSearchParams(filters).toString()
-  const response = await client.get(`/collections/data?${query}`)
+  const params = new URLSearchParams()
+  if (filters.personId) params.append('personId', filters.personId)
+  if (filters.businessUnit) params.append('businessUnit', filters.businessUnit)
+  if (filters.month) {
+    const monthStr = filters.month instanceof Date 
+      ? `${filters.month.getFullYear()}-${String(filters.month.getMonth() + 1).padStart(2, '0')}`
+      : filters.month
+    params.append('month', monthStr)
+  }
+  const response = await client.get(`/collections/data?${params.toString()}`)
   return response.data
 }
 
 export const getCollectionAnalytics = async (filters = {}) => {
-  const query = new URLSearchParams(filters).toString()
-  const response = await client.get(`/collections/analytics?${query}`)
+  const params = new URLSearchParams()
+  if (filters.personId) params.append('personId', filters.personId)
+  if (filters.businessUnit) params.append('businessUnit', filters.businessUnit)
+  if (filters.month) {
+    const monthStr = filters.month instanceof Date 
+      ? `${filters.month.getFullYear()}-${String(filters.month.getMonth() + 1).padStart(2, '0')}`
+      : filters.month
+    params.append('month', monthStr)
+  }
+  const response = await client.get(`/collections/analytics?${params.toString()}`)
   return response.data
 }
 

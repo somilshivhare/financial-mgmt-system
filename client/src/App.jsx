@@ -22,13 +22,16 @@ import InvoiceEntry from './pages/InvoiceEntry'
 import InvoiceIndex from './pages/InvoiceIndex'
 import PaymentEntry from './pages/PaymentEntry'
 import PaymentIndex from './pages/PaymentIndex'
+import MoMEntry from './pages/MoMEntry'
 import CollectionPlan from './pages/CollectionPlan'
 import Subscription from './pages/Subscription'
 import MyProfile from './pages/MyProfile'
 import ContactSupport from './pages/ContactSupport'
 import Alerts from './pages/Alerts'
+import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
 import Meetings from './pages/Meetings'
+import Reports from './pages/Reports'
 import AppLayout from './layouts/AppLayout'
 import { MasterDataProvider } from './contexts/MasterDataContext'
 import './App.css'
@@ -112,8 +115,12 @@ function App() {
           <Route path="/profile" element={<MyProfile />} />
           <Route path="/support" element={<ContactSupport />} />
           <Route path="/alerts" element={<Alerts />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/meetings" element={<Meetings />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/mom/new" element={<MoMEntry />} />
+          <Route path="/mom/edit/:id" element={<MoMEntry />} />
         </Route>
         {/* Fallback: send logged-out users to Home, logged-in users to Dashboard */}
         <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/'} />} />

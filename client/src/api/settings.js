@@ -5,13 +5,8 @@ export const getSettings = async () => {
   return response.data
 }
 
-export const getSettingByKey = async (key) => {
-  const response = await client.get(`/settings/${key}`)
-  return response.data
-}
-
-export const updateSetting = async (key, value) => {
-  const response = await client.put(`/settings/${key}`, { value })
+export const getSystemSettings = async () => {
+  const response = await client.get('/settings/system')
   return response.data
 }
 
@@ -20,17 +15,19 @@ export const updateSettings = async (settings) => {
   return response.data
 }
 
-export const getUserSettings = async () => {
-  const response = await client.get('/settings/user')
+export const resetSettings = async (keys = null) => {
+  const response = await client.post('/settings/reset', keys ? { keys } : {})
   return response.data
 }
 
-export const updateUserSettings = async (settings) => {
-  const response = await client.put('/settings/user', settings)
+export const getAuditLog = async (key = null, limit = 50) => {
+  const params = new URLSearchParams({ limit: limit.toString() })
+  if (key) params.append('key', key)
+  const response = await client.get(`/settings/audit?${params.toString()}`)
   return response.data
 }
 
-export const resetSettings = async () => {
-  const response = await client.post('/settings/reset')
+export const checkFinancialYearChange = async (financialYear) => {
+  const response = await client.get(`/settings/check-financial-year?financialYear=${encodeURIComponent(financialYear)}`)
   return response.data
 }

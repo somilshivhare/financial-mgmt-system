@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Eye, EyeOff, Lock, AlertCircle, CheckCircle2, LayoutDashboard, BarChart3, LineChart, Shield } from 'lucide-react'
@@ -19,9 +19,12 @@ function Register({ onRegister }) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isPasswordFocused, setIsPasswordFocused] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
+  const submitTimeoutRef = useRef(null)
+  const isSubmittingRef = useRef(false)
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -95,12 +98,25 @@ function Register({ onRegister }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Prevent double submission
+    if (isSubmittingRef.current || loading) {
+      return
+    }
+    
+    // Clear any existing timeout
+    if (submitTimeoutRef.current) {
+      clearTimeout(submitTimeoutRef.current)
+    }
+    
     setError('')
     
     if (!validateForm()) {
       return
     }
 
+    // Set submitting flag and loading state
+    isSubmittingRef.current = true
     setLoading(true)
 
     try {
@@ -121,16 +137,79 @@ function Register({ onRegister }) {
         companyName: formData.companyName,
       }
       
+      // Store remember me preference
+      if (rememberMe) {
+        localStorage.setItem('rememberRegistration', JSON.stringify({
+          email: formData.email,
+          companyName: formData.companyName,
+          fullName: formData.fullName,
+        }))
+      } else {
+        localStorage.removeItem('rememberRegistration')
+      }
+      
       onRegister(userData)
       navigate('/dashboard')
     } catch (err) {
-      // Generic error message for security
-      setError('Registration failed. Please check your information and try again.')
-      console.error('Registration error:', err)
+      // Handle structured error responses
+      let errorMessage = 'Registration failed. Please check your information and try again.'
+      
+      if (err.response?.data) {
+        const errorData = err.response.data
+        if (errorData.code === 'RATE_LIMIT_EXCEEDED') {
+          errorMessage = errorData.message || 'Too many registration attempts. Please wait a moment and try again.'
+        } else if (errorData.code === 'ERR_DUPLICATE_EMAIL') {
+          errorMessage = 'An account with this email already exists. Please use a different email or sign in.'
+        } else if (errorData.code === 'ERR_MISSING_FIELDS') {
+          errorMessage = errorData.message || 'Please fill in all required fields.'
+        } else if (errorData.code === 'ERR_WEAK_PASSWORD') {
+          errorMessage = errorData.message || 'Password does not meet security requirements.'
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        }
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
+      console.error('[Register] Error:', err)
     } finally {
-      setLoading(false)
+      // Add small delay before allowing resubmission to prevent rapid clicks
+      submitTimeoutRef.current = setTimeout(() => {
+        isSubmittingRef.current = false
+        setLoading(false)
+      }, 500)
     }
   }
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (submitTimeoutRef.current) {
+        clearTimeout(submitTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Load remembered registration data on mount
+  useEffect(() => {
+    const rememberedData = localStorage.getItem('rememberRegistration')
+    if (rememberedData) {
+      try {
+        const data = JSON.parse(rememberedData)
+        setFormData((prev) => ({
+          ...prev,
+          email: data.email || '',
+          companyName: data.companyName || '',
+          fullName: data.fullName || '',
+        }))
+        setRememberMe(true)
+      } catch (err) {
+        console.error('[Register] Error loading remembered data:', err)
+        localStorage.removeItem('rememberRegistration')
+      }
+    }
+  }, [])
 
   const passwordValidation = formData.password ? validatePassword(formData.password) : null
 
@@ -276,8 +355,10 @@ function Register({ onRegister }) {
 
           <form onSubmit={handleSubmit} className="auth-form auth-form--register" noValidate>
             <div className="auth-form-grid" role="group" aria-label="Registration details">
-              {/* Left column: Company, Email, Password */}
+              {/* Left column: Company, Full Name, Mobile (Desktop) */}
+              {/* Mobile order: Company, Full Name, Email, Mobile, Password, Confirm Password, Role */}
               <div className="auth-form-col">
+                {/* 1. Company Name */}
                 <div className="auth-form-group">
                   <label htmlFor="companyName" className="auth-label">
                     Company / Organization Name <span className="auth-required">*</span>
@@ -302,6 +383,61 @@ function Register({ onRegister }) {
                   )}
                 </div>
 
+                {/* 2. Full Name */}
+                <div className="auth-form-group">
+                  <label htmlFor="fullName" className="auth-label">
+                    Full Name <span className="auth-required">*</span>
+                  </label>
+                  <input
+                    id="fullName"
+                    name="fullName"
+                    type="text"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className={`auth-input ${fieldErrors.fullName ? 'auth-input-error' : ''}`}
+                    placeholder="Enter your full name"
+                    required
+                    disabled={loading}
+                    aria-invalid={fieldErrors.fullName ? 'true' : 'false'}
+                    aria-describedby={fieldErrors.fullName ? 'fullName-error' : undefined}
+                  />
+                  {fieldErrors.fullName && (
+                    <span id="fullName-error" className="auth-field-error" role="alert">
+                      {fieldErrors.fullName}
+                    </span>
+                  )}
+                </div>
+
+                {/* 3. Mobile Number */}
+                <div className="auth-form-group">
+                  <label htmlFor="mobileNumber" className="auth-label">
+                    Mobile Number <span className="auth-required">*</span>
+                  </label>
+                  <input
+                    id="mobileNumber"
+                    name="mobileNumber"
+                    type="tel"
+                    value={formData.mobileNumber}
+                    onChange={handleChange}
+                    className={`auth-input ${fieldErrors.mobileNumber ? 'auth-input-error' : ''}`}
+                    placeholder="Enter 10-digit mobile number"
+                    maxLength="10"
+                    required
+                    disabled={loading}
+                    aria-invalid={fieldErrors.mobileNumber ? 'true' : 'false'}
+                    aria-describedby={fieldErrors.mobileNumber ? 'mobileNumber-error' : undefined}
+                  />
+                  {fieldErrors.mobileNumber && (
+                    <span id="mobileNumber-error" className="auth-field-error" role="alert">
+                      {fieldErrors.mobileNumber}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Right column: Email, Password, Confirm Password (Desktop) */}
+              <div className="auth-form-col">
+                {/* 4. Email Address */}
                 <div className="auth-form-group">
                   <label htmlFor="email" className="auth-label">
                     Email Address <span className="auth-required">*</span>
@@ -326,7 +462,7 @@ function Register({ onRegister }) {
                     </span>
                   )}
                 </div>
-
+                {/* 5. Password */}
                 <div className="auth-form-group">
                   <label htmlFor="password" className="auth-label">
                     Password <span className="auth-required">*</span>
@@ -398,59 +534,8 @@ function Register({ onRegister }) {
                     </span>
                   )}
                 </div>
-              </div>
 
-              {/* Right column: Full name, Mobile, Confirm password */}
-              <div className="auth-form-col">
-                <div className="auth-form-group">
-                  <label htmlFor="fullName" className="auth-label">
-                    Full Name <span className="auth-required">*</span>
-                  </label>
-                  <input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    value={formData.fullName}
-                    onChange={handleChange}
-                    className={`auth-input ${fieldErrors.fullName ? 'auth-input-error' : ''}`}
-                    placeholder="Enter your full name"
-                    required
-                    disabled={loading}
-                    aria-invalid={fieldErrors.fullName ? 'true' : 'false'}
-                    aria-describedby={fieldErrors.fullName ? 'fullName-error' : undefined}
-                  />
-                  {fieldErrors.fullName && (
-                    <span id="fullName-error" className="auth-field-error" role="alert">
-                      {fieldErrors.fullName}
-                    </span>
-                  )}
-                </div>
-
-                <div className="auth-form-group">
-                  <label htmlFor="mobileNumber" className="auth-label">
-                    Mobile Number <span className="auth-required">*</span>
-                  </label>
-                  <input
-                    id="mobileNumber"
-                    name="mobileNumber"
-                    type="tel"
-                    value={formData.mobileNumber}
-                    onChange={handleChange}
-                    className={`auth-input ${fieldErrors.mobileNumber ? 'auth-input-error' : ''}`}
-                    placeholder="Enter 10-digit mobile number"
-                    maxLength="10"
-                    required
-                    disabled={loading}
-                    aria-invalid={fieldErrors.mobileNumber ? 'true' : 'false'}
-                    aria-describedby={fieldErrors.mobileNumber ? 'mobileNumber-error' : undefined}
-                  />
-                  {fieldErrors.mobileNumber && (
-                    <span id="mobileNumber-error" className="auth-field-error" role="alert">
-                      {fieldErrors.mobileNumber}
-                    </span>
-                  )}
-                </div>
-
+                {/* 6. Confirm Password */}
                 <div className="auth-form-group">
                   <label htmlFor="confirmPassword" className="auth-label">
                     Confirm Password <span className="auth-required">*</span>
@@ -493,7 +578,7 @@ function Register({ onRegister }) {
               </div>
             </div>
 
-            {/* Role stays single-row under the grid to keep the onboarding complete */}
+            {/* 7. Role (Optional) - Single row below grid */}
             <div className="auth-form-group auth-form-group--span">
               <label htmlFor="role" className="auth-label">
                 Role (Optional)
@@ -507,11 +592,24 @@ function Register({ onRegister }) {
                 disabled={loading}
               >
                 <option value="">Select a role</option>
-                <option value="admin">Administrator</option>
                 <option value="manager">Manager</option>
                 <option value="user">User</option>
                 <option value="accountant">Accountant</option>
               </select>
+            </div>
+
+            {/* Remember me checkbox */}
+            <div className="auth-form-options">
+              <label className="auth-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="auth-checkbox"
+                  disabled={loading}
+                />
+                <span>Remember me</span>
+              </label>
             </div>
 
             <button
