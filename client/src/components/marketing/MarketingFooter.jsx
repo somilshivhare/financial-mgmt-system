@@ -6,10 +6,10 @@ export default function MarketingFooter() {
       <div className="mkt-footer-inner">
         <div className="mkt-footer-brand-section">
           <div className="mkt-footer-logo" aria-hidden="true">
-            <img className="mkt-footer-logo-img" src="/logo.png" alt="Nbaurum ERP" />
+            <img className="mkt-footer-logo-img" src="/logo.png" alt="Nbaurum" />
           </div>
           <p>
-            Nbaurum is a focused ERP SaaS platform for finance and operations teams. We help organizations
+            Nbaurum is a focused SaaS platform for finance and operations teams. We help organizations
             structure invoicing, track receivables, and run disciplined collections—with full auditability
             and enterprise-grade controls.
           </p>
@@ -35,7 +35,7 @@ export default function MarketingFooter() {
         </div>
 
         <div className="mkt-footer-section">
-          <h3>ERP Modules</h3>
+          <h3>Platform Modules</h3>
           <ul>
             <li><Link to="/">Master Data</Link></li>
             <li><Link to="/">Purchase Orders</Link></li>
@@ -84,7 +84,7 @@ export default function MarketingFooter() {
 
       <div className="mkt-footer-bottom">
         <div className="mkt-footer-meta">
-          <span>© {new Date().getFullYear()} Nbaurum ERP Pvt. Ltd. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Nbaurum Pvt. Ltd. All rights reserved.</span>
         </div>
         <div className="mkt-footer-trust">
           <div className="mkt-footer-trust-item">

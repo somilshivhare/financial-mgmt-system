@@ -1,0 +1,423 @@
+/**
+ * AI Assistant Service
+ * 
+ * Analyzes business data and generates intelligent, context-aware responses
+ * to help users understand their financial status and navigate the system.
+ */
+
+/**
+ * Format currency for display
+ */
+const formatCurrency = (amount, currency = 'INR') => {
+  if (!amount && amount !== 0) return 'N/A'
+  const currencySymbols = {
+    INR: '₹',
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+  }
+  const symbol = currencySymbols[currency] || currency
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount).replace(currency, symbol)
+}
+
+/**
+ * Get page context based on current route
+ */
+const getPageContext = (pathname) => {
+  const contexts = {
+    '/dashboard': {
+      name: 'Dashboard',
+      description: 'Your business overview and financial control center',
+      keyMetrics: ['outstanding', 'collected', 'overdue', 'targets'],
+    },
+    '/finance': {
+      name: 'Finance',
+      description: 'Financial transactions and cash flow management',
+      keyMetrics: ['transactions', 'balance', 'income', 'expenses'],
+    },
+    '/invoices': {
+      name: 'Invoices',
+      description: 'Invoice management and tracking',
+      keyMetrics: ['invoice_count', 'outstanding', 'overdue', 'status'],
+    },
+    '/payments': {
+      name: 'Payments',
+      description: 'Payment recording and tracking',
+      keyMetrics: ['payments', 'collected', 'pending', 'cleared'],
+    },
+    '/collection': {
+      name: 'Collection Plan',
+      description: 'Collection planning and follow-up management',
+      keyMetrics: ['plans', 'targets', 'achieved', 'upcoming'],
+    },
+    '/master-data': {
+      name: 'Master Data',
+      description: 'Customer, vendor, and business data management',
+      keyMetrics: ['customers', 'vendors', 'products', 'entities'],
+    },
+    '/reports': {
+      name: 'Reports',
+      description: 'Business reports and analytics',
+      keyMetrics: ['reports', 'analytics', 'insights', 'trends'],
+    },
+    '/settings': {
+      name: 'Settings',
+      description: 'Application settings and configuration',
+      keyMetrics: ['preferences', 'account', 'notifications'],
+    },
+  }
+
+  // Find matching context
+  for (const [path, context] of Object.entries(contexts)) {
+    if (pathname.startsWith(path)) {
+      return context
+    }
+  }
+
+  return {
+    name: 'Application',
+    description: 'Business finance and operations management',
+    keyMetrics: [],
+  }
+}
+
+/**
+ * Generate comprehensive business summary
+ */
+export const generateBusinessSummary = (dashboardData, currentPage) => {
+  if (!dashboardData) {
+    return {
+      summary: "I'm here to help you understand your business, but I need to load your data first. Please wait a moment while I gather your financial information.",
+      insights: [],
+      recommendations: [],
+    }
+  }
+
+  const kpis = dashboardData.kpis || {}
+  const invoiceInsights = dashboardData.invoiceInsights || {}
+  const paymentsCollections = dashboardData.paymentsCollections || {}
+  const currency = dashboardData.kpis?.currency || 'INR'
+
+  const totalOutstanding = kpis.totalOutstanding || 0
+  const totalCollected = kpis.totalCollected || 0
+  const totalOverdue = kpis.totalOverdue || 0
+  const collectionTarget = kpis.collectionTarget || 0
+  const collectionAchieved = kpis.collectionAchieved || 0
+  const targetAchieved = kpis.collectionTargetAchieved || 0
+  const duesCurrentMonth = kpis.duesCurrentMonth || 0
+
+  const insights = []
+  const recommendations = []
+
+  // Build summary
+  let summary = `Here's a complete overview of your business right now:\n\n`
+
+  // Financial Health
+  summary += `**Financial Overview:**\n`
+  summary += `You have ${formatCurrency(totalOutstanding, currency)} in outstanding receivables. `
+  summary += `So far, you've collected ${formatCurrency(totalCollected, currency)} in payments. `
+
+  if (totalOverdue > 0) {
+    summary += `⚠️ **Important:** You have ${formatCurrency(totalOverdue, currency)} in overdue amounts that need immediate attention. `
+    insights.push({
+      type: 'warning',
+      title: 'Overdue Amounts',
+      message: `${formatCurrency(totalOverdue, currency)} in overdue invoices require immediate follow-up.`,
+    })
+    recommendations.push({
+      priority: 'high',
+      action: 'Review overdue invoices',
+      description: 'Check the Invoices page to see which customers have overdue payments and follow up with them.',
+      path: '/invoices',
+    })
+  }
+
+  if (duesCurrentMonth > 0) {
+    summary += `This month, you have ${formatCurrency(duesCurrentMonth, currency)} coming due. `
+  }
+
+  // Collection Performance
+  if (collectionTarget > 0) {
+    summary += `\n\n**Collection Performance:**\n`
+    summary += `Your collection target is ${formatCurrency(collectionTarget, currency)}, and you've achieved ${targetAchieved.toFixed(1)}% of it. `
+    
+    if (targetAchieved < 70) {
+      summary += `You're below target and may want to focus on collections. `
+      insights.push({
+        type: 'info',
+        title: 'Collection Target',
+        message: `You're at ${targetAchieved.toFixed(1)}% of your collection target. Consider prioritizing follow-ups.`,
+      })
+      recommendations.push({
+        priority: 'medium',
+        action: 'Review Collection Plan',
+        description: 'Check your collection plan to see upcoming follow-ups and prioritize high-value invoices.',
+        path: '/collection',
+      })
+    } else if (targetAchieved >= 100) {
+      summary += `Excellent! You've exceeded your target. `
+      insights.push({
+        type: 'success',
+        title: 'Target Achieved',
+        message: `Congratulations! You've exceeded your collection target.`,
+      })
+    } else {
+      summary += `You're making good progress. `
+    }
+  }
+
+  // Invoice Status
+  const invoiceStatus = invoiceInsights.byStatus || []
+  if (invoiceStatus.length > 0) {
+    summary += `\n\n**Invoice Status:**\n`
+    const statusSummary = invoiceStatus
+      .map(s => `${s.count} ${s.status}`)
+      .join(', ')
+    summary += `You have ${statusSummary} invoices. `
+  }
+
+  // Upcoming Follow-ups
+  const upcomingFollowUps = paymentsCollections.upcomingFollowUps || []
+  if (upcomingFollowUps.length > 0) {
+    summary += `\n\n**Upcoming Actions:**\n`
+    summary += `You have ${upcomingFollowUps.length} follow-up(s) scheduled. `
+    if (upcomingFollowUps.length > 5) {
+      insights.push({
+        type: 'info',
+        title: 'Multiple Follow-ups',
+        message: `You have ${upcomingFollowUps.length} follow-ups scheduled. Consider prioritizing by amount or due date.`,
+      })
+    }
+  }
+
+  // Recommendations based on data
+  if (totalOutstanding > 0 && totalCollected === 0) {
+    recommendations.push({
+      priority: 'medium',
+      action: 'Record Payments',
+      description: 'Start recording payments to track your collections and improve cash flow visibility.',
+      path: '/payments/new',
+    })
+  }
+
+  if (invoiceStatus.find(s => s.status === 'draft' && s.count > 0)) {
+    recommendations.push({
+      priority: 'low',
+      action: 'Review Draft Invoices',
+      description: 'You have draft invoices that can be finalized and sent to customers.',
+      path: '/invoices',
+    })
+  }
+
+  return {
+    summary,
+    insights: insights.slice(0, 3), // Limit to top 3
+    recommendations: recommendations.slice(0, 3), // Limit to top 3
+  }
+}
+
+/**
+ * Generate page-specific context and guidance
+ */
+export const generatePageContext = (pathname, pageData) => {
+  const context = getPageContext(pathname)
+  
+  let guidance = `You're currently on the **${context.name}** page. `
+  guidance += `${context.description}.\n\n`
+
+  switch (pathname) {
+    case '/dashboard':
+      guidance += `**What you can do here:**\n`
+      guidance += `• View your financial KPIs and metrics at a glance\n`
+      guidance += `• See recent invoices, payments, and collections\n`
+      guidance += `• Check alerts and notifications\n`
+      guidance += `• Access quick actions to create invoices, record payments, or add customers\n`
+      guidance += `• Analyze trends with interactive charts\n\n`
+      guidance += `**Quick Tips:**\n`
+      guidance += `• Use the date range filter to view different time periods\n`
+      guidance += `• Click on any KPI card to see more details\n`
+      guidance += `• Use the search and filters to find specific invoices\n`
+      break
+
+    case '/finance':
+      guidance += `**What you can do here:**\n`
+      guidance += `• View all financial transactions\n`
+      guidance += `• Track income and expenses\n`
+      guidance += `• Analyze cash flow trends\n`
+      guidance += `• Export financial reports\n\n`
+      break
+
+    case '/invoices':
+    case '/invoices/new':
+      guidance += `**What you can do here:**\n`
+      guidance += `• View all your invoices\n`
+      guidance += `• Create new invoices\n`
+      guidance += `• Track invoice status (draft, open, paid, overdue)\n`
+      guidance += `• Filter by customer, date, or status\n`
+      guidance += `• See which invoices need attention\n\n`
+      if (pathname === '/invoices') {
+        guidance += `**To create a new invoice:** Click the "New Invoice" button or use the quick action on the Dashboard.\n`
+      }
+      break
+
+    case '/payments':
+    case '/payments/new':
+      guidance += `**What you can do here:**\n`
+      guidance += `• Record payments received from customers\n`
+      guidance += `• Track payment status (pending, cleared)\n`
+      guidance += `• View payment history\n`
+      guidance += `• Link payments to specific invoices\n\n`
+      if (pathname === '/payments') {
+        guidance += `**To record a payment:** Click the "New Payment" button.\n`
+      }
+      break
+
+    case '/collection':
+      guidance += `**What you can do here:**\n`
+      guidance += `• Create collection plans for invoices\n`
+      guidance += `• Schedule follow-ups with customers\n`
+      guidance += `• Track collection targets and achievements\n`
+      guidance += `• View upcoming follow-up dates\n\n`
+      break
+
+    case '/master-data':
+      guidance += `**What you can do here:**\n`
+      guidance += `• Manage customer profiles\n`
+      guidance += `• Add vendors and suppliers\n`
+      guidance += `• Maintain product and service catalogs\n`
+      guidance += `• Review and approve master data entries\n\n`
+      break
+
+    case '/reports':
+      guidance += `**What you can do here:**\n`
+      guidance += `• Generate financial reports\n`
+      guidance += `• View analytics and insights\n`
+      guidance += `• Export data for external analysis\n`
+      guidance += `• Filter reports by date, customer, or other criteria\n\n`
+      break
+
+    case '/settings':
+      guidance += `**What you can do here:**\n`
+      guidance += `• Configure application settings\n`
+      guidance += `• Manage your account preferences\n`
+      guidance += `• Set up notifications\n`
+      guidance += `• Update business information\n\n`
+      break
+
+    default:
+      guidance += `Use the sidebar navigation to access different sections of the application.\n`
+  }
+
+  return {
+    pageName: context.name,
+    description: context.description,
+    guidance,
+  }
+}
+
+/**
+ * Generate response to user query
+ */
+export const generateResponse = (query, context) => {
+  const lowerQuery = query.toLowerCase().trim()
+
+  // Handle overview/summary requests
+  if (
+    lowerQuery.includes('summary') ||
+    lowerQuery.includes('overview') ||
+    lowerQuery.includes('explain everything') ||
+    lowerQuery.includes('what is happening') ||
+    lowerQuery.includes('tell me about') ||
+    lowerQuery.includes('give me a full')
+  ) {
+    if (context.dashboardData) {
+      const businessSummary = generateBusinessSummary(context.dashboardData, context.pathname)
+      return {
+        response: businessSummary.summary,
+        insights: businessSummary.insights,
+        recommendations: businessSummary.recommendations,
+        type: 'summary',
+      }
+    }
+    return {
+      response: "I'd be happy to give you a complete overview! However, I need to load your dashboard data first. Please wait a moment, or try asking again in a few seconds.",
+      type: 'info',
+    }
+  }
+
+  // Handle specific questions
+  if (lowerQuery.includes('outstanding') || lowerQuery.includes('receivables')) {
+    const outstanding = context.dashboardData?.kpis?.totalOutstanding || 0
+    const currency = context.dashboardData?.kpis?.currency || 'INR'
+    return {
+      response: `Your total outstanding receivables are **${formatCurrency(outstanding, currency)}**. This is the amount that customers owe you but haven't paid yet. You can view detailed invoice information on the Invoices page.`,
+      type: 'info',
+    }
+  }
+
+  if (lowerQuery.includes('overdue') || lowerQuery.includes('late')) {
+    const overdue = context.dashboardData?.kpis?.totalOverdue || 0
+    const currency = context.dashboardData?.kpis?.currency || 'INR'
+    if (overdue > 0) {
+      return {
+        response: `You have **${formatCurrency(overdue, currency)}** in overdue amounts. These are invoices that have passed their due date and need immediate attention. I recommend reviewing the Invoices page and following up with these customers.`,
+        type: 'warning',
+        recommendations: [{
+          priority: 'high',
+          action: 'Review Overdue Invoices',
+          description: 'Check the Invoices page to see which invoices are overdue.',
+          path: '/invoices',
+        }],
+      }
+    }
+    return {
+      response: `Great news! You don't have any overdue invoices right now. Keep up the good work with your collections!`,
+      type: 'success',
+    }
+  }
+
+  if (lowerQuery.includes('collected') || lowerQuery.includes('payments received')) {
+    const collected = context.dashboardData?.kpis?.totalCollected || 0
+    const currency = context.dashboardData?.kpis?.currency || 'INR'
+    return {
+      response: `You've collected **${formatCurrency(collected, currency)}** in payments so far. This represents the total amount you've received from customers. You can view detailed payment records on the Payments page.`,
+      type: 'info',
+    }
+  }
+
+  if (lowerQuery.includes('how to') || lowerQuery.includes('how do i')) {
+    const pageContext = generatePageContext(context.pathname, context.pageData)
+    return {
+      response: pageContext.guidance,
+      type: 'guidance',
+    }
+  }
+
+  if (lowerQuery.includes('what is') || lowerQuery.includes('what does')) {
+    if (lowerQuery.includes('dashboard')) {
+      return {
+        response: `The Dashboard is your business control center. It shows you:\n\n• **Financial KPIs**: Outstanding amounts, collections, overdue invoices\n• **Recent Activity**: Latest invoices, payments, and follow-ups\n• **Analytics**: Charts showing trends over time\n• **Quick Actions**: Fast access to create invoices, record payments, or add customers\n• **Alerts & Notifications**: Important updates about your business\n\nUse the date range filter to view different time periods, and click on any card to see more details.`,
+        type: 'info',
+      }
+    }
+    if (lowerQuery.includes('invoice')) {
+      return {
+        response: `An invoice is a document you send to customers requesting payment for goods or services. In this system, you can:\n\n• Create invoices with line items\n• Track invoice status (draft, open, paid, overdue)\n• Set due dates and payment terms\n• Link invoices to purchase orders\n• View invoice history and analytics\n\nTo create a new invoice, go to the Invoices page and click "New Invoice".`,
+        type: 'info',
+      }
+    }
+  }
+
+  // Default response
+  const pageContext = generatePageContext(context.pathname, context.pageData)
+  return {
+    response: `I'm here to help! You can ask me things like:\n\n• "Give me a summary" - Get a complete overview of your business\n• "What's overdue?" - Check overdue invoices\n• "How do I create an invoice?" - Get step-by-step guidance\n• "What is the dashboard?" - Learn about any page or feature\n\nCurrently, you're on the **${pageContext.pageName}** page. ${pageContext.description}. Would you like to know more about this page or your business status?`,
+    type: 'help',
+  }
+}
+

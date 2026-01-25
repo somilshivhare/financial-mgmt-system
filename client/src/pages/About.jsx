@@ -2,10 +2,10 @@ import { useEffect } from 'react'
 
 export default function About() {
   useEffect(() => {
-    document.title = 'About Nbaurum ERP – Mission, Vision & Product Philosophy'
+    document.title = 'About Nbaurum – Mission, Vision & Product Philosophy'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Learn about Nbaurum ERP: our mission to bring discipline and transparency to finance operations, our product philosophy, compliance focus, data security standards, and commitment to enterprise reliability.')
+      metaDescription.setAttribute('content', 'Learn about Nbaurum: our mission to bring discipline and transparency to finance operations, our product philosophy, compliance focus, data security standards, and commitment to enterprise reliability.')
     }
   }, [])
 
@@ -14,9 +14,9 @@ export default function About() {
       <section className="mkt-section-full">
         <div className="mkt-container">
           <div className="mkt-page-head">
-            <h1 className="mkt-section-heading">About Nbaurum ERP</h1>
+            <h1 className="mkt-section-heading">About Nbaurum</h1>
             <p className="mkt-lead">
-              We build a focused ERP SaaS for finance and operations teams that need their receivables, payments, and
+              We build a focused SaaS platform for finance and operations teams that need their receivables, payments, and
               collections to behave like one system—not scattered spreadsheets.
             </p>
           </div>
@@ -36,7 +36,7 @@ export default function About() {
             </div>
             <div className="mkt-image-placeholder caption">
               <span>Company Mission</span>
-              <div className="mkt-image-caption">Building focused ERP solutions for finance teams</div>
+              <div className="mkt-image-caption">Building focused solutions for finance teams</div>
             </div>
           </div>
         </div>
@@ -101,7 +101,7 @@ export default function About() {
                 <li>
                   <span className="mkt-timeline-dot" />
                   <div>
-                    <strong>Core ERP modules</strong>
+                    <strong>Core platform modules</strong>
                     <p>We then built Master Data, PO, Invoice, Payments, and Collection modules on a single schema.</p>
                   </div>
                 </li>

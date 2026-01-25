@@ -240,7 +240,7 @@ function Register({ onRegister }) {
               Effortlessly manage invoices, collections, and operations.
             </h2>
             <p className="auth-brand-subcopy">
-              Nbaurum centralizes your finance workflows into a single ERP workspace, so teams can invoice, follow up, and reconcile with confidence.
+              Nbaurum centralizes your finance workflows into a single workspace, so teams can invoice, follow up, and reconcile with confidence.
             </p>
           </div>
 

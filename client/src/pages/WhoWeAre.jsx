@@ -2,10 +2,10 @@ import { useEffect } from 'react'
 
 export default function WhoWeAre() {
   useEffect(() => {
-    document.title = 'Who We Are – Nbaurum ERP Team & Culture'
+    document.title = 'Who We Are – Nbaurum Team & Culture'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Meet the team behind Nbaurum ERP. We are product and operations people who have sat inside finance teams, building software that respects the discipline and detail of finance work.')
+      metaDescription.setAttribute('content', 'Meet the team behind Nbaurum. We are product and operations people who have sat inside finance teams, building software that respects the discipline and detail of finance work.')
     }
   }, [])
 
@@ -24,15 +24,15 @@ export default function WhoWeAre() {
           <div className="mkt-illustration-block">
             <div className="mkt-image-placeholder caption" style={{ aspectRatio: '4/3' }}>
               <span>Our Team</span>
-              <div className="mkt-image-caption">Building ERP solutions with real-world finance experience</div>
+              <div className="mkt-image-caption">Building solutions with real-world finance experience</div>
             </div>
             <div>
               <div className="mkt-grid-3">
                 <div className="mkt-card">
                   <h3>Why we built this</h3>
                   <p className="mkt-body">
-                    We watched teams stitch together spreadsheets, ERPs, and email threads just to answer “what’s really due
-                    this month?” Nbaurum exists so that answer is always one page away.
+                    We watched teams stitch together spreadsheets, multiple systems, and email threads just to answer "what's really due
+                    this month?" Nbaurum exists so that answer is always one page away.
                   </p>
                 </div>
                 <div className="mkt-card">

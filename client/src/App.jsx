@@ -34,6 +34,8 @@ import Meetings from './pages/Meetings'
 import Reports from './pages/Reports'
 import AppLayout from './layouts/AppLayout'
 import { MasterDataProvider } from './contexts/MasterDataContext'
+import { AIAssistantProvider } from './contexts/AIAssistantContext'
+import ScrollToTop from './components/ScrollToTop'
 import './App.css'
 
 function App() {
@@ -63,6 +65,8 @@ function App() {
   return (
     <MasterDataProvider>
     <Router>
+      <AIAssistantProvider>
+      <ScrollToTop />
       <Routes>
         {/* Public marketing site (shown when logged out) */}
         <Route
@@ -125,6 +129,7 @@ function App() {
         {/* Fallback: send logged-out users to Home, logged-in users to Dashboard */}
         <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/'} />} />
       </Routes>
+      </AIAssistantProvider>
     </Router>
     </MasterDataProvider>
   )

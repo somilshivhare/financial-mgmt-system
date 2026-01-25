@@ -63,7 +63,7 @@ export default function MarketingNavbar() {
         <Link 
           to="/" 
           className="mkt-brand" 
-          aria-label="Nbaurum ERP Home" 
+          aria-label="Nbaurum Home" 
           onClick={close}
         >
           <span className="mkt-brand-mark" aria-hidden="true">

@@ -3,10 +3,10 @@ import { useEffect } from 'react'
 
 export default function Home() {
   useEffect(() => {
-    document.title = 'Nbaurum ERP – Enterprise Finance & Collections Platform'
+    document.title = 'Nbaurum – Enterprise Finance & Collections Platform'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Nbaurum ERP is a focused SaaS platform for finance teams. Manage invoices, track receivables, and run disciplined collections with enterprise-grade controls, audit trails, and role-based access.')
+      metaDescription.setAttribute('content', 'Nbaurum is a focused SaaS platform for finance teams. Manage invoices, track receivables, and run disciplined collections with enterprise-grade controls, audit trails, and role-based access.')
     }
   }, [])
 
@@ -17,10 +17,10 @@ export default function Home() {
         <div className="mkt-container">
           <div className="mkt-hero-grid">
             <div className="mkt-hero-copy">
-              <div className="mkt-eyebrow">Enterprise receivables & ERP-grade controls</div>
-              <h1>A single ERP workspace for invoices, dues, and collections.</h1>
+              <div className="mkt-eyebrow">Enterprise receivables & enterprise-grade controls</div>
+              <h1>A single workspace for invoices, dues, and collections.</h1>
               <p className="mkt-lead">
-                Nbaurum is a focused ERP SaaS for finance and operations teams that need structured invoicing, live
+                Nbaurum is a focused SaaS platform for finance and operations teams that need structured invoicing, live
                 receivables, and disciplined collections—without losing auditability or control.
               </p>
 
@@ -102,11 +102,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ERP Modules Overview with Visuals */}
+      {/* Platform Modules Overview with Visuals */}
       <section className="mkt-section-full">
         <div className="mkt-container">
           <div className="mkt-page-head">
-            <h2 className="mkt-section-heading">ERP modules aligned with finance reality</h2>
+            <h2 className="mkt-section-heading">Platform modules aligned with finance reality</h2>
             <p className="mkt-lead">
               Every module is wired to a single source of truth in the database, so Master Data, PO, Invoices, Payments,
               and Collections always stay in sync.
@@ -333,7 +333,7 @@ export default function Home() {
 
           <div style={{ marginTop: 48, textAlign: 'center' }}>
             <p className="mkt-body">
-              AI features will be built on top of our existing ERP foundation, ensuring they respect your data controls,
+              AI features will be built on top of our existing platform foundation, ensuring they respect your data controls,
               audit requirements, and business rules. No shortcuts, no compromise on transparency.
             </p>
           </div>
@@ -348,7 +348,7 @@ export default function Home() {
               <h2>Ready to structure your finance operations?</h2>
               <p className="mkt-body">
                 Start with a trial space or schedule a guided walkthrough with our team. No noisy UI, no half-finished
-                workflows—just ERP-grade clarity.
+                workflows—just enterprise-grade clarity.
               </p>
             </div>
             <div className="mkt-cta-actions">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Navbar from '../components/layout/Navbar'
 import Sidebar from '../components/layout/Sidebar'
+import AIAssistant from '../components/AIAssistant'
 import '../styles/Layout.css'
 
 const SIDEBAR_EXPANDED = 260
@@ -88,6 +89,9 @@ export default function AppLayout() {
           onClick={() => setMobileOpen(false)}
         />
       )}
+
+      {/* AI Assistant */}
+      <AIAssistant />
     </div>
   )
 }

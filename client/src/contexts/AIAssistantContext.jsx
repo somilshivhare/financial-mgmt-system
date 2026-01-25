@@ -1,0 +1,168 @@
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
+import * as dashboardApi from '../api/dashboard'
+import { generateResponse, generateBusinessSummary, generatePageContext } from '../services/aiAssistantService'
+
+const AIAssistantContext = createContext(null)
+
+export const useAIAssistant = () => {
+  const context = useContext(AIAssistantContext)
+  if (!context) {
+    throw new Error('useAIAssistant must be used within AIAssistantProvider')
+  }
+  return context
+}
+
+export const AIAssistantProvider = ({ children }) => {
+  const location = useLocation()
+  const [isOpen, setIsOpen] = useState(false)
+  const [hasSeenIntroduction, setHasSeenIntroduction] = useState(() => {
+    try {
+      return localStorage.getItem('aiAssistant_introductionSeen') === 'true'
+    } catch {
+      return false
+    }
+  })
+  const [isLoading, setIsLoading] = useState(false)
+  const [dashboardData, setDashboardData] = useState(null)
+  const [pageData, setPageData] = useState(null)
+  const [conversation, setConversation] = useState([])
+
+  // Load dashboard data for context
+  const loadDashboardData = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const response = await dashboardApi.getDashboardData({})
+      setDashboardData(response.data)
+    } catch (error) {
+      console.error('Failed to load dashboard data for AI Assistant:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Load dashboard data on mount and periodically
+  useEffect(() => {
+    loadDashboardData()
+    // Refresh data every 5 minutes
+    const interval = setInterval(loadDashboardData, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [loadDashboardData])
+
+  // Check if user has seen introduction (on Dashboard)
+  useEffect(() => {
+    if (location.pathname === '/dashboard' && !hasSeenIntroduction) {
+      // Show introduction on Dashboard after a short delay
+      const timer = setTimeout(() => {
+        setIsOpen(true)
+        setHasSeenIntroduction(true)
+        try {
+          localStorage.setItem('aiAssistant_introductionSeen', 'true')
+        } catch {
+          // Ignore localStorage errors
+        }
+        // Add welcome message
+        setConversation([{
+          id: 'welcome',
+          type: 'assistant',
+          message: "Hello! I'm your AI business assistant. I'm here to help you understand your finances, navigate the system, and make informed decisions. You can ask me things like 'Give me a summary' or 'What's overdue?' at any time.",
+          timestamp: new Date(),
+        }])
+      }, 2000) // Show after 2 seconds
+      return () => clearTimeout(timer)
+    }
+  }, [location.pathname, hasSeenIntroduction])
+
+  // Handle user query
+  const handleQuery = useCallback(async (query) => {
+    if (!query.trim()) return
+
+    // Add user message to conversation
+    const userMessage = {
+      id: Date.now().toString(),
+      type: 'user',
+      message: query,
+      timestamp: new Date(),
+    }
+    setConversation(prev => [...prev, userMessage])
+
+    // Generate response
+    setIsLoading(true)
+    try {
+      const context = {
+        pathname: location.pathname,
+        dashboardData,
+        pageData,
+      }
+
+      const response = generateResponse(query, context)
+      
+      // Add assistant response to conversation
+      const assistantMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        message: response.response,
+        insights: response.insights || [],
+        recommendations: response.recommendations || [],
+        timestamp: new Date(),
+      }
+      
+      setConversation(prev => [...prev, assistantMessage])
+    } catch (error) {
+      console.error('Error generating AI response:', error)
+      const errorMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        message: "I apologize, but I encountered an error processing your request. Please try again or rephrase your question.",
+        timestamp: new Date(),
+      }
+      setConversation(prev => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [location.pathname, dashboardData, pageData])
+
+  // Get quick summary
+  const getQuickSummary = useCallback(() => {
+    if (!dashboardData) {
+      return {
+        summary: "Loading your business data...",
+        insights: [],
+        recommendations: [],
+      }
+    }
+    return generateBusinessSummary(dashboardData, location.pathname)
+  }, [dashboardData, location.pathname])
+
+  // Get page guidance
+  const getPageGuidance = useCallback(() => {
+    return generatePageContext(location.pathname, pageData)
+  }, [location.pathname, pageData])
+
+  // Clear conversation
+  const clearConversation = useCallback(() => {
+    setConversation([])
+  }, [])
+
+  const value = {
+    isOpen,
+    setIsOpen,
+    isLoading,
+    dashboardData,
+    pageData,
+    setPageData,
+    conversation,
+    handleQuery,
+    getQuickSummary,
+    getPageGuidance,
+    clearConversation,
+    hasSeenIntroduction,
+  }
+
+  return (
+    <AIAssistantContext.Provider value={value}>
+      {children}
+    </AIAssistantContext.Provider>
+  )
+}
+

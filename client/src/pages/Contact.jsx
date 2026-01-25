@@ -4,10 +4,10 @@ export default function Contact() {
   const [status, setStatus] = useState('idle')
 
   useEffect(() => {
-    document.title = 'Contact Nbaurum ERP – Get in Touch'
+    document.title = 'Contact Nbaurum – Get in Touch'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Contact Nbaurum ERP for sales inquiries, support, or questions about our enterprise finance platform. We\'re here to help structure your invoicing and collections workflows.')
+      metaDescription.setAttribute('content', 'Contact Nbaurum for sales inquiries, support, or questions about our enterprise finance platform. We\'re here to help structure your invoicing and collections workflows.')
     }
   }, [])
 
@@ -39,7 +39,7 @@ export default function Contact() {
                 <div className="mkt-contact-line">
                   <span className="mkt-contact-key">Head office</span>
                   <span className="mkt-contact-val">
-                    Nbaurum ERP Pvt. Ltd.
+                    Nbaurum Pvt. Ltd.
                     <br />
                     4th Floor, Business District
                     <br />

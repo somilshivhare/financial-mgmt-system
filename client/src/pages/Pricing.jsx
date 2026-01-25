@@ -6,7 +6,7 @@ const tiers = [
     name: 'Trial',
     price: '₹0',
     note: 'Evaluate with a limited but complete workflow',
-    features: ['Up to 3 users', 'Core ERP modules', 'Email support'],
+    features: ['Up to 3 users', 'Core platform modules', 'Email support'],
   },
   {
     name: 'Starter',
@@ -31,10 +31,10 @@ const tiers = [
 
 export default function Pricing() {
   useEffect(() => {
-    document.title = 'Pricing – Nbaurum ERP Plans & Features'
+    document.title = 'Pricing – Nbaurum Plans & Features'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Choose a Nbaurum ERP plan aligned with your finance workflows. Start with Trial, scale to Growth, or customize Enterprise. Transparent pricing, no hidden fees.')
+      metaDescription.setAttribute('content', 'Choose a Nbaurum plan aligned with your finance workflows. Start with Trial, scale to Growth, or customize Enterprise. Transparent pricing, no hidden fees.')
     }
   }, [])
 
@@ -46,7 +46,7 @@ export default function Pricing() {
             <h1 className="mkt-section-heading">Pricing</h1>
             <p className="mkt-lead">
               Choose a plan aligned with your finance workflows. Start small, then scale into more advanced controls and
-              reporting as your ERP footprint grows.
+              reporting as your platform usage grows.
             </p>
           </div>
 
