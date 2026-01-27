@@ -26,7 +26,17 @@ export const generatePONumber = (businessUnit = 'MAIN', financialYear = null) =>
 export const getAllPOEntries = async () => {
   try {
     const response = await poApi.getAllPOs()
-    return response.data || []
+    // Handle different response structures
+    if (Array.isArray(response)) {
+      return response
+    }
+    if (response && Array.isArray(response.data)) {
+      return response.data
+    }
+    if (response && response.success && Array.isArray(response.data)) {
+      return response.data
+    }
+    return []
   } catch (error) {
     console.error('Failed to load PO entries:', error)
     return []

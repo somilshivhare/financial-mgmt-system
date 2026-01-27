@@ -32,7 +32,13 @@ function POEntryIndex() {
     try {
       setLoading(true)
       const entries = await poEntryService.getAllPOEntries()
-      setPOEntries(entries || [])
+      // Ensure entries is always an array
+      if (Array.isArray(entries)) {
+        setPOEntries(entries)
+      } else {
+        console.warn('PO entries is not an array:', entries)
+        setPOEntries([])
+      }
     } catch (error) {
       console.error('Failed to load PO entries:', error)
       setPOEntries([])
@@ -42,6 +48,11 @@ function POEntryIndex() {
   }
 
   const filteredPOEntries = useMemo(() => {
+    // Ensure poEntries is always an array before spreading
+    if (!Array.isArray(poEntries)) {
+      console.warn('poEntries is not an array:', poEntries)
+      return []
+    }
     let filtered = [...poEntries]
 
     // Search filter

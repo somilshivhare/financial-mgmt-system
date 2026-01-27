@@ -302,10 +302,16 @@ function POEntry() {
 
   useEffect(() => {
     // Load Master Data for dropdowns
-    setCustomers(getCustomers())
-    setPaymentTerms(getPaymentTerms())
-    setEmployees(getEmployees())
-    setCompanies(getCompanies())
+    const customersData = getCustomers()
+    const paymentTermsData = getPaymentTerms()
+    const employeesData = getEmployees()
+    const companiesData = getCompanies()
+    
+    // Ensure all are arrays
+    setCustomers(Array.isArray(customersData) ? customersData : [])
+    setPaymentTerms(Array.isArray(paymentTermsData) ? paymentTermsData : [])
+    setEmployees(Array.isArray(employeesData) ? employeesData : [])
+    setCompanies(Array.isArray(companiesData) ? companiesData : [])
   }, [getCustomers, getPaymentTerms, getEmployees, getCompanies])
   
   // Auto-generate PO Number when form is initialized (only once, and only if not loaded from persistence)
@@ -322,6 +328,17 @@ function POEntry() {
     let totalFreight = 0
     let totalGST = 0
     let totalPOValue = 0
+
+    // Ensure boqItems is an array
+    if (!Array.isArray(boqItems)) {
+      console.warn('boqItems is not an array:', boqItems)
+      return {
+        totalExWorks: '0.00',
+        totalFreight: '0.00',
+        totalGST: '0.00',
+        totalPOValue: '0.00',
+      }
+    }
 
     boqItems.forEach((item) => {
       const quantity = parseFloat(item.quantity) || 0
@@ -503,12 +520,17 @@ function POEntry() {
 
   // Filter employees by role
   const getEmployeesByRole = (roleKeywords) => {
+    if (!Array.isArray(employees)) {
+      console.warn('employees is not an array:', employees)
+      return []
+    }
     return employees.filter((emp) => {
       const role = (emp.role || emp.designation || '').toLowerCase()
       return roleKeywords.some((keyword) => role.includes(keyword.toLowerCase()))
     })
   }
 
+  // Ensure all employee arrays are actually arrays
   const salesManagers = getEmployeesByRole(['sales manager'])
   const salesHeads = getEmployeesByRole(['sales head'])
   const projectManagers = getEmployeesByRole(['project manager'])
@@ -577,7 +599,7 @@ function POEntry() {
                 required
               >
                 <option value="">Select Customer from Master Data</option>
-                {customers.map((customer) => (
+                {Array.isArray(customers) && customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
                     {customer.name || customer.customerName} {customer.gstin || customer.gstNo ? `(${customer.gstin || customer.gstNo})` : ''}
                   </option>
@@ -1027,7 +1049,7 @@ function POEntry() {
                 className="po-entry-select"
               >
                 <option value="">Select Payment Terms from Master Data</option>
-                {paymentTerms.map((terms) => (
+                {Array.isArray(paymentTerms) && paymentTerms.map((terms) => (
                   <option key={terms.id} value={terms.id}>
                     {terms.name || terms.paymentTermsDescription}
                   </option>
@@ -1318,7 +1340,7 @@ function POEntry() {
                 className="po-entry-select"
               >
                 <option value="">Select Sales Manager</option>
-                {salesManagers.map((emp) => (
+                {Array.isArray(salesManagers) && salesManagers.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
                   </option>
@@ -1338,7 +1360,7 @@ function POEntry() {
                 className="po-entry-select"
               >
                 <option value="">Select Sales Head</option>
-                {salesHeads.map((emp) => (
+                {Array.isArray(salesHeads) && salesHeads.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
                   </option>
@@ -1358,7 +1380,7 @@ function POEntry() {
                 className="po-entry-select"
               >
                 <option value="">Select Business Head</option>
-                {businessHeads.map((emp) => (
+                {Array.isArray(businessHeads) && businessHeads.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
                   </option>
@@ -1378,7 +1400,7 @@ function POEntry() {
                 className="po-entry-select"
               >
                 <option value="">Select Project Manager</option>
-                {projectManagers.map((emp) => (
+                {Array.isArray(projectManagers) && projectManagers.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
                   </option>
@@ -1398,7 +1420,7 @@ function POEntry() {
                 className="po-entry-select"
               >
                 <option value="">Select Project Head</option>
-                {projectHeads.map((emp) => (
+                {Array.isArray(projectHeads) && projectHeads.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
                   </option>
@@ -1418,7 +1440,7 @@ function POEntry() {
                 className="po-entry-select"
               >
                 <option value="">Select Collection Incharge</option>
-                {collectionIncharges.map((emp) => (
+                {Array.isArray(collectionIncharges) && collectionIncharges.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
                   </option>
@@ -1438,7 +1460,7 @@ function POEntry() {
                 className="po-entry-select"
               >
                 <option value="">Select Sales Agent</option>
-                {salesAgents.map((emp) => (
+                {Array.isArray(salesAgents) && salesAgents.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
                   </option>
@@ -1474,7 +1496,7 @@ function POEntry() {
                 className="po-entry-select"
               >
                 <option value="">Select Collection Agent</option>
-                {collectionAgents.map((emp) => (
+                {Array.isArray(collectionAgents) && collectionAgents.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
                   </option>
@@ -1599,7 +1621,7 @@ function POEntry() {
                   </tr>
                 </thead>
                 <tbody>
-                  {boqItems.map((item, index) => (
+                  {Array.isArray(boqItems) && boqItems.map((item, index) => (
                     <tr key={item.id}>
                       <td>
                         <input
