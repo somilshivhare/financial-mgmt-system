@@ -36,6 +36,35 @@ const errorHandler = (err, _req, res, _next) => {
     ));
   }
   
+  // Handle MySQL parameter errors
+  if (err.code === 'ER_WRONG_ARGUMENTS' || err.message?.includes('mysqld_stmt_execute')) {
+    console.error('[Database] Parameter mismatch error:', {
+      code: err.code,
+      message: err.message,
+      sql: err.sql,
+      sqlState: err.sqlState,
+    });
+    return res.status(500).json(apiError(
+      'Database query error. Please contact support if this persists.',
+      'ERR_DATABASE_QUERY',
+      process.env.NODE_ENV === 'development' ? { details: err.message } : null
+    ));
+  }
+  
+  // Handle other MySQL errors
+  if (err.code && err.code.startsWith('ER_')) {
+    console.error('[Database] MySQL error:', {
+      code: err.code,
+      message: err.message,
+      sql: err.sql,
+    });
+    return res.status(500).json(apiError(
+      'Database error occurred. Please try again.',
+      'ERR_DATABASE',
+      process.env.NODE_ENV === 'development' ? { details: err.message } : null
+    ));
+  }
+  
   // Handle JWT errors
   if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
     return res.status(401).json(apiError(
@@ -52,7 +81,19 @@ const errorHandler = (err, _req, res, _next) => {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const errorMessage = isDevelopment ? message : 'An error occurred. Please try again.';
   
-  res.status(status).json(apiError(errorMessage, code, isDevelopment ? { stack: err.stack } : null));
+  // Ensure we always return valid JSON, even if there's an error serializing
+  try {
+    res.status(status).json(apiError(errorMessage, code, isDevelopment ? { stack: err.stack } : null));
+  } catch (jsonError) {
+    // Fallback if JSON serialization fails
+    console.error('[Error Handler] Failed to send JSON response:', jsonError);
+    res.status(status).setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
+      success: false,
+      code: 'ERR_INTERNAL',
+      message: 'An error occurred. Please try again.',
+    }));
+  }
 };
 
 module.exports = { notFound, errorHandler };

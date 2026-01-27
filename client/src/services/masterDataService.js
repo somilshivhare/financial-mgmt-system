@@ -8,22 +8,57 @@ import * as masterDataApi from '../api/masterData'
 // Get all master data
 export const getAllMasterData = async () => {
   try {
-    // For now, we'll fetch each type separately since the API doesn't have a single endpoint
-    // In a real app, you'd want a single endpoint that returns all master data
-    const companies = await masterDataApi.getMasterDataByType('company-profile')
-    const customers = await masterDataApi.getMasterDataByType('customer-profile')
-    const consignees = await masterDataApi.getMasterDataByType('consignee-profile')
-    const payers = await masterDataApi.getMasterDataByType('payer-profile')
-    const employees = await masterDataApi.getMasterDataByType('employee-profile')
-    const paymentTerms = await masterDataApi.getMasterDataByType('payment-terms')
+    // Fetch all types in parallel for better performance
+    // This makes 6 requests simultaneously instead of sequentially
+    const [companies, customers, consignees, payers, employees, paymentTerms] = await Promise.allSettled([
+      masterDataApi.getMasterDataByType('company-profile'),
+      masterDataApi.getMasterDataByType('customer-profile'),
+      masterDataApi.getMasterDataByType('consignee-profile'),
+      masterDataApi.getMasterDataByType('payer-profile'),
+      masterDataApi.getMasterDataByType('employee-profile'),
+      masterDataApi.getMasterDataByType('payment-terms'),
+    ])
+
+    // Extract values from Promise.allSettled results, handling failures gracefully
+    // Transform records to include title and submittedAt for the listing page
+    const transformRecords = (records) => {
+      if (!Array.isArray(records)) return []
+      return records.map(record => {
+        const values = record.values || {}
+        const logoPreviews = values.logoPreviews || {}
+        
+        // Extract logoPreviews from values if nested
+        const cleanValues = { ...values }
+        if (cleanValues.logoPreviews) {
+          delete cleanValues.logoPreviews
+        }
+        
+        // Determine title based on type
+        let title = 'Master Data'
+        if (record.type === 'company-profile') title = 'Company Profile'
+        else if (record.type === 'customer-profile') title = 'Customer Profile'
+        else if (record.type === 'consignee-profile') title = 'Consignee Profile'
+        else if (record.type === 'payer-profile') title = 'Payer Profile'
+        else if (record.type === 'employee-profile') title = 'Employee Profile'
+        else if (record.type === 'payment-terms') title = 'Payment Terms'
+        
+        return {
+          ...record,
+          title,
+          values: cleanValues,
+          logoPreviews,
+          submittedAt: record.created_at || record.updated_at || new Date().toISOString(),
+        }
+      })
+    }
 
     return {
-      companies: companies || [],
-      customers: customers || [],
-      consignees: consignees || [],
-      payers: payers || [],
-      employees: employees || [],
-      paymentTerms: paymentTerms || [],
+      companies: companies.status === 'fulfilled' ? transformRecords(companies.value || []) : [],
+      customers: customers.status === 'fulfilled' ? transformRecords(customers.value || []) : [],
+      consignees: consignees.status === 'fulfilled' ? transformRecords(consignees.value || []) : [],
+      payers: payers.status === 'fulfilled' ? transformRecords(payers.value || []) : [],
+      employees: employees.status === 'fulfilled' ? transformRecords(employees.value || []) : [],
+      paymentTerms: paymentTerms.status === 'fulfilled' ? transformRecords(paymentTerms.value || []) : [],
       lastUpdated: new Date().toISOString(),
     }
   } catch (error) {
@@ -212,6 +247,19 @@ export const searchMasterData = async (query) => {
     return response || []
   } catch (error) {
     console.error('Failed to search master data:', error)
+    return []
+  }
+}
+
+// Get aggregated master data (all steps combined) - returns array of master data sets
+export const getAggregatedMasterData = async () => {
+  try {
+    const response = await masterDataApi.getAggregatedMasterData()
+    // Extract data from API response - should be an array
+    const data = response?.data
+    return Array.isArray(data) ? data : (data ? [data] : [])
+  } catch (error) {
+    console.error('Failed to fetch aggregated master data:', error)
     return []
   }
 }

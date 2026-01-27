@@ -24,6 +24,7 @@ const getDashboard = async (userId, filters = {}) => {
   const currency = await getCurrency();
 
   // Financial KPIs - All time totals
+  // Only pass dateParams if dateWhere is not empty
   const [kpiData] = await Promise.all([
     query(
       `SELECT 
@@ -38,7 +39,7 @@ const getDashboard = async (userId, filters = {}) => {
       LEFT JOIN payments p ON p.invoice_id = i.id
       LEFT JOIN collection_plans cp ON cp.invoice_id = i.id
       ${dateWhere}`,
-      dateParams
+      dateWhere ? dateParams : []
     ),
   ]);
 
@@ -48,15 +49,17 @@ const getDashboard = async (userId, filters = {}) => {
     : 0;
 
   // Invoice insights - Status counts
+  // Only pass dateParams if dateWhere is not empty
   const invoicesByStatus = await query(
     `SELECT status, COUNT(*) as count 
      FROM invoices i
      ${dateWhere}
      GROUP BY status`,
-    dateParams
+    dateWhere ? dateParams : []
   );
 
   // Recent invoices (last 10)
+  // Only pass dateParams if dateWhere is not empty
   const recentInvoices = await query(
     `SELECT 
       i.id,
@@ -74,10 +77,19 @@ const getDashboard = async (userId, filters = {}) => {
     ${dateWhere}
     ORDER BY i.issue_date DESC
     LIMIT 10`,
-    dateParams
+    dateWhere ? dateParams : []
   );
 
   // Payment and collections summary
+  // Build proper WHERE clause with date conditions
+  const followUpWhereConditions = ['i.balance > 0', 'i.due_date >= CURDATE()', "i.status NOT IN ('cancelled','paid')"];
+  const followUpWhereParams = [];
+  if (dateConditions.length > 0) {
+    followUpWhereConditions.push(...dateConditions);
+    followUpWhereParams.push(...dateParams);
+  }
+  const followUpWhere = `WHERE ${followUpWhereConditions.join(' AND ')}`;
+  
   const upcomingFollowUps = await query(
     `SELECT 
       i.id,
@@ -88,15 +100,21 @@ const getDashboard = async (userId, filters = {}) => {
       DATEDIFF(i.due_date, CURDATE()) as days_until_due
     FROM invoices i
     LEFT JOIN customers c ON c.id = i.customer_id
-    WHERE i.balance > 0 
-      AND i.due_date >= CURDATE() 
-      AND i.status NOT IN ('cancelled','paid')
-      ${dateConditions.length ? `AND ${dateConditions.join(' AND ')}` : ''}
+    ${followUpWhere}
     ORDER BY i.due_date ASC
     LIMIT 10`,
-    dateParams
+    followUpWhereParams
   );
 
+  // Build overdue highlights WHERE clause
+  const overdueWhereConditions = ['i.due_date < CURDATE()', 'i.balance > 0', "i.status NOT IN ('cancelled','paid')"];
+  const overdueWhereParams = [];
+  if (dateConditions.length > 0) {
+    overdueWhereConditions.push(...dateConditions);
+    overdueWhereParams.push(...dateParams);
+  }
+  const overdueWhere = `WHERE ${overdueWhereConditions.join(' AND ')}`;
+  
   const overdueHighlights = await query(
     `SELECT 
       i.id,
@@ -107,13 +125,10 @@ const getDashboard = async (userId, filters = {}) => {
       DATEDIFF(CURDATE(), i.due_date) as days_overdue
     FROM invoices i
     LEFT JOIN customers c ON c.id = i.customer_id
-    WHERE i.due_date < CURDATE() 
-      AND i.balance > 0 
-      AND i.status NOT IN ('cancelled','paid')
-      ${dateConditions.length ? `AND ${dateConditions.join(' AND ')}` : ''}
+    ${overdueWhere}
     ORDER BY i.due_date ASC, i.balance DESC
     LIMIT 10`,
-    dateParams
+    overdueWhereParams
   );
 
   return {
@@ -157,6 +172,7 @@ const getAnalytics = async (filters = {}) => {
   const dateWhere = dateConditions.length ? `WHERE ${dateConditions.join(' AND ')}` : '';
 
   // Monthly invoices vs collections
+  // Only pass dateParams if dateWhere is not empty
   const monthlyData = await query(
     `SELECT 
       DATE_FORMAT(i.issue_date, '%Y-%m') as month,
@@ -167,7 +183,7 @@ const getAnalytics = async (filters = {}) => {
     ${dateWhere}
     GROUP BY DATE_FORMAT(i.issue_date, '%Y-%m')
     ORDER BY month ASC`,
-    dateParams
+    dateWhere ? dateParams : []
   );
 
   // Outstanding trends (by month)
@@ -179,7 +195,7 @@ const getAnalytics = async (filters = {}) => {
     ${dateWhere}
     GROUP BY DATE_FORMAT(i.issue_date, '%Y-%m')
     ORDER BY month ASC`,
-    dateParams
+    dateWhere ? dateParams : []
   );
 
   // Realization percentages (collected vs invoiced)
@@ -198,7 +214,7 @@ const getAnalytics = async (filters = {}) => {
     ${dateWhere}
     GROUP BY DATE_FORMAT(i.issue_date, '%Y-%m')
     ORDER BY month ASC`,
-    dateParams
+    dateWhere ? dateParams : []
   );
 
   return {

@@ -22,11 +22,13 @@ export function useNotifications() {
   const loadNotifications = useCallback(async () => {
     try {
       const response = await notificationsApi.getNotifications({ limit: 50 })
-      if (response?.data?.notifications) {
-        setNotifications(response.data.notifications)
-      }
+      // Handle both old and new response formats, gracefully handle empty results
+      const notifications = response?.data?.notifications || response?.data?.data?.notifications || []
+      setNotifications(Array.isArray(notifications) ? notifications : [])
     } catch (error) {
       console.error('[Notifications] Failed to load notifications:', error)
+      // Set empty array on error to prevent crashes
+      setNotifications([])
     }
   }, [])
 
@@ -34,11 +36,13 @@ export function useNotifications() {
   const loadUnreadCount = useCallback(async () => {
     try {
       const response = await notificationsApi.getUnreadCount()
-      if (response?.data?.count !== undefined) {
-        setUnreadCount(response.data.count)
-      }
+      // Handle both old and new response formats, default to 0
+      const count = response?.data?.count ?? response?.data?.data?.count ?? 0
+      setUnreadCount(typeof count === 'number' ? count : 0)
     } catch (error) {
       console.error('[Notifications] Failed to load unread count:', error)
+      // Set to 0 on error to prevent crashes
+      setUnreadCount(0)
     }
   }, [])
 
@@ -230,24 +234,44 @@ export function useNotifications() {
     }
   }, [])
 
-  // Initialize on mount
+  // Initialize on mount - notifications temporarily disabled
   useEffect(() => {
-    const initialize = async () => {
-      setLoading(true)
-      await Promise.all([loadNotifications(), loadUnreadCount()])
+    // Check authentication first
+    const token = localStorage.getItem('token')
+    if (!token) {
       setLoading(false)
-      
-      // Connect WebSocket
-      connectWebSocket()
-      
-      // Start fallback polling
-      startPolling()
+      return
+    }
+    
+    let mounted = true
+    
+    const initialize = async () => {
+      try {
+        // Notifications are temporarily disabled - just set empty state
+        if (mounted) {
+          setNotifications([])
+          setUnreadCount(0)
+          setLoading(false)
+        }
+
+        // Skip WebSocket and polling since notifications are disabled
+        // connectWebSocket() and startPolling() are commented out temporarily
+      } catch (err) {
+        console.error('[Notifications] Initialization error (non-critical):', err)
+        if (mounted) {
+          setNotifications([])
+          setUnreadCount(0)
+          setLoading(false)
+        }
+      }
     }
 
+    // Don't block rendering - initialize asynchronously
     initialize()
-
+    
     // Cleanup on unmount
     return () => {
+      mounted = false
       if (socketRef.current) {
         console.log('[Notifications] Cleaning up WebSocket connection')
         socketRef.current.disconnect()
@@ -260,7 +284,7 @@ export function useNotifications() {
         clearTimeout(reconnectTimeoutRef.current)
       }
     }
-  }, [loadNotifications, loadUnreadCount, connectWebSocket, startPolling])
+  }, []) // Empty dependency array - notifications disabled
 
   // Manual reconnect (with delay to prevent spam)
   const reconnect = useCallback(() => {

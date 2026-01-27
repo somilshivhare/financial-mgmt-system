@@ -46,27 +46,34 @@ function MasterDataReview() {
 
   const hasAnyData = Object.keys(allFormData).length > 0
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!hasAnyData) {
       setStatus({ kind: 'error', message: 'No data to submit. Please complete at least one form.' })
       return
     }
 
+    setStatus({ kind: 'idle', message: 'Saving master data...' })
+
     try {
       // Save each form type as individual records to centralized Master Data
-      Object.keys(allFormData).forEach((type) => {
+      // Use Promise.all to await all async operations
+      const savePromises = Object.keys(allFormData).map(async (type) => {
         const formData = allFormData[type]
         if (formData && formData.values) {
-          saveRecord(type, {
+          return saveRecord(type, {
             values: formData.values,
             logoPreviews: formData.logoPreviews || {},
             groups: formData.groups,
             multipleEntries: formData.multipleEntries,
           })
         }
+        return null
       })
 
-      // Clear form data from localStorage
+      // Wait for all saves to complete
+      await Promise.all(savePromises)
+
+      // Clear form data from localStorage only after successful save
       FORM_TYPES.forEach((type) => {
         localStorage.removeItem(`masterDataForm_${type}`)
       })
@@ -75,7 +82,7 @@ function MasterDataReview() {
       setTimeout(() => navigate('/master-data'), 1500)
     } catch (error) {
       console.error('Failed to submit:', error)
-      setStatus({ kind: 'error', message: 'Failed to save data. Please try again.' })
+      setStatus({ kind: 'error', message: error.response?.data?.message || error.message || 'Failed to save data. Please try again.' })
     }
   }
 

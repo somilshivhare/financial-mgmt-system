@@ -165,31 +165,67 @@ function Dashboard() {
     return filters
   }, [dateRange])
 
-  // Load dashboard data
-  const loadDashboard = async () => {
+  // Load dashboard data - with proper error handling and retry limits
+  const loadDashboard = async (retryCount = 0) => {
+    const maxRetries = 1 // Only retry once
+    
     try {
       setError(null)
-      const [dashboardResponse, analyticsResponse, subscriptionResponse] = await Promise.all([
+      
+      // Use Promise.allSettled to prevent one failure from blocking others
+      const [dashboardResponse, analyticsResponse, subscriptionResponse] = await Promise.allSettled([
         dashboardApi.getDashboardData(dateFilters).catch(err => {
-          console.error('Failed to load dashboard data:', err)
-          return { data: null }
+          console.error('[Dashboard] Failed to load dashboard data:', err)
+          // Return a valid structure even on error
+          return { success: false, data: null }
         }),
         dashboardApi.getDashboardAnalytics(dateFilters).catch(err => {
-          console.error('Failed to load analytics:', err)
-          return { data: null }
+          console.error('[Dashboard] Failed to load analytics:', err)
+          return { success: false, data: null }
         }),
         dashboardApi.getSubscriptionUsage().catch(err => {
-          console.error('Failed to load subscription:', err)
-          return { data: null }
+          console.error('[Dashboard] Failed to load subscription:', err)
+          return { success: false, data: null }
         }),
       ])
       
-      setDashboardData(dashboardResponse.data)
-      setAnalyticsData(analyticsResponse.data)
-      setSubscriptionUsage(subscriptionResponse.data)
+      // Extract data safely from Promise.allSettled results
+      const dashboardData = dashboardResponse.status === 'fulfilled' 
+        ? (dashboardResponse.value?.data || dashboardResponse.value || null)
+        : null
+      const analyticsData = analyticsResponse.status === 'fulfilled'
+        ? (analyticsResponse.value?.data || analyticsResponse.value || null)
+        : null
+      const subscriptionData = subscriptionResponse.status === 'fulfilled'
+        ? (subscriptionResponse.value?.data || subscriptionResponse.value || null)
+        : null
+      
+      // Only set data if we got valid responses
+      if (dashboardData) setDashboardData(dashboardData)
+      if (analyticsData) setAnalyticsData(analyticsData)
+      if (subscriptionData) setSubscriptionUsage(subscriptionData)
+      
+      // Show error only if all requests failed
+      const allFailed = [dashboardResponse, analyticsResponse, subscriptionResponse]
+        .every(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value?.data))
+      
+      if (allFailed && retryCount < maxRetries) {
+        // Retry once after a delay
+        setTimeout(() => {
+          loadDashboard(retryCount + 1)
+        }, 2000)
+        return
+      }
+      
+      if (allFailed) {
+        setError('Unable to load dashboard data. Please refresh the page.')
+      }
     } catch (err) {
-      console.error('Failed to load dashboard:', err)
-      setError(err.message || 'Failed to load dashboard data')
+      console.error('[Dashboard] Unexpected error loading dashboard:', err)
+      // Don't show error on retry attempts
+      if (retryCount === 0) {
+        setError('Failed to load dashboard data. Some features may be unavailable.')
+      }
     } finally {
       setLoading(false)
       setRefreshing(false)

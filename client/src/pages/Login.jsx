@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Eye, EyeOff, Lock, AlertCircle, LayoutDashboard, BarChart3, LineChart, Shield } from 'lucide-react'
 import { login } from '../api/auth'
@@ -7,6 +7,10 @@ import '../styles/Auth.css'
 
 function Login({ onLogin }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  
+  // Get the intended destination from location state, or default to dashboard
+  const from = location.state?.from?.pathname || '/dashboard'
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -84,7 +88,8 @@ function Login({ onLogin }) {
         localStorage.removeItem('rememberEmail')
       }
       
-      navigate('/dashboard')
+      // Redirect to intended destination or dashboard
+      navigate(from, { replace: true })
     } catch (err) {
       // Handle structured error responses
       let errorMessage = 'Invalid email or password. Please try again.'

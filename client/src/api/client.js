@@ -31,8 +31,34 @@ client.interceptors.request.use((config) => {
 
 // Add response interceptor for error handling
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Validate response data is valid JSON/object
+    if (response.data && typeof response.data === 'string') {
+      // Try to parse if it's a string
+      try {
+        response.data = JSON.parse(response.data)
+      } catch (e) {
+        console.error('[API Client] Invalid JSON response:', response.data)
+        return Promise.reject({
+          message: 'Invalid server response format',
+          code: 'ERR_INVALID_RESPONSE',
+          status: response.status,
+        })
+      }
+    }
+    return response
+  },
   (error) => {
+    // Handle JSON parsing errors
+    if (error.code === 'ERR_BAD_RESPONSE' || error.message?.includes('JSON')) {
+      console.error('[API Client] JSON parsing error:', error)
+      return Promise.reject({
+        message: 'Invalid response from server. Please try again.',
+        code: 'ERR_INVALID_JSON',
+        isJsonError: true,
+      })
+    }
+    
     // Handle network errors
     if (error.code === 'ERR_NETWORK' || !error.response) {
       // Only log detailed errors in development or when authenticated
@@ -53,7 +79,20 @@ client.interceptors.response.use(
 
     // Handle HTTP errors
     const status = error.response?.status
-    const data = error.response?.data
+    let data = error.response?.data
+    
+    // Handle invalid JSON in error response
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data)
+      } catch (e) {
+        console.error('[API Client] Invalid JSON in error response:', data)
+        data = {
+          message: 'Server returned an invalid response',
+          code: 'ERR_INVALID_RESPONSE',
+        }
+      }
+    }
 
     if (status === 401) {
       // Unauthorized - token might be invalid

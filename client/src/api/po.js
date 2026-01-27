@@ -35,3 +35,21 @@ export const getAllPONumbers = async () => {
   const response = await client.get('/pos/numbers')
   return response.data
 }
+
+export const getPODraft = async (id = null) => {
+  const url = id ? `/pos/${id}/draft` : '/pos/draft'
+  const response = await client.get(url)
+  if (response.data?.data) {
+    return response.data.data
+  }
+  return null
+}
+
+export const upsertPODraft = async (formData, id = null) => {
+  const url = id ? `/pos/${id}/draft` : '/pos/draft'
+  const response = await client.post(url, formData)
+  if (response.data?.data) {
+    return { id: response.data.data.id, ...response.data.data }
+  }
+  return null
+}

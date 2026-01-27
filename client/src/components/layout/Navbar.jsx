@@ -76,22 +76,22 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
 
-  // Use real notifications hook
+  // Use real notifications hook - hooks handle errors internally
   const {
-    notifications,
-    unreadCount: notificationUnreadCount,
-    markAsRead,
-    markAllAsRead,
-    dismissNotification,
-  } = useNotifications()
+    notifications = [],
+    unreadCount: notificationUnreadCount = 0,
+    markAsRead = () => {},
+    markAllAsRead = () => {},
+    dismissNotification = () => {},
+  } = useNotifications() || {}
 
-  // Use alerts hook for badge count
+  // Use alerts hook for badge count - hooks handle errors internally
   const {
-    unreadCount: alertsUnreadCount,
-    refreshUnreadCount: refreshAlertsCount,
-  } = useAlerts()
+    unreadCount: alertsUnreadCount = 0,
+    refreshUnreadCount: refreshAlertsCount = () => {},
+  } = useAlerts() || {}
 
-  // Combined unread count (alerts + notifications)
+  // Combined unread count (alerts + notifications) - safe defaults
   const unreadCount = (alertsUnreadCount || 0) + (notificationUnreadCount || 0)
 
   // Close dropdowns when clicking outside

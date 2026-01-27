@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Plus, X, Trash2 } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
 import * as poEntryService from '../services/poEntryService'
+import { getPODraft, upsertPODraft } from '../api/po'
+import { useFormPersistence } from '../hooks/useFormPersistence'
 import { INDIA_STATES, COUNTRIES } from '../utils/indiaStates'
 import '../styles/POEntry.css'
 
@@ -15,28 +17,15 @@ const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'Other']
 
 function POEntry() {
   const navigate = useNavigate()
+  const { id } = useParams()
   const { getCustomers, getPaymentTerms, getEmployees, getCompanies } = useMasterData()
   const [customers, setCustomers] = useState([])
   const [paymentTerms, setPaymentTerms] = useState([])
   const [employees, setEmployees] = useState([])
   const [companies, setCompanies] = useState([])
   
-  // BOQ Line Items
-  const [boqItems, setBoqItems] = useState([
-    {
-      id: 1,
-      materialDescription: '',
-      quantity: '',
-      uom: '',
-      unitPrice: '',
-      unitCost: '',
-      freight: '',
-      gst: '',
-      totalCost: '',
-    },
-  ])
-
-  const [formData, setFormData] = useState({
+  // Default form data structure
+  const defaultFormData = {
     // Customer Name
     customerId: '',
     customerName: '',
@@ -215,7 +204,101 @@ function POEntry() {
     paymentTypeOther: '',
     poCurrencyOther: '',
     customerStateOther: '',
+  }
+
+  // Form persistence hook
+  const {
+    values: persistedData,
+    setValues: setPersistedData,
+    loading: persistenceLoading,
+    saving: persistenceSaving,
+    save: persistenceSave,
+    load: persistenceLoad,
+  } = useFormPersistence({
+    saveFn: async (data, entityId) => {
+      // Combine formData and boqItems for saving
+      const saveData = {
+        ...data.formData,
+        boqItems: data.boqItems || [],
+      }
+      const result = await upsertPODraft(saveData, entityId || id)
+      return result
+    },
+    loadFn: async () => {
+      const draft = await getPODraft(id || null)
+      if (draft) {
+        // Separate formData and boqItems
+        const { boqItems: loadedBoqItems, ...formData } = draft
+        return {
+          formData,
+          boqItems: loadedBoqItems || [],
+        }
+      }
+      return null
+    },
+    entityType: 'po',
+    entityId: id || null,
+    defaultValues: {
+      formData: defaultFormData,
+      boqItems: [{
+        id: 1,
+        materialDescription: '',
+        quantity: '',
+        uom: '',
+        unitPrice: '',
+        unitCost: '',
+        freight: '',
+        gst: '',
+        totalCost: '',
+      }],
+    },
+    enableAutoSave: true,
+    autoSaveDelay: 2000,
   })
+
+  // Extract formData and boqItems from persisted data
+  const formData = persistedData.formData || defaultFormData
+  const boqItems = persistedData.boqItems || [{
+    id: 1,
+    materialDescription: '',
+    quantity: '',
+    uom: '',
+    unitPrice: '',
+    unitCost: '',
+    freight: '',
+    gst: '',
+    totalCost: '',
+  }]
+
+  // Update form data
+  const setFormData = (updater) => {
+    if (typeof updater === 'function') {
+      setPersistedData(prev => ({
+        ...prev,
+        formData: updater(prev.formData || defaultFormData),
+      }))
+    } else {
+      setPersistedData(prev => ({
+        ...prev,
+        formData: updater,
+      }))
+    }
+  }
+
+  // Update BOQ items
+  const setBoqItems = (updater) => {
+    if (typeof updater === 'function') {
+      setPersistedData(prev => ({
+        ...prev,
+        boqItems: updater(prev.boqItems || []),
+      }))
+    } else {
+      setPersistedData(prev => ({
+        ...prev,
+        boqItems: updater,
+      }))
+    }
+  }
 
   useEffect(() => {
     // Load Master Data for dropdowns
@@ -225,14 +308,13 @@ function POEntry() {
     setCompanies(getCompanies())
   }, [getCustomers, getPaymentTerms, getEmployees, getCompanies])
   
-  // Auto-generate PO Number when form is initialized (only once)
+  // Auto-generate PO Number when form is initialized (only once, and only if not loaded from persistence)
   useEffect(() => {
-    if (!formData.poNumber) {
+    if (!persistenceLoading && !formData.poNumber) {
       const generatedPONumber = poEntryService.generatePONumber(formData.businessUnit || 'MAIN')
       setFormData((prev) => ({ ...prev, poNumber: generatedPONumber }))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Empty dependency array - only run once on mount
+  }, [persistenceLoading, formData.poNumber, formData.businessUnit])
 
   // Calculate BOQ totals
   const boqTotals = useMemo(() => {
@@ -378,15 +460,9 @@ function POEntry() {
     )
   }
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     try {
-      const draft = {
-        ...formData,
-        boqItems,
-        savedAt: new Date().toISOString(),
-        draft: true,
-      }
-      localStorage.setItem('poEntryDraft', JSON.stringify(draft))
+      await persistenceSave(true)
       alert('Draft saved successfully!')
     } catch (error) {
       console.error('Failed to save draft:', error)

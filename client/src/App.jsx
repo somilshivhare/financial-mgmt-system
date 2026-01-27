@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -16,6 +16,7 @@ import MasterData from './pages/MasterData'
 import MasterDataIndex from './pages/MasterDataIndex'
 import MasterDataForm from './pages/MasterDataForm'
 import MasterDataReview from './pages/MasterDataReview'
+import MasterDataView from './pages/MasterDataView'
 import POEntry from './pages/POEntry'
 import POEntryIndex from './pages/POEntryIndex'
 import InvoiceEntry from './pages/InvoiceEntry'
@@ -36,102 +37,139 @@ import AppLayout from './layouts/AppLayout'
 import { MasterDataProvider } from './contexts/MasterDataContext'
 import { AIAssistantProvider } from './contexts/AIAssistantContext'
 import ScrollToTop from './components/ScrollToTop'
+import ErrorBoundary from './components/ErrorBoundary'
+import ProtectedRoute from './components/ProtectedRoute'
+import PublicRoute from './components/PublicRoute'
+import NotFoundRoute from './components/NotFoundRoute'
 import './App.css'
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [user, setUser] = useState(null)
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user')
-    if (storedUser) {
-      setIsAuthenticated(true)
-      setUser(JSON.parse(storedUser))
+    // Load user from localStorage on mount
+    try {
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        setUser(JSON.parse(storedUser))
+      }
+    } catch (error) {
+      console.error('[App] Error loading user from localStorage:', error)
     }
   }, [])
 
   const handleLogin = (userData) => {
     setUser(userData)
-    setIsAuthenticated(true)
     localStorage.setItem('user', JSON.stringify(userData))
   }
 
   const handleLogout = () => {
     setUser(null)
-    setIsAuthenticated(false)
     localStorage.removeItem('user')
+    localStorage.removeItem('token')
   }
 
   return (
-    <MasterDataProvider>
-    <Router>
-      <AIAssistantProvider>
-      <ScrollToTop />
-      <Routes>
-        {/* Public marketing site (shown when logged out) */}
-        <Route
-          element={isAuthenticated ? <Navigate to="/dashboard" /> : <MarketingLayout />}
-        >
-          <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/who-we-are" element={<WhoWeAre />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/contact" element={<Contact />} />
-        </Route>
+    <ErrorBoundary>
+      <MasterDataProvider>
+        <Router>
+          <AIAssistantProvider>
+            <ScrollToTop />
+            <Routes>
+              {/* Public marketing site (shown when logged out) */}
+              <Route
+                element={
+                  <PublicRoute>
+                    <MarketingLayout />
+                  </PublicRoute>
+                }
+              >
+                <Route path="/" element={<Home />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/who-we-are" element={<WhoWeAre />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/contact" element={<Contact />} />
+              </Route>
 
-        <Route 
-          path="/login" 
-          element={
-            isAuthenticated ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />
-          } 
-        />
-        <Route
-          path="/forgot-password"
-          element={isAuthenticated ? <Navigate to="/dashboard" /> : <ForgotPassword />}
-        />
-        <Route
-          path="/reset-password"
-          element={isAuthenticated ? <Navigate to="/dashboard" /> : <ResetPassword />}
-        />
-        <Route 
-          path="/register" 
-          element={
-            isAuthenticated ? <Navigate to="/dashboard" /> : <Register onRegister={handleLogin} />
-          } 
-        />
-        <Route
-          element={isAuthenticated ? <AppLayout /> : <Navigate to="/login" />}
-        >
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/finance" element={<Finance />} />
-          <Route path="/master-data" element={<MasterData />} />
-          <Route path="/master-data/new" element={<MasterDataIndex />} />
-          <Route path="/master-data/new/:type" element={<MasterDataForm />} />
-          <Route path="/master-data/review" element={<MasterDataReview />} />
-          <Route path="/po-entry" element={<POEntryIndex />} />
-          <Route path="/po-entry/new" element={<POEntry />} />
-          <Route path="/invoices" element={<InvoiceIndex />} />
-          <Route path="/invoices/new" element={<InvoiceEntry />} />
-          <Route path="/payments" element={<PaymentIndex />} />
-          <Route path="/payments/new" element={<PaymentEntry />} />
-          <Route path="/collection" element={<CollectionPlan />} />
-          <Route path="/subscription" element={<Subscription />} />
-          <Route path="/profile" element={<MyProfile />} />
-          <Route path="/support" element={<ContactSupport />} />
-          <Route path="/alerts" element={<Alerts />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/meetings" element={<Meetings />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/mom/new" element={<MoMEntry />} />
-          <Route path="/mom/edit/:id" element={<MoMEntry />} />
-        </Route>
-        {/* Fallback: send logged-out users to Home, logged-in users to Dashboard */}
-        <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/'} />} />
-      </Routes>
-      </AIAssistantProvider>
-    </Router>
-    </MasterDataProvider>
+              <Route 
+                path="/login" 
+                element={
+                  <PublicRoute>
+                    <Login onLogin={handleLogin} />
+                  </PublicRoute>
+                } 
+              />
+              <Route
+                path="/forgot-password"
+                element={
+                  <PublicRoute>
+                    <ForgotPassword />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/reset-password"
+                element={
+                  <PublicRoute>
+                    <ResetPassword />
+                  </PublicRoute>
+                }
+              />
+              <Route 
+                path="/register" 
+                element={
+                  <PublicRoute>
+                    <Register onRegister={handleLogin} />
+                  </PublicRoute>
+                } 
+              />
+              
+              {/* Protected routes - preserve current route on refresh */}
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+                <Route path="/finance" element={<ErrorBoundary><Finance /></ErrorBoundary>} />
+                <Route path="/master-data" element={<ErrorBoundary><MasterData /></ErrorBoundary>} />
+                <Route path="/master-data/new" element={<ErrorBoundary><MasterDataIndex /></ErrorBoundary>} />
+                <Route path="/master-data/new/:type" element={<ErrorBoundary><MasterDataForm /></ErrorBoundary>} />
+                <Route path="/master-data/review" element={<ErrorBoundary><MasterDataReview /></ErrorBoundary>} />
+                <Route path="/master-data/view/:companyId?" element={<ErrorBoundary><MasterDataView /></ErrorBoundary>} />
+                <Route path="/po-entry" element={<ErrorBoundary><POEntryIndex /></ErrorBoundary>} />
+                <Route path="/po-entry/new" element={<ErrorBoundary><POEntry /></ErrorBoundary>} />
+                <Route path="/invoices" element={<ErrorBoundary><InvoiceIndex /></ErrorBoundary>} />
+                <Route path="/invoices/new" element={<ErrorBoundary><InvoiceEntry /></ErrorBoundary>} />
+                <Route path="/payments" element={<ErrorBoundary><PaymentIndex /></ErrorBoundary>} />
+                <Route path="/payments/new" element={<ErrorBoundary><PaymentEntry /></ErrorBoundary>} />
+                <Route path="/collection" element={<ErrorBoundary><CollectionPlan /></ErrorBoundary>} />
+                <Route path="/subscription" element={<ErrorBoundary><Subscription /></ErrorBoundary>} />
+                <Route path="/profile" element={<ErrorBoundary><MyProfile /></ErrorBoundary>} />
+                <Route path="/support" element={<ErrorBoundary><ContactSupport /></ErrorBoundary>} />
+                <Route path="/alerts" element={<ErrorBoundary><Alerts /></ErrorBoundary>} />
+                <Route path="/notifications" element={<ErrorBoundary><Notifications /></ErrorBoundary>} />
+                <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+                <Route path="/meetings" element={<ErrorBoundary><Meetings /></ErrorBoundary>} />
+                <Route path="/reports" element={<ErrorBoundary><Reports /></ErrorBoundary>} />
+                <Route path="/mom/new" element={<ErrorBoundary><MoMEntry /></ErrorBoundary>} />
+                <Route path="/mom/edit/:id" element={<ErrorBoundary><MoMEntry /></ErrorBoundary>} />
+              </Route>
+              
+              {/* Fallback: Only redirect if route doesn't exist and user is authenticated */}
+              <Route 
+                path="*" 
+                element={
+                  <NotFoundRoute />
+                } 
+              />
+            </Routes>
+          </AIAssistantProvider>
+        </Router>
+      </MasterDataProvider>
+    </ErrorBoundary>
   )
 }
 

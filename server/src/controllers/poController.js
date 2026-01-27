@@ -32,5 +32,41 @@ const updatePOStatus = async (req, res, next) => {
   }
 };
 
-module.exports = { listPOs, createPO, updatePOStatus };
+const getPO = async (req, res, next) => {
+  try {
+    const po = await poService.getPO(req.params.id);
+    if (!po) {
+      return res.status(404).json(apiError('PO not found', 'NOT_FOUND'));
+    }
+    res.json(apiSuccess(po));
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getPODraft = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const draft = await poService.getPODraft(id || null, req.user.id);
+    if (!draft) {
+      return res.json(apiSuccess(null));
+    }
+    res.json(apiSuccess(draft));
+  } catch (err) {
+    next(err);
+  }
+};
+
+const upsertPODraft = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const po = await poService.upsertPODraft(req.body, req.user.id, id || null);
+    res.status(201).json(apiSuccess(po, 'PO draft saved'));
+  } catch (err) {
+    console.error('[PO Controller] Upsert error:', err);
+    next(err);
+  }
+};
+
+module.exports = { listPOs, createPO, updatePOStatus, getPO, getPODraft, upsertPODraft };
 

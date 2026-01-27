@@ -69,12 +69,21 @@ const generalLimiter = rateLimit({
     return getClientIp(req);
   },
   skip: (req) => {
+    // Skip rate limiting for localhost in development
+    if (isDevelopment()) {
+      const ip = getClientIp(req);
+      if (isLocalhost(ip)) {
+        return true;
+      }
+    }
+    
     // Skip rate limiting for health checks, auth endpoints, and profile endpoints (they have their own limiters)
     const path = req.path || '';
     return path === '/health' || 
            path.startsWith('/health/') ||
            path.includes('/auth/') || 
-           path.includes('/user/profile');
+           path.includes('/user/profile') ||
+           path.includes('/master-data'); // Skip rate limiting for master data endpoints
   },
 });
 

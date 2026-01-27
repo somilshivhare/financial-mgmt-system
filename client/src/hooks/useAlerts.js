@@ -198,24 +198,63 @@ export function useAlerts() {
     }
   }, [])
 
-  // Initialize on mount
+  // Initialize on mount - with error handling and retry limits
   useEffect(() => {
-    const initialize = async () => {
-      setLoading(true)
-      await loadUnreadCount()
+    // Check authentication first
+    const token = localStorage.getItem('token')
+    if (!token) {
       setLoading(false)
+      return
+    }
+    
+    let mounted = true
+    let retryCount = 0
+    const maxRetries = 2
+    
+    const initialize = async () => {
+      if (!mounted) return
       
-      // Connect WebSocket
-      connectWebSocket()
-      
-      // Start fallback polling
-      startPolling()
+      try {
+        setLoading(true)
+        await loadUnreadCount()
+        
+        if (mounted) {
+          setLoading(false)
+          
+          // Connect WebSocket (non-blocking)
+          try {
+            connectWebSocket()
+          } catch (err) {
+            console.error('[Alerts] Failed to connect WebSocket (non-critical):', err)
+          }
+          
+          // Start fallback polling (non-blocking)
+          try {
+            startPolling()
+          } catch (err) {
+            console.error('[Alerts] Failed to start polling (non-critical):', err)
+          }
+        }
+      } catch (err) {
+        console.error('[Alerts] Initialization error (non-critical):', err)
+        if (mounted) {
+          setLoading(false)
+          // Retry once if it failed
+          if (retryCount < maxRetries) {
+            retryCount++
+            setTimeout(() => {
+              if (mounted) initialize()
+            }, 2000)
+          }
+        }
+      }
     }
 
     initialize()
 
     // Cleanup on unmount
     return () => {
+      mounted = false
       if (socketRef.current) {
         console.log('[Alerts] Cleaning up WebSocket connection')
         socketRef.current.disconnect()
@@ -228,7 +267,7 @@ export function useAlerts() {
         clearTimeout(reconnectTimeoutRef.current)
       }
     }
-  }, [loadUnreadCount, connectWebSocket, startPolling])
+  }, []) // Empty deps - only run on mount to prevent loops
 
   // Manual reconnect (with delay to prevent spam)
   const reconnect = useCallback(() => {

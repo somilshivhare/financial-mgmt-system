@@ -194,6 +194,20 @@ const createNotifications = async ({
 };
 
 /**
+ * Helper function to get user's role_id (cached for performance)
+ * This avoids subquery parameter binding issues in MySQL
+ */
+const getUserRoleId = async (userId) => {
+  try {
+    const [user] = await query('SELECT role_id FROM users WHERE id = ?', [userId]);
+    return user && user.role_id ? user.role_id : null;
+  } catch (error) {
+    console.error('[NotificationService] Error fetching user role:', error);
+    return null;
+  }
+};
+
+/**
  * List notifications for a user
  */
 const listNotifications = async (userId, { 
@@ -203,25 +217,46 @@ const listNotifications = async (userId, {
   offset = 0,
   unreadOnly = false 
 } = {}) => {
-  const where = ['(user_id = ? OR (user_id IS NULL AND role_id IN (SELECT role_id FROM users WHERE id = ?)))'];
-  const params = [userId, userId];
+  // Get the user's role_id to avoid subquery parameter binding issues
+  const userRoleId = await getUserRoleId(userId);
   
-  if (status) {
-    where.push('status = ?');
-    params.push(status);
+  // Build WHERE clause - use role_id directly instead of subquery
+  const where = ['user_id = ?'];
+  const params = [userId];
+  
+  // Add role-based notifications if user has a role
+  if (userRoleId) {
+    where.push('(user_id IS NULL AND role_id = ?)');
+    params.push(userRoleId);
   }
   
-  if (unreadOnly || status === 'new') {
-    where.push('status = ?');
-    params.push('new');
+  // Combine conditions with OR
+  const baseWhere = where.length > 1 
+    ? `(${where.join(' OR ')})`
+    : where[0];
+  
+  const whereConditions = [baseWhere];
+  const whereParams = [...params];
+  
+  // Handle status filter - avoid duplicate conditions
+  if (unreadOnly) {
+    whereConditions.push('status = ?');
+    whereParams.push('new');
+  } else if (status) {
+    whereConditions.push('status = ?');
+    whereParams.push(status);
   }
   
   if (type) {
-    where.push('type = ?');
-    params.push(type);
+    whereConditions.push('type = ?');
+    whereParams.push(type);
   }
   
-  const whereSql = where.join(' AND ');
+  const whereSql = whereConditions.join(' AND ');
+  
+  // Ensure limit and offset are valid numbers
+  const safeLimit = parseInt(limit, 10) || 50;
+  const safeOffset = parseInt(offset, 10) || 0;
   
   const notifications = await query(
     `SELECT * FROM notifications 
@@ -235,39 +270,81 @@ const listNotifications = async (userId, {
        END,
        created_at DESC
      LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...whereParams, safeLimit, safeOffset]
   );
   
-  const [{ total }] = await query(
+  const countResult = await query(
     `SELECT COUNT(*) as total FROM notifications WHERE ${whereSql}`,
-    params
+    whereParams
   );
   
-  return { notifications, total };
+  // Safely extract total count
+  const total = countResult && countResult.length > 0 
+    ? (typeof countResult[0].total === 'number' 
+        ? countResult[0].total 
+        : parseInt(countResult[0].total, 10) || 0)
+    : 0;
+  
+  return { notifications: notifications || [], total };
 };
 
 /**
  * Get unread count for a user
  */
 const getUnreadCount = async (userId) => {
-  const [{ count }] = await query(
-    `SELECT COUNT(*) as count FROM notifications 
-     WHERE (user_id = ? OR (user_id IS NULL AND role_id IN (SELECT role_id FROM users WHERE id = ?)))
-     AND status = 'new'`,
-    [userId, userId]
-  );
-  return count;
+  try {
+    const userRoleId = await getUserRoleId(userId);
+    
+    // Build WHERE clause
+    let whereClause = 'user_id = ?';
+    const params = [userId];
+    
+    if (userRoleId) {
+      whereClause = '(user_id = ? OR (user_id IS NULL AND role_id = ?))';
+      params.push(userRoleId);
+    }
+    
+    const result = await query(
+      `SELECT COUNT(*) as count FROM notifications 
+       WHERE ${whereClause} AND status = 'new'`,
+      params
+    );
+    
+    // Ensure we return a number, handle empty results
+    if (!result || result.length === 0) {
+      return 0;
+    }
+    
+    const count = result[0]?.count;
+    // Convert to number if it's a string (MySQL sometimes returns strings)
+    return typeof count === 'number' ? count : parseInt(count, 10) || 0;
+  } catch (error) {
+    console.error('[NotificationService] Error getting unread count:', error);
+    // Return 0 on error instead of throwing
+    return 0;
+  }
 };
 
 /**
  * Mark notification as read
  */
 const markAsRead = async (notificationId, userId) => {
+  const userRoleId = await getUserRoleId(userId);
+  
+  // Build WHERE clause
+  let whereClause = 'id = ? AND user_id = ?';
+  const params = [notificationId, userId];
+  
+  if (userRoleId) {
+    whereClause = 'id = ? AND (user_id = ? OR (user_id IS NULL AND role_id = ?))';
+    params.push(userRoleId);
+  }
+  
   await query(
     `UPDATE notifications 
      SET status = 'read', read_at = NOW(), updated_at = NOW()
-     WHERE id = ? AND (user_id = ? OR (user_id IS NULL AND role_id IN (SELECT role_id FROM users WHERE id = ?)))`,
-    [notificationId, userId, userId]
+     WHERE ${whereClause}`,
+    params
   );
   const [notification] = await query('SELECT * FROM notifications WHERE id = ?', [notificationId]);
   return notification;
@@ -277,12 +354,22 @@ const markAsRead = async (notificationId, userId) => {
  * Mark all notifications as read for a user
  */
 const markAllAsRead = async (userId) => {
+  const userRoleId = await getUserRoleId(userId);
+  
+  // Build WHERE clause
+  let whereClause = 'user_id = ?';
+  const params = [userId];
+  
+  if (userRoleId) {
+    whereClause = '(user_id = ? OR (user_id IS NULL AND role_id = ?))';
+    params.push(userRoleId);
+  }
+  
   await query(
     `UPDATE notifications 
      SET status = 'read', read_at = NOW(), updated_at = NOW()
-     WHERE (user_id = ? OR (user_id IS NULL AND role_id IN (SELECT role_id FROM users WHERE id = ?)))
-     AND status = 'new'`,
-    [userId, userId]
+     WHERE ${whereClause} AND status = 'new'`,
+    params
   );
   return { success: true };
 };
@@ -291,11 +378,22 @@ const markAllAsRead = async (userId) => {
  * Dismiss notification
  */
 const dismissNotification = async (notificationId, userId) => {
+  const userRoleId = await getUserRoleId(userId);
+  
+  // Build WHERE clause
+  let whereClause = 'id = ? AND user_id = ?';
+  const params = [notificationId, userId];
+  
+  if (userRoleId) {
+    whereClause = 'id = ? AND (user_id = ? OR (user_id IS NULL AND role_id = ?))';
+    params.push(userRoleId);
+  }
+  
   await query(
     `UPDATE notifications 
      SET status = 'dismissed', dismissed_at = NOW(), updated_at = NOW()
-     WHERE id = ? AND (user_id = ? OR (user_id IS NULL AND role_id IN (SELECT role_id FROM users WHERE id = ?)))`,
-    [notificationId, userId, userId]
+     WHERE ${whereClause}`,
+    params
   );
   const [notification] = await query('SELECT * FROM notifications WHERE id = ?', [notificationId]);
   return notification;

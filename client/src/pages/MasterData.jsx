@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   RefreshCw,
   Plus,
@@ -9,69 +9,102 @@ import {
   Edit,
   Trash2,
   Calendar,
+  Eye,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
 import '../styles/MasterData.css'
 
 function MasterData() {
   const navigate = useNavigate()
-  const { masterData, loadMasterData, deleteRecord } = useMasterData()
+  const location = useLocation()
+  const { 
+    masterData, 
+    loadMasterData, 
+    deleteRecord,
+    aggregatedDataList,
+    aggregatedLoading,
+    loadAggregatedMasterData,
+  } = useMasterData()
   const [query, setQuery] = useState('')
   const [tier, setTier] = useState('all')
-  const [records, setRecords] = useState([])
+  
+  // Refresh data when navigating to this page
+  useEffect(() => {
+    if (location.pathname === '/master-data') {
+      loadMasterData()
+      loadAggregatedMasterData()
+    }
+  }, [location.pathname, loadMasterData, loadAggregatedMasterData])
 
   useEffect(() => {
     loadMasterData()
-  }, [loadMasterData])
+    loadAggregatedMasterData()
+  }, [loadMasterData, loadAggregatedMasterData])
 
+  // Listen for master data updates (e.g., after form submission)
   useEffect(() => {
-    // Combine all master data types into a single records array
-    const allRecords = []
-    Object.keys(masterData).forEach((key) => {
-      if (Array.isArray(masterData[key]) && key !== 'loading' && key !== 'lastUpdated') {
-        masterData[key].forEach((record) => {
-          allRecords.push({
-            ...record,
-            _type: key,
-          })
-        })
+    const handleUpdate = () => {
+      loadMasterData()
+      loadAggregatedMasterData()
+    }
+
+    window.addEventListener('masterDataUpdated', handleUpdate)
+    
+    // Also refresh when page becomes visible (user navigates back)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadMasterData()
+        loadAggregatedMasterData()
       }
-    })
-    setRecords(allRecords)
-  }, [masterData])
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      window.removeEventListener('masterDataUpdated', handleUpdate)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [loadMasterData, loadAggregatedMasterData])
 
   const handleRefresh = () => {
     loadMasterData()
+    loadAggregatedMasterData()
   }
 
-  const handleDelete = (record) => {
-    if (window.confirm('Are you sure you want to delete this record?')) {
+  const handleDelete = async (companyId) => {
+    if (window.confirm('Are you sure you want to delete this master data record? This will remove the company profile and all associated data.')) {
       try {
-        const typeMap = {
-          companies: 'company-profile',
-          customers: 'customer-profile',
-          consignees: 'consignee-profile',
-          payers: 'payer-profile',
-          employees: 'employee-profile',
-          paymentTerms: 'payment-terms',
-        }
-        const type = typeMap[record._type] || record._type
-        deleteRecord(type, record.id)
+        // Delete the company profile (which represents this master data set)
+        await deleteRecord('company-profile', companyId)
+        loadAggregatedMasterData()
       } catch (error) {
-        console.error('Failed to delete record:', error)
+        console.error('Failed to delete master data:', error)
       }
     }
   }
 
-  const filteredRecords = useMemo(() => {
-    if (!query.trim()) return records
+  // Filter aggregated data list based on search query
+  const filteredAggregatedDataList = useMemo(() => {
+    if (!aggregatedDataList || aggregatedDataList.length === 0) return []
+    
+    if (!query.trim()) return aggregatedDataList
+    
     const lowerQuery = query.toLowerCase()
-    return records.filter((record) => {
-      const values = record.values || {}
-      const searchableText = Object.values(values).join(' ').toLowerCase()
-      return searchableText.includes(lowerQuery) || record.title?.toLowerCase().includes(lowerQuery)
+    return aggregatedDataList.filter(aggregatedData => {
+      const searchableText = [
+        aggregatedData.primaryName,
+        ...Object.values(aggregatedData.stepData || {}).map(step => {
+          if (!step) return ''
+          const values = step.values || {}
+          return Object.values(values).join(' ')
+        })
+      ].join(' ').toLowerCase()
+      
+      return searchableText.includes(lowerQuery)
     })
-  }, [records, query])
+  }, [aggregatedDataList, query])
 
   const subtitle = useMemo(() => {
     return 'Browse and manage all recorded master data.'
@@ -87,99 +120,50 @@ function MasterData() {
     }
   }
 
-  const getDisplayValue = (record, key) => {
-    const values = record.values || {}
-    const logoPreviews = record.logoPreviews || {}
-    
-    // Check for logo/photo preview
-    if (logoPreviews[key]) {
-      return logoPreviews[key]
-    }
-    
-    // Check for "Other" custom value
-    if (values[`${key}Other`]) {
-      return values[`${key}Other`]
-    }
-    
-    return values[key] || 'N/A'
-  }
 
-  const getPrimaryField = (record) => {
-    const values = record.values || {}
-    const type = record._type || record.type
-    
-    // Map storage type to form type for field lookup
-    const typeMap = {
-      companies: 'company-profile',
-      customers: 'customer-profile',
-      consignees: 'consignee-profile',
-      payers: 'payer-profile',
-      employees: 'employee-profile',
-      paymentTerms: 'payment-terms',
-    }
-    
-    const formType = typeMap[type] || type
-    
-    if (formType === 'company-profile') return values.companyName || 'Company Profile'
-    if (formType === 'customer-profile') return values.customerName || 'Customer Profile'
-    if (formType === 'consignee-profile') return values.consigneeName || 'Consignee Profile'
-    if (formType === 'payer-profile') return values.payerName || 'Payer Profile'
-    if (formType === 'employee-profile') return values.nameOfEmployee || 'Employee Profile'
-    if (formType === 'payment-terms') return values.termName || values.paymentTermsDescription || 'Payment Terms'
-    
-    return record.title || 'Master Data'
-  }
 
-  const getCardDetails = (record) => {
-    const values = record.values || {}
-    const type = record._type || record.type
-    
-    const typeMap = {
-      companies: 'company-profile',
-      customers: 'customer-profile',
-      consignees: 'consignee-profile',
-      payers: 'payer-profile',
-      employees: 'employee-profile',
-      paymentTerms: 'payment-terms',
+  // Get completion status badges for each step
+  const getCompletionBadges = (completionStatus) => {
+    const stepLabels = {
+      'company-profile': 'Company',
+      'customer-profile': 'Customer',
+      'consignee-profile': 'Consignee',
+      'payer-profile': 'Payer',
+      'employee-profile': 'Employee',
+      'payment-terms': 'Payment Terms',
     }
     
-    const formType = typeMap[type] || type
+    return Object.entries(completionStatus || {}).map(([step, completed]) => ({
+      step,
+      label: stepLabels[step] || step,
+      completed: !!completed,
+    }))
+  }
+  
+  // Get primary contact info from aggregated data
+  const getPrimaryContact = (aggregated) => {
+    if (!aggregated || !aggregated.stepData) {
+      return { email: 'N/A', phone: 'N/A' }
+    }
     
-    // Handle different record types
-    if (formType === 'company-profile') {
+    // Try to get from company-profile first, then customer-profile
+    const companyData = aggregated.stepData['company-profile']
+    if (companyData?.values) {
       return {
-        name: values.companyName || 'Company Profile',
-        email: values.emailId || 'N/A',
-        phone: values.contactNumber || 'N/A',
-        logo: record.logoPreviews?.logo,
+        email: companyData.values.emailId || 'N/A',
+        phone: companyData.values.contactNumber || 'N/A',
       }
     }
     
-    if (formType === 'customer-profile') {
+    const customerData = aggregated.stepData['customer-profile']
+    if (customerData?.values) {
       return {
-        name: values.customerName || 'Customer Profile',
-        email: values.emailId || 'N/A',
-        phone: values.contactNumber || values.contactPersonContactNo || 'N/A',
-        logo: record.logoPreviews?.logo,
+        email: customerData.values.emailId || 'N/A',
+        phone: customerData.values.contactNumber || customerData.values.contactPersonContactNo || 'N/A',
       }
     }
     
-    if (formType === 'employee-profile') {
-      return {
-        name: values.nameOfEmployee || 'Employee Profile',
-        email: values.emailId || 'N/A',
-        phone: values.contactNo || 'N/A',
-        logo: record.logoPreviews?.photo,
-      }
-    }
-    
-    // Default fallback
-    return {
-      name: getPrimaryField(record),
-      email: values.emailId || values.contactPersonContactNo || 'N/A',
-      phone: values.contactNumber || values.contactPersonContactNo || values.contactNo || 'N/A',
-      logo: record.logoPreviews?.logo || record.logoPreviews?.photo,
-    }
+    return { email: 'N/A', phone: 'N/A' }
   }
 
   return (
@@ -238,65 +222,96 @@ function MasterData() {
         </div>
       </div>
 
-      {/* Records Grid */}
-      {filteredRecords.length > 0 ? (
+      {/* Consolidated Master Data Cards - Multiple Cards */}
+      {aggregatedLoading ? (
+        <div className="md-empty-card">
+          <div className="md-empty-icon">
+            <RefreshCw className="h-7 w-7 animate-spin" />
+          </div>
+          <h2 className="md-empty-title">Loading Master Data...</h2>
+        </div>
+      ) : filteredAggregatedDataList.length > 0 ? (
         <div className="md-records-grid">
-          {filteredRecords.map((record, index) => {
-            const cardDetails = getCardDetails(record)
-            const primaryValue = getPrimaryField(record)
-            
-            return (
-              <div key={index} className="md-record-card">
-                {cardDetails.logo && (
-                  <div className="md-record-logo">
-                    <img src={cardDetails.logo} alt={cardDetails.name} className="md-record-logo-image" />
-                  </div>
-                )}
-                <div className="md-record-header">
-                  <h3 className="md-record-title">{cardDetails.name}</h3>
-                  <span className="md-record-type">{record.title}</span>
+          {filteredAggregatedDataList.map((aggregatedData) => (
+            <div key={aggregatedData.id} className="md-record-card md-record-card-consolidated">
+              {aggregatedData.primaryLogo && (
+                <div className="md-record-logo">
+                  <img 
+                    src={aggregatedData.primaryLogo} 
+                    alt={aggregatedData.primaryName} 
+                    className="md-record-logo-image" 
+                  />
                 </div>
-                <div className="md-record-body">
-                  <div className="md-record-field">
-                    <span className="md-record-label">Email:</span>
-                    <span className="md-record-value">{cardDetails.email}</span>
-                  </div>
-                  <div className="md-record-field">
-                    <span className="md-record-label">Phone:</span>
-                    <span className="md-record-value">{cardDetails.phone}</span>
-                  </div>
-                  <div className="md-record-field">
-                    <span className="md-record-label">Submitted:</span>
-                    <span className="md-record-value">{formatDate(record.submittedAt)}</span>
-                  </div>
-                </div>
-                <div className="md-record-footer">
-                  <button
-                    type="button"
-                    className="md-record-action md-record-action-edit"
-                    onClick={() => {
-                      if (record.type === 'combined') {
-                        navigate('/master-data/review')
-                      } else {
-                        navigate(`/master-data/new/${record.type}`)
-                      }
-                    }}
-                  >
-                    <Edit className="md-record-action-icon" />
-                    <span>View</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="md-record-action md-record-action-delete"
-                    onClick={() => handleDelete(record)}
-                  >
-                    <Trash2 className="md-record-action-icon" />
-                    <span>Delete</span>
-                  </button>
+              )}
+              <div className="md-record-header">
+                <h3 className="md-record-title">{aggregatedData.primaryName}</h3>
+                <div className="md-record-badges">
+                  <span className="md-record-badge md-record-badge-completion">
+                    {aggregatedData.completionPercentage}% Complete
+                  </span>
+                  <span className="md-record-badge">
+                    {aggregatedData.completedSteps}/{aggregatedData.totalSteps} Steps
+                  </span>
                 </div>
               </div>
-            )
-          })}
+              <div className="md-record-body">
+                <div className="md-record-field">
+                  <span className="md-record-label">Email:</span>
+                  <span className="md-record-value">{getPrimaryContact(aggregatedData).email}</span>
+                </div>
+                <div className="md-record-field">
+                  <span className="md-record-label">Phone:</span>
+                  <span className="md-record-value">{getPrimaryContact(aggregatedData).phone}</span>
+                </div>
+                <div className="md-record-field">
+                  <span className="md-record-label">Last Updated:</span>
+                  <span className="md-record-value">{formatDate(aggregatedData.lastUpdated)}</span>
+                </div>
+                
+                {/* Completion Status */}
+                <div className="md-record-steps">
+                  <span className="md-record-label">Completed Steps:</span>
+                  <div className="md-record-step-badges">
+                    {getCompletionBadges(aggregatedData.completionStatus).map((badge) => (
+                      <span
+                        key={badge.step}
+                        className={`md-record-step-badge ${badge.completed ? 'md-record-step-badge-completed' : 'md-record-step-badge-pending'}`}
+                        title={badge.completed ? `${badge.label} completed` : `${badge.label} pending`}
+                      >
+                        {badge.completed ? '✓' : '○'} {badge.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="md-record-footer">
+                <button
+                  type="button"
+                  className="md-record-action md-record-action-edit"
+                  onClick={() => navigate(`/master-data/view/${aggregatedData.companyId}`)}
+                >
+                  <Eye className="md-record-action-icon" />
+                  <span>View Details</span>
+                </button>
+                <button
+                  type="button"
+                  className="md-record-action md-record-action-edit"
+                  onClick={() => navigate('/master-data/new')}
+                >
+                  <Edit className="md-record-action-icon" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  type="button"
+                  className="md-record-action md-record-action-delete"
+                  onClick={() => handleDelete(aggregatedData.companyId)}
+                >
+                  <Trash2 className="md-record-action-icon" />
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         /* Empty state */

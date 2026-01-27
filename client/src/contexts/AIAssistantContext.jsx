@@ -28,26 +28,72 @@ export const AIAssistantProvider = ({ children }) => {
   const [pageData, setPageData] = useState(null)
   const [conversation, setConversation] = useState([])
 
-  // Load dashboard data for context
+  // Load dashboard data for context - with retry limit and error handling
   const loadDashboardData = useCallback(async () => {
+    // Don't load if already loading to prevent duplicate requests
+    if (isLoading) return
+    
     try {
       setIsLoading(true)
       const response = await dashboardApi.getDashboardData({})
-      setDashboardData(response.data)
+      
+      // Validate response structure
+      if (response && typeof response === 'object') {
+        setDashboardData(response.data || response)
+      } else {
+        console.warn('[AIAssistant] Invalid dashboard data response:', response)
+      }
     } catch (error) {
-      console.error('Failed to load dashboard data for AI Assistant:', error)
+      // Silently fail - don't block the app if dashboard data fails
+      console.error('[AIAssistant] Failed to load dashboard data (non-critical):', error)
+      // Set to null so components can handle gracefully
+      setDashboardData(null)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [isLoading])
 
-  // Load dashboard data on mount and periodically
+  // Load dashboard data on mount and periodically - with error boundary
   useEffect(() => {
-    loadDashboardData()
-    // Refresh data every 5 minutes
-    const interval = setInterval(loadDashboardData, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [loadDashboardData])
+    // Only load if authenticated
+    const token = localStorage.getItem('token')
+    if (!token) {
+      return
+    }
+    
+    let mounted = true
+    let intervalId = null
+    
+    const loadWithRetry = async (attempt = 0) => {
+      if (!mounted) return
+      
+      try {
+        await loadDashboardData()
+        // Only set up interval after successful load
+        if (mounted && attempt === 0) {
+          intervalId = setInterval(() => {
+            if (mounted) {
+              loadDashboardData().catch(err => {
+                console.error('[AIAssistant] Periodic dashboard data load failed:', err)
+              })
+            }
+          }, 5 * 60 * 1000) // Refresh every 5 minutes
+        }
+      } catch (error) {
+        console.error('[AIAssistant] Failed to load dashboard data:', error)
+        // Don't retry - just fail silently
+      }
+    }
+    
+    loadWithRetry()
+    
+    return () => {
+      mounted = false
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
+    }
+  }, []) // Empty deps - only run on mount
 
   // Check if user has seen introduction (on Dashboard)
   useEffect(() => {

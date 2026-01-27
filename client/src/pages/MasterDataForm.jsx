@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -10,7 +10,8 @@ import {
   Edit,
 } from 'lucide-react'
 import { COUNTRIES, INDIA_STATES } from '../utils/indiaStates'
-import { saveMasterDataRecord } from '../services/masterDataService'
+import { saveMasterDataRecord, upsertMasterDataRecord, getLatestMasterDataByType } from '../api/masterData'
+import { useFormPersistence } from '../hooks/useFormPersistence'
 import '../styles/MasterData.css'
 
 const FORM_DEFS = {
@@ -49,7 +50,7 @@ const FORM_DEFS = {
         title: 'Other Office / Plant Details',
         allowMultiple: true,
         fields: [
-          { key: 'officeType', label: 'Other Office / Plant Details', type: 'select', options: ['Plant Address', 'Site Office', 'Marketing Office', 'Other'] },
+          { key: 'officeType', label: 'Other Office / Plant Details', type: 'select', options: ['Plant Address', 'Site Office', 'Marketing Office'] },
           { key: 'otherOfficeAddress', label: 'Address', type: 'textarea' },
           { key: 'otherOfficeGST', label: 'GST No', type: 'text' },
           { key: 'otherOfficeDistrict', label: 'District', type: 'text' },
@@ -282,8 +283,25 @@ function MasterDataForm() {
   const navigate = useNavigate()
   const { type } = useParams()
 
+  // Validate type exists - prevent crashes
+  if (!type || !FORM_DEFS[type]) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Invalid Form Type</h2>
+          <p className="text-gray-600 mb-4">The form type "{type}" is not recognized.</p>
+          <button
+            onClick={() => navigate('/master-data/new')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Go Back to Master Data
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const def = FORM_DEFS[type]
-  const [values, setValues] = useState({})
   const [status, setStatus] = useState({ kind: 'idle', message: '' })
   const [multipleEntries, setMultipleEntries] = useState({})
   const [logoPreviews, setLogoPreviews] = useState({})
@@ -303,6 +321,94 @@ function MasterDataForm() {
   const isEmployeeProfile = type === 'employee-profile'
   const isPaymentTerms = type === 'payment-terms'
   const isArrayBasedForm = isConsigneeProfile || isPayerProfile || isEmployeeProfile || isPaymentTerms
+  
+  // Single-record types that should use persistence (customer-profile only - company-profile allows multiple entries)
+  const singleRecordTypes = ['customer-profile']
+  const usePersistence = singleRecordTypes.includes(type) && !isArrayBasedForm
+  
+  // Memoize loadFn to prevent infinite loops - with error handling
+  const loadFnRef = useRef(null)
+  const loadFn = useCallback(async () => {
+    try {
+      const data = await getLatestMasterDataByType(type)
+      if (data) {
+        // Extract logoPreviews if present
+        if (data.logoPreviews) {
+          setLogoPreviews(data.logoPreviews)
+        }
+        // Return values without logoPreviews (already extracted)
+        const { logoPreviews: _, ...values } = data
+        return values
+      }
+      return null
+    } catch (error) {
+      console.error(`[MasterDataForm] Failed to load ${type}:`, error)
+      // Return null on error - don't crash the component
+      return null
+    }
+  }, [type])
+  
+  // Use ref for logoPreviews to avoid recreating saveFn
+  const logoPreviewsRef = useRef(logoPreviews)
+  useEffect(() => {
+    logoPreviewsRef.current = logoPreviews
+  }, [logoPreviews])
+  
+  // Memoize saveFn to prevent infinite loops - use ref for logoPreviews - with error handling
+  const saveFn = useCallback(async (formValues, entityId) => {
+    try {
+      const cleanValues = { ...formValues }
+      // Remove File objects before saving
+      Object.keys(cleanValues).forEach(key => {
+        if (cleanValues[key] instanceof File) {
+          delete cleanValues[key]
+        }
+      })
+      
+      const result = await upsertMasterDataRecord(type, {
+        values: cleanValues,
+        logoPreviews: logoPreviewsRef.current, // Use ref instead of direct value
+        id: entityId,
+      })
+      return result
+    } catch (error) {
+      console.error(`[MasterDataForm] Failed to save ${type}:`, error)
+      // Re-throw to let the hook handle it
+      throw error
+    }
+  }, [type]) // Only type as dependency - logoPreviews accessed via ref
+  
+  // Form persistence hook for single-record types
+  const {
+    values,
+    setValues,
+    loading: persistenceLoading,
+    saving: persistenceSaving,
+    error: persistenceError,
+    save: persistenceSave,
+    load: persistenceLoad,
+  } = useFormPersistence({
+    saveFn: usePersistence ? saveFn : null,
+    loadFn: usePersistence ? loadFn : null,
+    entityType: type,
+    defaultValues: {},
+    enableAutoSave: usePersistence,
+    autoSaveDelay: 2000,
+  })
+  
+  // Show loading state from persistence
+  useEffect(() => {
+    if (persistenceLoading && usePersistence) {
+      setStatus({ kind: 'idle', message: 'Loading saved data...' })
+    }
+  }, [persistenceLoading, usePersistence])
+  
+  // Show errors from persistence
+  useEffect(() => {
+    if (persistenceError && usePersistence) {
+      setStatus({ kind: 'error', message: persistenceError })
+    }
+  }, [persistenceError, usePersistence])
 
   // Initialize multiple entries for groups that allow it (skip for array-based forms)
   useEffect(() => {
@@ -763,19 +869,30 @@ function MasterDataForm() {
     setShowReview(false)
   }
 
-  const handleSaveAndContinue = () => {
-    // Save current form and navigate to next form or review
-    const formData = {
-      type,
-      title: def.title,
-      values,
-      logoPreviews,
-      groups: def.groups,
-      multipleEntries,
-      savedAt: new Date().toISOString(),
+  const handleSaveAndContinue = async () => {
+    try {
+      if (usePersistence) {
+        // Use persistence save for single-record types
+        await persistenceSave(true)
+        setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
+      } else {
+        // For array-based forms, save to localStorage as before
+        const formData = {
+          type,
+          title: def.title,
+          values,
+          logoPreviews,
+          groups: def.groups,
+          multipleEntries,
+          savedAt: new Date().toISOString(),
+        }
+        localStorage.setItem(`masterDataForm_${type}`, JSON.stringify(formData))
+        setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
+      }
+    } catch (error) {
+      console.error('Failed to save:', error)
+      setStatus({ kind: 'error', message: 'Failed to save form. Please try again.' })
     }
-    localStorage.setItem(`masterDataForm_${type}`, JSON.stringify(formData))
-    setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
   }
 
   // Transform multiple entries into tabular format (separate records)
@@ -844,11 +961,49 @@ function MasterDataForm() {
   }
 
   const onSubmit = async (e) => {
-    e.preventDefault()
+    if (e && e.preventDefault) {
+      e.preventDefault()
+    }
     if (!def) return
 
     if (requiredMissing) {
       setStatus({ kind: 'error', message: 'Please fill all required fields.' })
+      return
+    }
+
+    // Special handling for company-profile: always create new record (not update)
+    if (type === 'company-profile') {
+      try {
+        setStatus({ kind: 'idle', message: 'Creating company profile...' })
+        
+        // Helper function to clean values (remove File objects)
+        const cleanValues = (vals) => {
+          const cleaned = { ...vals }
+          Object.keys(cleaned).forEach(key => {
+            if (cleaned[key] instanceof File) {
+              delete cleaned[key]
+            }
+          })
+          return cleaned
+        }
+        
+        // Always create new company profile (not update)
+        await saveMasterDataRecord(type, {
+          values: cleanValues(values),
+          logoPreviews: logoPreviewsRef.current,
+        })
+        
+        // Trigger refresh of Master Data Records page
+        window.dispatchEvent(new Event('masterDataUpdated'))
+        
+        setStatus({ kind: 'success', message: 'Company profile created successfully! You can now add other master data steps.' })
+        setTimeout(() => {
+          navigate('/master-data/new')
+        }, 2500)
+      } catch (error) {
+        console.error('Failed to save company profile:', error)
+        setStatus({ kind: 'error', message: 'Failed to save company profile. Please try again.' })
+      }
       return
     }
 
@@ -873,21 +1028,35 @@ function MasterDataForm() {
         
         setStatus({ kind: 'idle', message: `Saving ${itemName} to database...` })
         
+        // Helper function to clean values (remove File objects that can't be serialized)
+        const cleanValues = (vals) => {
+          const cleaned = { ...vals }
+          Object.keys(cleaned).forEach(key => {
+            if (cleaned[key] instanceof File) {
+              // Remove File objects - they're already in logoPreviews as base64
+              delete cleaned[key]
+            }
+          })
+          return cleaned
+        }
+        
         // Save all items as separate records
         const savePromises = items.map(item => 
           saveMasterDataRecord(type, {
-            values: item.values,
+            values: cleanValues(item.values),
             logoPreviews: item.logoPreviews || {},
           })
         )
         
         await Promise.all(savePromises)
         
+        // Trigger refresh of Master Data Records page
+        window.dispatchEvent(new Event('masterDataUpdated'))
+        
         setStatus({ kind: 'success', message: `${items.length} ${itemName} saved successfully to database!` })
         setTimeout(() => {
-          setStatus({ kind: 'idle', message: '' })
-          navigate('/master-data')
-        }, 2000)
+          navigate('/master-data/new')
+        }, 2500)
       } catch (error) {
         console.error(`Failed to save ${type}:`, error)
         setStatus({ kind: 'error', message: `Failed to save ${type}. Please try again.` })
@@ -895,8 +1064,30 @@ function MasterDataForm() {
       return
     }
 
+    // For single-record types, use persistence system
+    if (usePersistence) {
+      try {
+        setStatus({ kind: 'idle', message: 'Saving to database...' })
+        
+        // Use persistence save (which handles upsert)
+        await persistenceSave(true)
+        
+        // Trigger refresh of Master Data Records page
+        window.dispatchEvent(new Event('masterDataUpdated'))
+        
+        setStatus({ kind: 'success', message: 'Record saved successfully to database!' })
+        setTimeout(() => {
+          navigate('/master-data/new')
+        }, 2500)
+      } catch (error) {
+        console.error('Failed to save:', error)
+        setStatus({ kind: 'error', message: 'Failed to save record. Please try again.' })
+      }
+      return
+    }
+
     // For other forms that need database saving
-    const shouldSaveToDatabase = false
+    const shouldSaveToDatabase = true
     
     if (shouldSaveToDatabase) {
       try {
@@ -905,10 +1096,22 @@ function MasterDataForm() {
         // Transform multiple entries into tabular format
         const records = transformToTabularRecords()
         
+        // Helper function to clean values (remove File objects that can't be serialized)
+        const cleanValues = (vals) => {
+          const cleaned = { ...vals }
+          Object.keys(cleaned).forEach(key => {
+            if (cleaned[key] instanceof File) {
+              // Remove File objects - they're already in logoPreviews as base64
+              delete cleaned[key]
+            }
+          })
+          return cleaned
+        }
+        
         // Save each record separately to database
         const savePromises = records.map(record => 
           saveMasterDataRecord(type, {
-            values: record.values,
+            values: cleanValues(record.values),
             logoPreviews: record.logoPreviews,
           })
         )
@@ -927,11 +1130,13 @@ function MasterDataForm() {
         }
         localStorage.setItem(`masterDataForm_${type}`, JSON.stringify(formData))
         
+        // Trigger refresh of Master Data Records page
+        window.dispatchEvent(new Event('masterDataUpdated'))
+        
         setStatus({ kind: 'success', message: `${records.length} record(s) saved successfully to database!` })
         setTimeout(() => {
-          setStatus({ kind: 'idle', message: '' })
-          navigate('/master-data')
-        }, 2000)
+          navigate('/master-data/new')
+        }, 2500)
       } catch (error) {
         console.error('Failed to save records:', error)
         setStatus({ kind: 'error', message: 'Failed to save records. Please try again.' })
@@ -1060,6 +1265,19 @@ function MasterDataForm() {
               )
             })}
           </div>
+          
+          {/* Status Message */}
+          {status.kind !== 'idle' && (
+            <div className={`md-form-status md-form-status-${status.kind}`}>
+              {status.kind === 'success' ? (
+                <CheckCircle2 className="md-form-status-icon" />
+              ) : (
+                <AlertTriangle className="md-form-status-icon" />
+              )}
+              <span>{status.message}</span>
+            </div>
+          )}
+          
           <div className="md-form-actions">
             <button
               type="button"

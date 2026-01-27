@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import * as masterDataService from '../services/masterDataService'
+import * as masterDataApi from '../api/masterData'
 
 const MasterDataContext = createContext(null)
 
@@ -22,6 +23,10 @@ export const MasterDataProvider = ({ children }) => {
     loading: false,
     lastUpdated: null,
   })
+  
+  // Aggregated master data (array of consolidated records - multiple cards)
+  const [aggregatedDataList, setAggregatedDataList] = useState([])
+  const [aggregatedLoading, setAggregatedLoading] = useState(false)
 
   const loadMasterData = useCallback(async () => {
     // Only load master data if user is authenticated
@@ -52,17 +57,39 @@ export const MasterDataProvider = ({ children }) => {
       setMasterData((prev) => ({ ...prev, loading: false }))
     }
   }, [])
+  
+  // Load aggregated master data (array of consolidated records - multiple cards)
+  const loadAggregatedMasterData = useCallback(async () => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      return
+    }
+    
+    setAggregatedLoading(true)
+    try {
+      const dataList = await masterDataService.getAggregatedMasterData()
+      // Ensure it's an array
+      setAggregatedDataList(Array.isArray(dataList) ? dataList : (dataList ? [dataList] : []))
+    } catch (error) {
+      console.error('Failed to load aggregated master data:', error)
+      setAggregatedDataList([])
+    } finally {
+      setAggregatedLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     // Check authentication before loading
     const token = localStorage.getItem('token')
     if (token) {
       loadMasterData()
+      loadAggregatedMasterData() // Also load aggregated data
     }
 
     // Listen for updates
     const handleUpdate = () => {
       loadMasterData()
+      loadAggregatedMasterData() // Refresh aggregated data too
     }
 
     // Listen for authentication changes
@@ -70,6 +97,7 @@ export const MasterDataProvider = ({ children }) => {
       const currentToken = localStorage.getItem('token')
       if (currentToken) {
         loadMasterData()
+        loadAggregatedMasterData()
       } else {
         // Clear master data on logout
         setMasterData({
@@ -82,6 +110,7 @@ export const MasterDataProvider = ({ children }) => {
           loading: false,
           lastUpdated: null,
         })
+        setAggregatedDataList([])
       }
     }
 
@@ -92,7 +121,7 @@ export const MasterDataProvider = ({ children }) => {
       window.removeEventListener('masterDataUpdated', handleUpdate)
       window.removeEventListener('storage', handleAuthChange)
     }
-  }, [loadMasterData])
+  }, [loadMasterData, loadAggregatedMasterData])
 
   const saveRecord = useCallback(async (type, recordData) => {
     try {
@@ -169,6 +198,10 @@ export const MasterDataProvider = ({ children }) => {
     getPaymentTerms,
     getRecordById,
     search,
+    // Aggregated master data (array of cards)
+    aggregatedDataList,
+    aggregatedLoading,
+    loadAggregatedMasterData,
   }
 
   return <MasterDataContext.Provider value={value}>{children}</MasterDataContext.Provider>
