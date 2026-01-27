@@ -16,29 +16,41 @@ const getAllSettings = async (useCache = true) => {
     return settingsCache;
   }
   
-  const settings = await query(
-    'SELECT setting_key, setting_value, setting_type, is_locked, lock_reason, updated_at, created_at FROM settings ORDER BY setting_key'
-  );
-  
-  // Transform to object format
-  const settingsObj = {};
-  settings.forEach(setting => {
-    settingsObj[setting.setting_key] = {
-      ...JSON.parse(setting.setting_value),
-      _meta: {
-        type: setting.setting_type,
-        isLocked: setting.is_locked,
-        lockReason: setting.lock_reason,
-        updatedAt: setting.updated_at,
-        createdAt: setting.created_at,
-      }
-    };
-  });
-  
-  settingsCache = settingsObj;
-  cacheTimestamp = now;
-  
-  return settingsObj;
+  try {
+    const settings = await query(
+      'SELECT setting_key, setting_value, setting_type, is_locked, lock_reason, updated_at, created_at FROM settings ORDER BY setting_key'
+    );
+    
+    // Transform to object format
+    const settingsObj = {};
+    if (settings && Array.isArray(settings)) {
+      settings.forEach(setting => {
+        try {
+          settingsObj[setting.setting_key] = {
+            ...JSON.parse(setting.setting_value),
+            _meta: {
+              type: setting.setting_type,
+              isLocked: setting.is_locked,
+              lockReason: setting.lock_reason,
+              updatedAt: setting.updated_at,
+              createdAt: setting.created_at,
+            }
+          };
+        } catch (parseErr) {
+          console.warn(`[Settings] Failed to parse setting ${setting.setting_key}:`, parseErr.message);
+        }
+      });
+    }
+    
+    settingsCache = settingsObj;
+    cacheTimestamp = now;
+    
+    return settingsObj;
+  } catch (err) {
+    // If settings table doesn't exist or query fails, return empty object
+    console.warn('[Settings] Failed to load settings, returning empty object:', err.message);
+    return {};
+  }
 };
 
 /**

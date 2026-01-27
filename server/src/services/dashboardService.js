@@ -20,13 +20,19 @@ const getDashboard = async (userId, filters = {}) => {
   }
   const dateWhere = dateConditions.length ? `WHERE ${dateConditions.join(' AND ')}` : '';
 
-  // Get currency from settings
-  const currency = await getCurrency();
+  // Get currency from settings (with fallback if settings fail)
+  let currency = 'INR';
+  try {
+    currency = await getCurrency();
+  } catch (err) {
+    console.warn('[Dashboard] Failed to get currency from settings, using default INR:', err.message);
+  }
 
   // Financial KPIs - All time totals
   // Only pass dateParams if dateWhere is not empty
-  const [kpiData] = await Promise.all([
-    query(
+  let kpiData = [{ totalOutstanding: 0, totalCollected: 0, totalOverdue: 0, duesCurrentMonth: 0, totalBalance: 0, collectionTarget: 0, collectionAchieved: 0 }];
+  try {
+    const result = await query(
       `SELECT 
         COALESCE(SUM(i.balance), 0) as totalOutstanding,
         COALESCE(SUM(CASE WHEN p.status = 'cleared' THEN p.amount ELSE 0 END), 0) as totalCollected,
@@ -40,8 +46,12 @@ const getDashboard = async (userId, filters = {}) => {
       LEFT JOIN collection_plans cp ON cp.invoice_id = i.id
       ${dateWhere}`,
       dateWhere ? dateParams : []
-    ),
-  ]);
+    );
+    kpiData = result;
+  } catch (err) {
+    console.error('[Dashboard] Error fetching KPI data:', err.message);
+    // Continue with default values
+  }
 
   const kpis = kpiData[0] || {};
   const collectionTargetAchieved = kpis.collectionTarget > 0 
@@ -50,35 +60,45 @@ const getDashboard = async (userId, filters = {}) => {
 
   // Invoice insights - Status counts
   // Only pass dateParams if dateWhere is not empty
-  const invoicesByStatus = await query(
-    `SELECT status, COUNT(*) as count 
-     FROM invoices i
-     ${dateWhere}
-     GROUP BY status`,
-    dateWhere ? dateParams : []
-  );
+  let invoicesByStatus = [];
+  try {
+    invoicesByStatus = await query(
+      `SELECT status, COUNT(*) as count 
+       FROM invoices i
+       ${dateWhere}
+       GROUP BY status`,
+      dateWhere ? dateParams : []
+    );
+  } catch (err) {
+    console.error('[Dashboard] Error fetching invoices by status:', err.message);
+  }
 
   // Recent invoices (last 10)
   // Only pass dateParams if dateWhere is not empty
-  const recentInvoices = await query(
-    `SELECT 
-      i.id,
-      i.invoice_number,
-      i.issue_date,
-      i.due_date,
-      i.status,
-      i.total_amount,
-      i.amount_paid,
-      i.balance,
-      c.name as customer_name,
-      DATEDIFF(CURDATE(), i.due_date) as days_overdue
-    FROM invoices i
-    LEFT JOIN customers c ON c.id = i.customer_id
-    ${dateWhere}
-    ORDER BY i.issue_date DESC
-    LIMIT 10`,
-    dateWhere ? dateParams : []
-  );
+  let recentInvoices = [];
+  try {
+    recentInvoices = await query(
+      `SELECT 
+        i.id,
+        i.invoice_number,
+        i.issue_date,
+        i.due_date,
+        i.status,
+        i.total_amount,
+        i.amount_paid,
+        i.balance,
+        c.name as customer_name,
+        DATEDIFF(CURDATE(), i.due_date) as days_overdue
+      FROM invoices i
+      LEFT JOIN customers c ON c.id = i.customer_id
+      ${dateWhere}
+      ORDER BY i.issue_date DESC
+      LIMIT 10`,
+      dateWhere ? dateParams : []
+    );
+  } catch (err) {
+    console.error('[Dashboard] Error fetching recent invoices:', err.message);
+  }
 
   // Payment and collections summary
   // Build proper WHERE clause with date conditions
@@ -90,21 +110,26 @@ const getDashboard = async (userId, filters = {}) => {
   }
   const followUpWhere = `WHERE ${followUpWhereConditions.join(' AND ')}`;
   
-  const upcomingFollowUps = await query(
-    `SELECT 
-      i.id,
-      i.invoice_number,
-      i.due_date,
-      i.balance,
-      c.name as customer_name,
-      DATEDIFF(i.due_date, CURDATE()) as days_until_due
-    FROM invoices i
-    LEFT JOIN customers c ON c.id = i.customer_id
-    ${followUpWhere}
-    ORDER BY i.due_date ASC
-    LIMIT 10`,
-    followUpWhereParams
-  );
+  let upcomingFollowUps = [];
+  try {
+    upcomingFollowUps = await query(
+      `SELECT 
+        i.id,
+        i.invoice_number,
+        i.due_date,
+        i.balance,
+        c.name as customer_name,
+        DATEDIFF(i.due_date, CURDATE()) as days_until_due
+      FROM invoices i
+      LEFT JOIN customers c ON c.id = i.customer_id
+      ${followUpWhere}
+      ORDER BY i.due_date ASC
+      LIMIT 10`,
+      followUpWhereParams
+    );
+  } catch (err) {
+    console.error('[Dashboard] Error fetching upcoming follow-ups:', err.message);
+  }
 
   // Build overdue highlights WHERE clause
   const overdueWhereConditions = ['i.due_date < CURDATE()', 'i.balance > 0', "i.status NOT IN ('cancelled','paid')"];
@@ -115,21 +140,26 @@ const getDashboard = async (userId, filters = {}) => {
   }
   const overdueWhere = `WHERE ${overdueWhereConditions.join(' AND ')}`;
   
-  const overdueHighlights = await query(
-    `SELECT 
-      i.id,
-      i.invoice_number,
-      i.due_date,
-      i.balance,
-      c.name as customer_name,
-      DATEDIFF(CURDATE(), i.due_date) as days_overdue
-    FROM invoices i
-    LEFT JOIN customers c ON c.id = i.customer_id
-    ${overdueWhere}
-    ORDER BY i.due_date ASC, i.balance DESC
-    LIMIT 10`,
-    overdueWhereParams
-  );
+  let overdueHighlights = [];
+  try {
+    overdueHighlights = await query(
+      `SELECT 
+        i.id,
+        i.invoice_number,
+        i.due_date,
+        i.balance,
+        c.name as customer_name,
+        DATEDIFF(CURDATE(), i.due_date) as days_overdue
+      FROM invoices i
+      LEFT JOIN customers c ON c.id = i.customer_id
+      ${overdueWhere}
+      ORDER BY i.due_date ASC, i.balance DESC
+      LIMIT 10`,
+      overdueWhereParams
+    );
+  } catch (err) {
+    console.error('[Dashboard] Error fetching overdue highlights:', err.message);
+  }
 
   return {
     kpis: {

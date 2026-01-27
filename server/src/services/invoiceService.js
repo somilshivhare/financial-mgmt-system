@@ -2,33 +2,39 @@ const { v4: uuidv4 } = require('uuid');
 const { query, transaction } = require('../db/query');
 
 const listInvoices = async ({ page = 1, pageSize = 20, status, q, keyId }) => {
-  const offset = (page - 1) * pageSize;
-  const where = [];
-  const params = [];
-  if (status) {
-    where.push('i.status = ?');
-    params.push(status);
+  try {
+    const offset = (page - 1) * pageSize;
+    const where = [];
+    const params = [];
+    if (status) {
+      where.push('i.status = ?');
+      params.push(status);
+    }
+    if (q) {
+      where.push('(i.invoice_number LIKE ? OR i.gst_tax_invoice_no LIKE ? OR i.internal_invoice_no LIKE ?)');
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+    }
+    if (keyId) {
+      where.push('i.key_id = ?');
+      params.push(keyId);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const data = await query(
+      `SELECT i.*, c.name AS customer_name, p.po_number
+       FROM invoices i
+       LEFT JOIN customers c ON c.id = i.customer_id
+       LEFT JOIN purchase_orders p ON p.id = i.po_id
+       ${whereSql}
+       ORDER BY i.created_at DESC LIMIT ? OFFSET ?`,
+      [...params, Number(pageSize), Number(offset)],
+    );
+    const countResult = await query(`SELECT COUNT(*) as total FROM invoices i ${whereSql}`, params);
+    const total = countResult && countResult[0] ? countResult[0].total : 0;
+    return { data: data || [], page: Number(page), pageSize: Number(pageSize), total };
+  } catch (err) {
+    console.error('[Invoice Service] Error listing invoices:', err.message);
+    return { data: [], page: Number(page), pageSize: Number(pageSize), total: 0 };
   }
-  if (q) {
-    where.push('(i.invoice_number LIKE ? OR i.gst_tax_invoice_no LIKE ? OR i.internal_invoice_no LIKE ?)');
-    params.push(`%${q}%`, `%${q}%`, `%${q}%`);
-  }
-  if (keyId) {
-    where.push('i.key_id = ?');
-    params.push(keyId);
-  }
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const data = await query(
-    `SELECT i.*, c.name AS customer_name, p.po_number
-     FROM invoices i
-     LEFT JOIN customers c ON c.id = i.customer_id
-     LEFT JOIN purchase_orders p ON p.id = i.po_id
-     ${whereSql}
-     ORDER BY i.created_at DESC LIMIT ? OFFSET ?`,
-    [...params, Number(pageSize), Number(offset)],
-  );
-  const [{ total }] = await query(`SELECT COUNT(*) as total FROM invoices i ${whereSql}`, params);
-  return { data, page: Number(page), pageSize: Number(pageSize), total };
 };
 
 const getInvoice = async (id) => {

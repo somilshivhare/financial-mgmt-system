@@ -83,16 +83,37 @@ const errorHandler = (err, _req, res, _next) => {
   
   // Ensure we always return valid JSON, even if there's an error serializing
   try {
-    res.status(status).json(apiError(errorMessage, code, isDevelopment ? { stack: err.stack } : null));
+    // Make sure response hasn't been sent already
+    if (res.headersSent) {
+      console.error('[Error Handler] Response already sent, cannot send error response');
+      return;
+    }
+    
+    const errorResponse = apiError(errorMessage, code, isDevelopment ? { stack: err.stack } : null);
+    res.status(status).json(errorResponse);
   } catch (jsonError) {
     // Fallback if JSON serialization fails
     console.error('[Error Handler] Failed to send JSON response:', jsonError);
-    res.status(status).setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({
-      success: false,
-      code: 'ERR_INTERNAL',
-      message: 'An error occurred. Please try again.',
-    }));
+    
+    // Make sure response hasn't been sent already
+    if (res.headersSent) {
+      return;
+    }
+    
+    try {
+      res.status(status).setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        success: false,
+        code: 'ERR_INTERNAL',
+        message: 'An error occurred. Please try again.',
+      }));
+    } catch (finalError) {
+      // Last resort - try to send plain text
+      console.error('[Error Handler] Complete failure to send response:', finalError);
+      if (!res.headersSent) {
+        res.status(500).end('Internal Server Error');
+      }
+    }
   }
 };
 

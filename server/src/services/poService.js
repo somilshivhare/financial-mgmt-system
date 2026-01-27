@@ -2,24 +2,30 @@ const { v4: uuidv4 } = require('uuid');
 const { query, transaction } = require('../db/query');
 
 const listPOs = async ({ page = 1, pageSize = 20, status, q }) => {
-  const offset = (page - 1) * pageSize;
-  const where = [];
-  const params = [];
-  if (status) {
-    where.push('status = ?');
-    params.push(status);
+  try {
+    const offset = (page - 1) * pageSize;
+    const where = [];
+    const params = [];
+    if (status) {
+      where.push('status = ?');
+      params.push(status);
+    }
+    if (q) {
+      where.push('po_number LIKE ?');
+      params.push(`%${q}%`);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const data = await query(
+      `SELECT * FROM purchase_orders ${whereSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      [...params, Number(pageSize), Number(offset)],
+    );
+    const countResult = await query(`SELECT COUNT(*) as total FROM purchase_orders ${whereSql}`, params);
+    const total = countResult && countResult[0] ? countResult[0].total : 0;
+    return { data: data || [], page: Number(page), pageSize: Number(pageSize), total };
+  } catch (err) {
+    console.error('[PO Service] Error listing POs:', err.message);
+    return { data: [], page: Number(page), pageSize: Number(pageSize), total: 0 };
   }
-  if (q) {
-    where.push('po_number LIKE ?');
-    params.push(`%${q}%`);
-  }
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const data = await query(
-    `SELECT * FROM purchase_orders ${whereSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-    [...params, Number(pageSize), Number(offset)],
-  );
-  const [{ total }] = await query(`SELECT COUNT(*) as total FROM purchase_orders ${whereSql}`, params);
-  return { data, page: Number(page), pageSize: Number(pageSize), total };
 };
 
 const createPO = async (payload, userId) =>

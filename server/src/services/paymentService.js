@@ -2,20 +2,26 @@ const { v4: uuidv4 } = require('uuid');
 const { query, transaction } = require('../db/query');
 
 const listPayments = async ({ page = 1, pageSize = 20, invoiceId }) => {
-  const offset = (page - 1) * pageSize;
-  const where = [];
-  const params = [];
-  if (invoiceId) {
-    where.push('invoice_id = ?');
-    params.push(invoiceId);
+  try {
+    const offset = (page - 1) * pageSize;
+    const where = [];
+    const params = [];
+    if (invoiceId) {
+      where.push('invoice_id = ?');
+      params.push(invoiceId);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const data = await query(
+      `SELECT * FROM payments ${whereSql} ORDER BY paid_at DESC LIMIT ? OFFSET ?`,
+      [...params, Number(pageSize), Number(offset)],
+    );
+    const countResult = await query(`SELECT COUNT(*) as total FROM payments ${whereSql}`, params);
+    const total = countResult && countResult[0] ? countResult[0].total : 0;
+    return { data: data || [], page: Number(page), pageSize: Number(pageSize), total };
+  } catch (err) {
+    console.error('[Payment Service] Error listing payments:', err.message);
+    return { data: [], page: Number(page), pageSize: Number(pageSize), total: 0 };
   }
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const data = await query(
-    `SELECT * FROM payments ${whereSql} ORDER BY paid_at DESC LIMIT ? OFFSET ?`,
-    [...params, Number(pageSize), Number(offset)],
-  );
-  const [{ total }] = await query(`SELECT COUNT(*) as total FROM payments ${whereSql}`, params);
-  return { data, page: Number(page), pageSize: Number(pageSize), total };
 };
 
 const createPayment = async (payload, userId) =>

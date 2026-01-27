@@ -107,10 +107,11 @@ const buildCommonFilters = (filters) => {
  * Get Sales Report
  */
 const getSalesReport = async (filters = {}) => {
-  const { conditions, params } = buildCommonFilters({ ...filters, dateField: 'i.issue_date', tablePrefix: 'i.' });
-  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  try {
+    const { conditions, params } = buildCommonFilters({ ...filters, dateField: 'i.issue_date', tablePrefix: 'i.' });
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const salesData = await query(
+    const salesData = await query(
     `SELECT 
       i.id,
       i.invoice_number,
@@ -143,20 +144,27 @@ const getSalesReport = async (filters = {}) => {
     params
   );
 
-  // Calculate summary
-  const summary = salesData.reduce(
-    (acc, row) => {
-      acc.totalInvoices += 1;
-      acc.totalAmount += parseFloat(row.total_amount || 0);
-      acc.totalGST += parseFloat(row.total_gst || 0);
-      acc.totalPaid += parseFloat(row.amount_paid || 0);
-      acc.totalBalance += parseFloat(row.balance || 0);
-      return acc;
-    },
-    { totalInvoices: 0, totalAmount: 0, totalGST: 0, totalPaid: 0, totalBalance: 0 }
-  );
+    // Calculate summary
+    const summary = salesData.reduce(
+      (acc, row) => {
+        acc.totalInvoices += 1;
+        acc.totalAmount += parseFloat(row.total_amount || 0);
+        acc.totalGST += parseFloat(row.total_gst || 0);
+        acc.totalPaid += parseFloat(row.amount_paid || 0);
+        acc.totalBalance += parseFloat(row.balance || 0);
+        return acc;
+      },
+      { totalInvoices: 0, totalAmount: 0, totalGST: 0, totalPaid: 0, totalBalance: 0 }
+    );
 
-  return { data: salesData, summary };
+    return { data: salesData || [], summary };
+  } catch (err) {
+    console.error('[Reports Service] Error getting sales report:', err.message);
+    return {
+      data: [],
+      summary: { totalInvoices: 0, totalAmount: 0, totalGST: 0, totalPaid: 0, totalBalance: 0 }
+    };
+  }
 };
 
 /**
@@ -850,34 +858,55 @@ const getAuditLogReport = async (filters = {}) => {
  * Get KPIs for Reports Dashboard
  */
 const getKPIs = async (filters = {}) => {
-  const { dateFrom, dateTo } = filters;
-  const dateConditions = [];
-  const dateParams = [];
+  try {
+    const { dateFrom, dateTo } = filters;
+    const dateConditions = [];
+    const dateParams = [];
 
-  if (dateFrom) {
-    dateConditions.push('i.issue_date >= ?');
-    dateParams.push(dateFrom);
+    if (dateFrom) {
+      dateConditions.push('i.issue_date >= ?');
+      dateParams.push(dateFrom);
+    }
+    if (dateTo) {
+      dateConditions.push('i.issue_date <= ?');
+      dateParams.push(dateTo + ' 23:59:59');
+    }
+    const dateWhere = dateConditions.length ? `WHERE ${dateConditions.join(' AND ')}` : '';
+
+    const kpiData = await query(
+      `SELECT 
+        (SELECT COUNT(*) FROM invoices ${dateWhere}) AS total_invoices,
+        (SELECT COALESCE(SUM(total_amount), 0) FROM invoices ${dateWhere}) AS total_invoiced,
+        (SELECT COALESCE(SUM(amount_paid), 0) FROM invoices ${dateWhere}) AS total_collected,
+        (SELECT COALESCE(SUM(balance), 0) FROM invoices ${dateWhere}) AS total_outstanding,
+        (SELECT COALESCE(SUM(balance), 0) FROM invoices ${dateWhere} AND due_date < CURDATE() AND balance > 0) AS total_overdue,
+        (SELECT COUNT(*) FROM purchase_orders ${dateWhere.replace('i.issue_date', 'po.issue_date').replace('FROM invoices', 'FROM purchase_orders po')}) AS total_pos,
+        (SELECT COUNT(*) FROM payments ${dateWhere.replace('i.issue_date', 'p.paid_at').replace('FROM invoices', 'FROM payments p')}) AS total_payments
+      `,
+      dateParams
+    );
+
+    return kpiData && kpiData[0] ? kpiData[0] : {
+      total_invoices: 0,
+      total_invoiced: 0,
+      total_collected: 0,
+      total_outstanding: 0,
+      total_overdue: 0,
+      total_pos: 0,
+      total_payments: 0
+    };
+  } catch (err) {
+    console.error('[Reports Service] Error getting KPIs:', err.message);
+    return {
+      total_invoices: 0,
+      total_invoiced: 0,
+      total_collected: 0,
+      total_outstanding: 0,
+      total_overdue: 0,
+      total_pos: 0,
+      total_payments: 0
+    };
   }
-  if (dateTo) {
-    dateConditions.push('i.issue_date <= ?');
-    dateParams.push(dateTo + ' 23:59:59');
-  }
-  const dateWhere = dateConditions.length ? `WHERE ${dateConditions.join(' AND ')}` : '';
-
-  const kpiData = await query(
-    `SELECT 
-      (SELECT COUNT(*) FROM invoices ${dateWhere}) AS total_invoices,
-      (SELECT COALESCE(SUM(total_amount), 0) FROM invoices ${dateWhere}) AS total_invoiced,
-      (SELECT COALESCE(SUM(amount_paid), 0) FROM invoices ${dateWhere}) AS total_collected,
-      (SELECT COALESCE(SUM(balance), 0) FROM invoices ${dateWhere}) AS total_outstanding,
-      (SELECT COALESCE(SUM(balance), 0) FROM invoices ${dateWhere} AND due_date < CURDATE() AND balance > 0) AS total_overdue,
-      (SELECT COUNT(*) FROM purchase_orders ${dateWhere.replace('i.issue_date', 'po.issue_date').replace('FROM invoices', 'FROM purchase_orders po')}) AS total_pos,
-      (SELECT COUNT(*) FROM payments ${dateWhere.replace('i.issue_date', 'p.paid_at').replace('FROM invoices', 'FROM payments p')}) AS total_payments
-    `,
-    dateParams
-  );
-
-  return kpiData[0] || {};
 };
 
 module.exports = {

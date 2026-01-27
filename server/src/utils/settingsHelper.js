@@ -20,11 +20,16 @@ const getSystemSettings = async (forceRefresh = false) => {
     return systemSettingsCache;
   }
   
-  const settings = await settingsService.getSystemSettings();
-  systemSettingsCache = settings;
-  cacheTimestamp = now;
-  
-  return settings;
+  try {
+    const settings = await settingsService.getSystemSettings();
+    systemSettingsCache = settings;
+    cacheTimestamp = now;
+    return settings;
+  } catch (err) {
+    console.warn('[Settings Helper] Failed to get system settings:', err.message);
+    // Return empty object if settings fail to load
+    return {};
+  }
 };
 
 /**
