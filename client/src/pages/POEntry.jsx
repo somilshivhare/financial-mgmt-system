@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Plus, X, Trash2 } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
 import * as poEntryService from '../services/poEntryService'
-import { getPODraft, upsertPODraft } from '../api/po'
+import { getPODraft, upsertPODraft, getPOById } from '../api/po'
 import { useFormPersistence } from '../hooks/useFormPersistence'
 import { INDIA_STATES, COUNTRIES } from '../utils/indiaStates'
 import '../styles/POEntry.css'
@@ -225,13 +225,91 @@ function POEntry() {
       return result
     },
     loadFn: async () => {
+      // If editing (ID present), fetch actual saved PO from backend
+      if (id) {
+        try {
+          const response = await getPOById(id)
+          const poData = response?.data || response
+          if (poData) {
+            // Transform PO data to form format
+            // Handle different response structures
+            const poEntry = poData.data || poData
+            const { lines: loadedBoqItems, purchase_order_lines, ...formData } = poEntry
+            
+            // Normalize BOQ items - could be 'lines' or 'purchase_order_lines'
+            const boqItems = Array.isArray(loadedBoqItems) 
+              ? loadedBoqItems.map((line, idx) => ({
+                  id: idx + 1,
+                  materialDescription: line.description || line.materialDescription || '',
+                  quantity: line.quantity || '',
+                  uom: line.uom || '',
+                  unitPrice: line.unit_price || line.unitPrice || '',
+                  unitCost: line.unit_cost || line.unitCost || '',
+                  freight: line.freight || '',
+                  gst: line.gst || '',
+                  totalCost: line.total_cost || line.totalCost || '',
+                }))
+              : Array.isArray(purchase_order_lines)
+              ? purchase_order_lines.map((line, idx) => ({
+                  id: idx + 1,
+                  materialDescription: line.description || '',
+                  quantity: line.quantity || '',
+                  uom: '',
+                  unitPrice: line.unit_price || '',
+                  unitCost: '',
+                  freight: '',
+                  gst: '',
+                  totalCost: '',
+                }))
+              : []
+            
+            return {
+              formData: {
+                ...formData,
+                poNumber: formData.po_number || formData.poNumber || '',
+                poDate: formData.issue_date || formData.poDate || formData.created_at?.split('T')[0] || '',
+                customerId: formData.customer_id || formData.customerId || '',
+                customerName: formData.customer_name || formData.customerName || '',
+              },
+              boqItems: boqItems.length > 0 ? boqItems : [{
+                id: 1,
+                materialDescription: '',
+                quantity: '',
+                uom: '',
+                unitPrice: '',
+                unitCost: '',
+                freight: '',
+                gst: '',
+                totalCost: '',
+              }],
+            }
+          }
+        } catch (error) {
+          console.error('[POEntry] Failed to load PO entry:', error)
+          // Fall through to draft loading
+        }
+      }
+      
+      // Otherwise, load draft (for new entries or if PO fetch failed)
       const draft = await getPODraft(id || null)
       if (draft) {
         // Separate formData and boqItems
         const { boqItems: loadedBoqItems, ...formData } = draft
         return {
           formData,
-          boqItems: loadedBoqItems || [],
+          boqItems: Array.isArray(loadedBoqItems) && loadedBoqItems.length > 0 
+            ? loadedBoqItems 
+            : [{
+                id: 1,
+                materialDescription: '',
+                quantity: '',
+                uom: '',
+                unitPrice: '',
+                unitCost: '',
+                freight: '',
+                gst: '',
+                totalCost: '',
+              }],
         }
       }
       return null
@@ -509,7 +587,25 @@ function POEntry() {
     
     // Save using PO Entry service
     try {
-      await poEntryService.savePOEntry(poEntry)
+      const savedPO = await poEntryService.savePOEntry(poEntry)
+      
+      // Re-fetch the saved PO to ensure UI is synced with backend
+      if (savedPO?.id || id) {
+        try {
+          const refreshedPO = await poEntryService.getPOEntryById(savedPO?.id || id)
+          if (refreshedPO) {
+            const { boqItems: refreshedBoqItems, ...refreshedFormData } = refreshedPO
+            setPersistedData({
+              formData: refreshedFormData || {},
+              boqItems: Array.isArray(refreshedBoqItems) ? refreshedBoqItems : [],
+            })
+          }
+        } catch (refreshError) {
+          console.warn('[POEntry] Failed to refresh PO after save:', refreshError)
+          // Continue anyway - save was successful
+        }
+      }
+      
       alert('PO Entry submitted successfully!')
       navigate('/po-entry')
     } catch (error) {

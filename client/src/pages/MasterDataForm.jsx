@@ -10,7 +10,7 @@ import {
   Edit,
 } from 'lucide-react'
 import { COUNTRIES, INDIA_STATES } from '../utils/indiaStates'
-import { saveMasterDataRecord, upsertMasterDataRecord, getLatestMasterDataByType } from '../api/masterData'
+import { saveMasterDataRecord, upsertMasterDataRecord, getLatestMasterDataByType, getMasterDataById } from '../api/masterData'
 import { useFormPersistence } from '../hooks/useFormPersistence'
 import '../styles/MasterData.css'
 
@@ -281,7 +281,7 @@ const FORM_DEFS = {
 
 function MasterDataForm() {
   const navigate = useNavigate()
-  const { type } = useParams()
+  const { type, id } = useParams() // Get ID if editing existing record
 
   // Validate type exists - prevent crashes
   if (!type || !FORM_DEFS[type]) {
@@ -330,7 +330,25 @@ function MasterDataForm() {
   const loadFnRef = useRef(null)
   const loadFn = useCallback(async () => {
     try {
-      const data = await getLatestMasterDataByType(type)
+      let data = null
+      
+      // If editing (ID present), fetch specific record by ID
+      if (id) {
+        const response = await getMasterDataById(type, id)
+        if (response?.data) {
+          // Handle different response structures
+          const record = response.data.data || response.data
+          if (record?.values) {
+            data = record.values
+          } else if (record && typeof record === 'object') {
+            data = record
+          }
+        }
+      } else {
+        // Otherwise, get latest record for this type
+        data = await getLatestMasterDataByType(type)
+      }
+      
       if (data) {
         // Extract logoPreviews if present
         if (data.logoPreviews) {
@@ -342,11 +360,11 @@ function MasterDataForm() {
       }
       return null
     } catch (error) {
-      console.error(`[MasterDataForm] Failed to load ${type}:`, error)
+      console.error(`[MasterDataForm] Failed to load ${type}${id ? ` (ID: ${id})` : ''}:`, error)
       // Return null on error - don't crash the component
       return null
     }
-  }, [type])
+  }, [type, id])
   
   // Use ref for logoPreviews to avoid recreating saveFn
   const logoPreviewsRef = useRef(logoPreviews)
@@ -1070,7 +1088,17 @@ function MasterDataForm() {
         setStatus({ kind: 'idle', message: 'Saving to database...' })
         
         // Use persistence save (which handles upsert)
-        await persistenceSave(true)
+        const savedResult = await persistenceSave(true)
+        
+        // Re-fetch the saved record to ensure UI is synced with backend
+        if (savedResult?.id || id) {
+          try {
+            await persistenceLoad()
+          } catch (refreshError) {
+            console.warn('[MasterDataForm] Failed to refresh after save:', refreshError)
+            // Continue anyway - save was successful
+          }
+        }
         
         // Trigger refresh of Master Data Records page
         window.dispatchEvent(new Event('masterDataUpdated'))

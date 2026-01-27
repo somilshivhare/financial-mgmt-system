@@ -48,6 +48,8 @@ export const getApiUrl = () => {
 }
 
 // Export constants for convenience
+// Note: These are evaluated at module load time, which is fine for most cases
+// For dynamic values that change at runtime, use the functions instead
 export const API_BASE_URL = getApiBaseUrl()
 export const API_URL = getApiUrl()
 

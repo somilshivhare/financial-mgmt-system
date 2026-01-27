@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Calculator, TrendingUp, Calendar } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
 import * as paymentService from '../services/paymentService'
 import * as invoiceService from '../services/invoiceService'
+import { getPaymentById, updatePayment } from '../api/payment'
 import '../styles/PaymentEntry.css'
 
 function PaymentEntry() {
   const navigate = useNavigate()
+  const { id } = useParams() // Get ID if editing existing payment
   const { getCustomers } = useMasterData()
   
   const [customers, setCustomers] = useState([])
@@ -50,12 +52,62 @@ function PaymentEntry() {
     // Load Master Data
     setCustomers(getCustomers())
     
-    // Auto-generate Payment ID
-    if (!formData.paymentID) {
+    // Auto-generate Payment ID only if not editing
+    if (!id && !formData.paymentID) {
       const generatedID = paymentService.generatePaymentID()
       setFormData((prev) => ({ ...prev, paymentID: generatedID }))
     }
-  }, [getCustomers])
+  }, [getCustomers, id])
+  
+  // Load existing payment data when editing (ID present)
+  useEffect(() => {
+    if (id) {
+      const loadPayment = async () => {
+        try {
+          const response = await getPaymentById(id)
+          const paymentData = response?.data || response
+          if (paymentData) {
+            const payment = paymentData.data || paymentData
+            
+            // Transform payment data to form format
+            setFormData(prev => ({
+              ...prev,
+              paymentID: payment.payment_id || payment.paymentID || payment.id || prev.paymentID,
+              paymentReceiptDate: payment.paid_at?.split('T')[0] || payment.paymentReceiptDate || prev.paymentReceiptDate,
+              customerName: payment.customer_name || payment.customerName || '',
+              customerId: payment.customer_id || payment.customerId || '',
+              projectName: payment.project_name || payment.projectName || '',
+              packageName: payment.package_name || payment.packageName || '',
+              paymentAmount: payment.amount || payment.paymentAmount || '',
+              paymentType: payment.payment_type || payment.paymentType || '1st Due',
+              bankName: payment.bank_name || payment.bankName || '',
+              bankId: payment.bank_id || payment.bankId || '',
+              paymentCreditInBankDate: payment.payment_credit_in_bank_date || payment.paymentCreditInBankDate || '',
+              invoicePayments: payment.invoice_payments || payment.invoicePayments || [],
+            }))
+            
+            // Set charges if available
+            if (payment.tds || payment.bank_charges || payment.penalty || payment.other_deductions) {
+              setCharges({
+                tds: payment.tds || '',
+                bankCharges: payment.bank_charges || payment.bank_charges || '',
+                penalty: payment.penalty || '',
+                otherDeductions: payment.other_deductions || payment.otherDeductions || '',
+              })
+            }
+            
+            // Lock customer if payment already has customer
+            if (payment.customer_id || payment.customerId) {
+              setCustomerLocked(true)
+            }
+          }
+        } catch (error) {
+          console.error('[PaymentEntry] Failed to load payment:', error)
+        }
+      }
+      loadPayment()
+    }
+  }, [id, getCustomers])
   
   // Fetch open invoices when customer is selected
   useEffect(() => {
@@ -194,8 +246,38 @@ function PaymentEntry() {
     
     // Save payment (this will also update invoice balances)
     try {
-      const payment = await paymentService.savePayment(paymentData)
-      alert(`Payment ${payment?.paymentID || payment?.id || ''} saved successfully!`)
+      let savedPayment
+      if (id) {
+        // Update existing payment
+        const response = await updatePayment(id, paymentData)
+        savedPayment = response?.data || response
+      } else {
+        // Create new payment
+        savedPayment = await paymentService.savePayment(paymentData)
+      }
+      
+      // Re-fetch the saved payment to ensure UI is synced with backend
+      if (savedPayment?.id || id) {
+        try {
+          const refreshedPayment = await getPaymentById(savedPayment?.id || id)
+          const paymentData = refreshedPayment?.data || refreshedPayment
+          if (paymentData) {
+            const payment = paymentData.data || paymentData
+            // Update form with refreshed data
+            setFormData(prev => ({
+              ...prev,
+              paymentID: payment.payment_id || payment.paymentID || payment.id || prev.paymentID,
+              paymentReceiptDate: payment.paid_at?.split('T')[0] || payment.paymentReceiptDate || prev.paymentReceiptDate,
+              paymentAmount: payment.amount || payment.paymentAmount || prev.paymentAmount,
+            }))
+          }
+        } catch (refreshError) {
+          console.warn('[PaymentEntry] Failed to refresh payment after save:', refreshError)
+          // Continue anyway - save was successful
+        }
+      }
+      
+      alert(`Payment ${savedPayment?.paymentID || savedPayment?.id || formData.paymentID || ''} saved successfully!`)
       navigate('/payments')
     } catch (error) {
       console.error('Failed to save payment:', error)

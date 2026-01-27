@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Calculator } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
 import * as poEntryService from '../services/poEntryService'
 import * as invoiceService from '../services/invoiceService'
 import * as paymentApi from '../api/payment'
+import { getInvoiceById, updateInvoice } from '../api/invoice'
 import { INDIA_STATES } from '../utils/indiaStates'
 import '../styles/InvoiceEntry.css'
 
@@ -27,6 +28,7 @@ const UNITS = ['Nos', 'MT', 'KG', 'LTR', 'MTR', 'SQM', 'CUM', 'Other']
 
 function InvoiceEntry() {
   const navigate = useNavigate()
+  const { id } = useParams() // Get ID if editing existing invoice
   const { getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees } = useMasterData()
   
   const [poEntries, setPOEntries] = useState([])
@@ -221,6 +223,131 @@ function InvoiceEntry() {
     })()
   }, [getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees])
   
+  // Load payment data from Payment Advice
+  const loadPaymentData = async (poNumber) => {
+    try {
+      // Get invoices for this PO
+      const invoices = await invoiceService.getInvoicesByPONumber(poNumber)
+      if (invoices && invoices.length > 0) {
+        const invoice = invoices[0] // Use first invoice for now
+        if (invoice.id) {
+          const payments = await paymentApi.getPaymentsByInvoice(invoice.id)
+          if (payments && payments.data) {
+            // Aggregate payment data
+            const paymentData = payments.data.reduce((acc, payment) => {
+              // Sum up payment amounts by due stage
+              // This is simplified - in real system, you'd track which due stage each payment applies to
+              acc.firstReceivedAmount = (parseFloat(acc.firstReceivedAmount || 0) + parseFloat(payment.amount || 0)).toFixed(2)
+              acc.tds = (parseFloat(acc.tds || 0) + parseFloat(payment.tds || 0)).toFixed(2)
+              acc.bankCharges = (parseFloat(acc.bankCharges || 0) + parseFloat(payment.bank_charges || 0)).toFixed(2)
+              acc.penalty = (parseFloat(acc.penalty || 0) + parseFloat(payment.penalty || 0)).toFixed(2)
+              acc.otherDeductions = (parseFloat(acc.otherDeductions || 0) + parseFloat(payment.other_deductions || 0)).toFixed(2)
+              return acc
+            }, {})
+            
+            setPaymentData(paymentData)
+            
+            // Update form data with payment information
+            setFormData((prev) => ({
+              ...prev,
+              paymentReceivedAmount1stDue: paymentData.firstReceivedAmount || '',
+              receiptDate1stDue: paymentData.receiptDate || '',
+              itTDS2Percent: paymentData.tds || '',
+              bankCharges: paymentData.bankCharges || '',
+              penaltyLDDeduction: paymentData.penalty || '',
+            }))
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load payment data:', error)
+      // Don't show error - payment data may not exist yet
+    }
+  }
+  
+  // Load existing invoice data when editing (ID present)
+  useEffect(() => {
+    if (id) {
+      const loadInvoice = async () => {
+        try {
+          const response = await getInvoiceById(id)
+          const invoiceData = response?.data || response
+          if (invoiceData) {
+            const invoice = invoiceData.data || invoiceData
+            
+            // Transform invoice data to form format
+            setFormData(prev => ({
+              ...prev,
+              keyID: invoice.key_id || invoice.keyID || invoice.po_number || '',
+              gstTaxInvoiceNo: invoice.gst_tax_invoice_no || invoice.gstTaxInvoiceNo || '',
+              gstTaxInvoiceDate: invoice.gst_tax_invoice_date || invoice.gstTaxInvoiceDate || '',
+              internalInvoiceNo: invoice.internal_invoice_no || invoice.internalInvoiceNo || invoice.invoice_number || '',
+              invoiceType: invoice.invoice_type || invoice.invoiceType || 'REG',
+              businessUnit: invoice.business_unit || invoice.businessUnit || 'MAIN',
+              customerName: invoice.customer_name || invoice.customerName || '',
+              customerId: invoice.customer_id || invoice.customerId || '',
+              segment: invoice.segment || '',
+              region: invoice.region || '',
+              zone: invoice.zone || '',
+              salesOrderNo: invoice.sales_order_no || invoice.salesOrderNo || '',
+              accountManagerName: invoice.account_manager_name || invoice.accountManagerName || '',
+              accountManagerId: invoice.account_manager_id || invoice.accountManagerId || '',
+              poNoReference: invoice.po_no_reference || invoice.poNoReference || invoice.po_number || '',
+              poDate: invoice.po_date || invoice.poDate || '',
+              materialDescriptionType: invoice.material_description_type || invoice.materialDescriptionType || '',
+              stateOfSupply: invoice.state_of_supply || invoice.stateOfSupply || '',
+              qty: invoice.qty || invoice.quantity || '',
+              unit: invoice.unit || '',
+              currency: invoice.currency || 'INR',
+              basicRate: invoice.basic_rate || invoice.basicRate || '',
+              basicValue: invoice.basic_value || invoice.basicValue || '',
+              freightInvoiceNo: invoice.freight_invoice_no || invoice.freightInvoiceNo || '',
+              freightRate: invoice.freight_rate || invoice.freightRate || '',
+              freightValue: invoice.freight_value || invoice.freightValue || '',
+              sgstRate: invoice.sgst_rate || invoice.sgstRate || '',
+              cgstRate: invoice.cgst_rate || invoice.cgstRate || '',
+              igstRate: invoice.igst_rate || invoice.igstRate || '',
+              ugstRate: invoice.ugst_rate || invoice.ugstRate || '',
+              sgstOutput: invoice.sgst_output || invoice.sgstOutput || '',
+              cgstOutput: invoice.cgst_output || invoice.cgstOutput || '',
+              igstOutput: invoice.igst_output || invoice.igstOutput || '',
+              ugstOutput: invoice.ugst_output || invoice.ugstOutput || '',
+              totalGST: invoice.total_gst || invoice.totalGST || '',
+              tcs: invoice.tcs || '',
+              subtotal: invoice.subtotal || '',
+              totalInvoiceValue: invoice.total_invoice_value || invoice.totalInvoiceValue || invoice.total_amount || '',
+              consigneeId: invoice.consignee_id || invoice.consigneeId || '',
+              consigneeNameAddress: invoice.consignee_name_address || invoice.consigneeNameAddress || '',
+              consigneeCity: invoice.consignee_city || invoice.consigneeCity || '',
+              payerId: invoice.payer_id || invoice.payerId || '',
+              payerNameAddress: invoice.payer_name_address || invoice.payerNameAddress || '',
+              payerCity: invoice.payer_city || invoice.payerCity || '',
+              lorryReceiptNo: invoice.lorry_receipt_no || invoice.lorryReceiptNo || '',
+              lorryReceiptDate: invoice.lorry_receipt_date || invoice.lorryReceiptDate || '',
+              transporterId: invoice.transporter_id || invoice.transporterId || '',
+              transporterName: invoice.transporter_name || invoice.transporterName || '',
+              deliveryChallanNo: invoice.delivery_challan_no || invoice.deliveryChallanNo || '',
+              deliveryChallanDate: invoice.delivery_challan_date || invoice.deliveryChallanDate || '',
+              paymentTermsId: invoice.payment_terms_id || invoice.paymentTermsId || '',
+              paymentTerms: invoice.payment_terms || invoice.paymentTerms || '',
+              paymentTextId: invoice.payment_text_id || invoice.paymentTextId || '',
+              paymentText: invoice.payment_text || invoice.paymentText || '',
+              // Load payment data if available
+            }))
+            
+            // Load payment data for this invoice
+            if (invoice.id || id) {
+              loadPaymentData(invoice.key_id || invoice.keyID || invoice.po_number || '')
+            }
+          }
+        } catch (error) {
+          console.error('[InvoiceEntry] Failed to load invoice:', error)
+        }
+      }
+      loadInvoice()
+    }
+  }, [id, getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees])
+  
   // Auto-generate Internal Invoice No
   useEffect(() => {
     if (!formData.internalInvoiceNo && formData.invoiceType && formData.businessUnit) {
@@ -329,48 +456,6 @@ function InvoiceEntry() {
     } catch (error) {
       console.error('Failed to load PO entry:', error)
       alert('Failed to load PO entry. Please try again.')
-    }
-  }
-  
-  // Load payment data from Payment Advice
-  const loadPaymentData = async (poNumber) => {
-    try {
-      // Get invoices for this PO
-      const invoices = await invoiceService.getInvoicesByPONumber(poNumber)
-      if (invoices && invoices.length > 0) {
-        const invoice = invoices[0] // Use first invoice for now
-        if (invoice.id) {
-          const payments = await paymentApi.getPaymentsByInvoice(invoice.id)
-          if (payments && payments.data) {
-            // Aggregate payment data
-            const paymentData = payments.data.reduce((acc, payment) => {
-              // Sum up payment amounts by due stage
-              // This is simplified - in real system, you'd track which due stage each payment applies to
-              acc.firstReceivedAmount = (parseFloat(acc.firstReceivedAmount || 0) + parseFloat(payment.amount || 0)).toFixed(2)
-              acc.tds = (parseFloat(acc.tds || 0) + parseFloat(payment.tds || 0)).toFixed(2)
-              acc.bankCharges = (parseFloat(acc.bankCharges || 0) + parseFloat(payment.bank_charges || 0)).toFixed(2)
-              acc.penalty = (parseFloat(acc.penalty || 0) + parseFloat(payment.penalty || 0)).toFixed(2)
-              acc.otherDeductions = (parseFloat(acc.otherDeductions || 0) + parseFloat(payment.other_deductions || 0)).toFixed(2)
-              return acc
-            }, {})
-            
-            setPaymentData(paymentData)
-            
-            // Update form data with payment information
-            setFormData((prev) => ({
-              ...prev,
-              paymentReceivedAmount1stDue: paymentData.firstReceivedAmount || '',
-              receiptDate1stDue: paymentData.receiptDate || '',
-              itTDS2Percent: paymentData.tds || '',
-              bankCharges: paymentData.bankCharges || '',
-              penaltyLDDeduction: paymentData.penalty || '',
-            }))
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load payment data:', error)
-      // Don't show error - payment data may not exist yet
     }
   }
   
@@ -689,8 +774,39 @@ function InvoiceEntry() {
         issue_date: formData.gstTaxInvoiceDate,
       }
       
-      const invoice = await invoiceService.saveInvoice(invoiceData)
-      alert(`Invoice ${invoice?.invoice_number || invoice?.internalInvoiceNo || ''} saved successfully!`)
+      let savedInvoice
+      if (id) {
+        // Update existing invoice
+        const response = await updateInvoice(id, invoiceData)
+        savedInvoice = response?.data || response
+      } else {
+        // Create new invoice
+        savedInvoice = await invoiceService.saveInvoice(invoiceData)
+      }
+      
+      // Re-fetch the saved invoice to ensure UI is synced with backend
+      if (savedInvoice?.id || id) {
+        try {
+          const refreshedInvoice = await getInvoiceById(savedInvoice?.id || id)
+          const invoiceData = refreshedInvoice?.data || refreshedInvoice
+          if (invoiceData) {
+            const invoice = invoiceData.data || invoiceData
+            // Update form with refreshed data
+            setFormData(prev => ({
+              ...prev,
+              gstTaxInvoiceNo: invoice.gst_tax_invoice_no || invoice.gstTaxInvoiceNo || prev.gstTaxInvoiceNo,
+              gstTaxInvoiceDate: invoice.gst_tax_invoice_date || invoice.gstTaxInvoiceDate || prev.gstTaxInvoiceDate,
+              internalInvoiceNo: invoice.internal_invoice_no || invoice.internalInvoiceNo || invoice.invoice_number || prev.internalInvoiceNo,
+              totalInvoiceValue: invoice.total_invoice_value || invoice.totalInvoiceValue || invoice.total_amount || prev.totalInvoiceValue,
+            }))
+          }
+        } catch (refreshError) {
+          console.warn('[InvoiceEntry] Failed to refresh invoice after save:', refreshError)
+          // Continue anyway - save was successful
+        }
+      }
+      
+      alert(`Invoice ${savedInvoice?.invoice_number || savedInvoice?.internalInvoiceNo || formData.internalInvoiceNo || ''} saved successfully!`)
       navigate('/invoices')
     } catch (error) {
       console.error('Failed to save invoice:', error)
