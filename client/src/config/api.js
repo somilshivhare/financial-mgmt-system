@@ -15,9 +15,24 @@
  * // or in production: 'https://api.example.com'
  */
 export const getApiBaseUrl = () => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'
-  // Remove trailing slash if present
-  return baseUrl.replace(/\/$/, '')
+  let baseUrl = import.meta.env.VITE_API_BASE_URL || ''
+  baseUrl = baseUrl.replace(/\/$/, '')
+  
+  // In production, override localhost with current origin
+  // This prevents API calls from failing when localhost is accidentally set
+  if (import.meta.env.PROD && typeof window !== 'undefined') {
+    if (baseUrl.includes('localhost') || !baseUrl) {
+      console.warn(
+        '⚠️ API Base URL was set to localhost or empty in production.',
+        'Auto-detecting production domain:', window.location.origin
+      )
+      return window.location.origin
+    }
+    return baseUrl
+  }
+  
+  // Development: use env var or fallback to localhost
+  return baseUrl || 'http://localhost:4000'
 }
 
 /**
