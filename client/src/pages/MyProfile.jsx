@@ -31,7 +31,7 @@ const DEFAULT_PROFILE = {
     phone: '',
   },
   organization: {
-    companyName: 'Nbaurum',
+    companyName: 'NB Aurum',
     role: 'User',
     department: '',
     designation: '',
@@ -106,7 +106,7 @@ export default function MyProfile() {
               phone: data.profile?.phone || '',
             },
             organization: {
-              companyName: data.profile?.company_name || 'Nbaurum',
+              companyName: data.profile?.company_name || 'NB Aurum',
               role: data.user?.role || 'User',
               department: data.profile?.department || '',
               designation: data.profile?.designation || '',

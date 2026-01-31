@@ -165,6 +165,8 @@ export const savePayment = async (paymentData) => {
 
     // Trigger update event
     window.dispatchEvent(new CustomEvent('paymentUpdated', { detail: { payment: response.data } }))
+    // Payments impact invoice balances/outstanding, so refresh invoice views too
+    window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { payment: response.data } }))
 
     return response.data
   } catch (error) {

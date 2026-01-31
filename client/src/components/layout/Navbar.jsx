@@ -172,7 +172,7 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
         <div className="navbar-logo-group">
           <img 
             src="/logo.png" 
-            alt="Nbaurum – Your Dues. Our Duty." 
+            alt="NB Aurum – Your Dues. Our Duty." 
             className="navbar-logo"
             onClick={() => navigate('/dashboard')}
             style={{ cursor: 'pointer' }}

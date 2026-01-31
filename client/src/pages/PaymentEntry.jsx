@@ -251,6 +251,14 @@ function PaymentEntry() {
         // Update existing payment
         const response = await updatePayment(id, paymentData)
         savedPayment = response?.data || response
+        // Ensure the rest of the app (Dashboard/Reports/Indexes) refreshes on edit as well
+        try {
+          window.dispatchEvent(new CustomEvent('paymentUpdated', { detail: { payment: savedPayment } }))
+          // Payments affect invoice balances/outstanding amounts too
+          window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { payment: savedPayment } }))
+        } catch (e) {
+          console.warn('[PaymentEntry] Failed to dispatch update events:', e)
+        }
       } else {
         // Create new payment
         savedPayment = await paymentService.savePayment(paymentData)

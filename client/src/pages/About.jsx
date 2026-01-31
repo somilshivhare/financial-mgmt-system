@@ -2,10 +2,10 @@ import { useEffect } from 'react'
 
 export default function About() {
   useEffect(() => {
-    document.title = 'About Nbaurum – Mission, Vision & Product Philosophy'
+    document.title = 'About NB Aurum – Mission, Vision & Product Philosophy'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Learn about Nbaurum: our mission to bring discipline and transparency to finance operations, our product philosophy, compliance focus, data security standards, and commitment to enterprise reliability.')
+      metaDescription.setAttribute('content', 'Learn about NB Aurum: our mission to bring discipline and transparency to finance operations, our product philosophy, compliance focus, data security standards, and commitment to enterprise reliability.')
     }
   }, [])
 
@@ -14,7 +14,7 @@ export default function About() {
       <section className="mkt-section-full">
         <div className="mkt-container">
           <div className="mkt-page-head">
-            <h1 className="mkt-section-heading">About Nbaurum</h1>
+            <h1 className="mkt-section-heading">About NB Aurum</h1>
             <p className="mkt-lead">
               We build a focused SaaS platform for finance and operations teams that need their receivables, payments, and
               collections to behave like one system—not scattered spreadsheets.
@@ -30,7 +30,7 @@ export default function About() {
               </p>
               <h3 style={{ marginTop: 32 }}>Product philosophy</h3>
               <p className="mkt-body">
-                Nbaurum is intentionally narrow. We focus on receivables, collections, and operational reporting—so the
+                NB Aurum is intentionally narrow. We focus on receivables, collections, and operational reporting—so the
                 product stays opinionated, reliable, and easy to adopt across finance and operations.
               </p>
             </div>

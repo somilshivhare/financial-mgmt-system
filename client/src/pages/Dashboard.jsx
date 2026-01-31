@@ -236,6 +236,36 @@ function Dashboard() {
     loadDashboard()
   }, [dateRange])
 
+  // Auto-refresh when underlying data changes elsewhere in the app
+  useEffect(() => {
+    const handleDataUpdate = () => {
+      setRefreshing(true)
+      loadDashboard()
+    }
+
+    window.addEventListener('invoiceUpdated', handleDataUpdate)
+    window.addEventListener('paymentUpdated', handleDataUpdate)
+    window.addEventListener('paymentDeleted', handleDataUpdate)
+    window.addEventListener('collectionPlanUpdated', handleDataUpdate)
+    window.addEventListener('poEntryUpdated', handleDataUpdate)
+    window.addEventListener('poUpdated', handleDataUpdate)
+    window.addEventListener('poDeleted', handleDataUpdate)
+
+    const onFocus = () => loadDashboard()
+    window.addEventListener('focus', onFocus)
+
+    return () => {
+      window.removeEventListener('invoiceUpdated', handleDataUpdate)
+      window.removeEventListener('paymentUpdated', handleDataUpdate)
+      window.removeEventListener('paymentDeleted', handleDataUpdate)
+      window.removeEventListener('collectionPlanUpdated', handleDataUpdate)
+      window.removeEventListener('poEntryUpdated', handleDataUpdate)
+      window.removeEventListener('poUpdated', handleDataUpdate)
+      window.removeEventListener('poDeleted', handleDataUpdate)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [dateRange])
+
   const handleRefresh = () => {
     setRefreshing(true)
     loadDashboard()

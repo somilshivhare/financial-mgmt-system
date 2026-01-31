@@ -779,6 +779,12 @@ function InvoiceEntry() {
         // Update existing invoice
         const response = await updateInvoice(id, invoiceData)
         savedInvoice = response?.data || response
+        // Ensure the rest of the app (Dashboard/Reports/Indexes) refreshes on edit as well
+        try {
+          window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { invoice: savedInvoice } }))
+        } catch (e) {
+          console.warn('[InvoiceEntry] Failed to dispatch invoiceUpdated event:', e)
+        }
       } else {
         // Create new invoice
         savedInvoice = await invoiceService.saveInvoice(invoiceData)

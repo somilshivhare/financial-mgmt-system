@@ -2,10 +2,10 @@ import { useEffect } from 'react'
 
 export default function WhoWeAre() {
   useEffect(() => {
-    document.title = 'Who We Are – Nbaurum Team & Culture'
+    document.title = 'Who We Are – NB Aurum Team & Culture'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Meet the team behind Nbaurum. We are product and operations people who have sat inside finance teams, building software that respects the discipline and detail of finance work.')
+      metaDescription.setAttribute('content', 'Meet the team behind NB Aurum. We are product and operations people who have sat inside finance teams, building software that respects the discipline and detail of finance work.')
     }
   }, [])
 
@@ -32,7 +32,7 @@ export default function WhoWeAre() {
                   <h3>Why we built this</h3>
                   <p className="mkt-body">
                     We watched teams stitch together spreadsheets, multiple systems, and email threads just to answer "what's really due
-                    this month?" Nbaurum exists so that answer is always one page away.
+                    this month?" NB Aurum exists so that answer is always one page away.
                   </p>
                 </div>
                 <div className="mkt-card">

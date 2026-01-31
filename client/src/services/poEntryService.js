@@ -90,6 +90,8 @@ export const savePOEntry = async (poData) => {
 
     if (result) {
       window.dispatchEvent(new CustomEvent('poEntryUpdated', { detail: { poEntry: result } }))
+      // Back-compat event name used by some screens
+      window.dispatchEvent(new CustomEvent('poUpdated', { detail: { poEntry: result } }))
     }
     return result
   } catch (error) {

@@ -45,7 +45,7 @@ const getSetting = async (key) => {
  */
 const getCompanyName = async () => {
   const general = await getSetting('general');
-  return general?.companyName || 'Nbaurum';
+  return general?.companyName || 'NB Aurum';
 };
 
 /**

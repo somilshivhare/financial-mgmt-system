@@ -3,10 +3,10 @@ import { useEffect } from 'react'
 
 export default function Home() {
   useEffect(() => {
-    document.title = 'Nbaurum – Enterprise Finance & Collections Platform'
+    document.title = 'NB Aurum – Enterprise Finance & Collections Platform'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Nbaurum is a focused SaaS platform for finance teams. Manage invoices, track receivables, and run disciplined collections with enterprise-grade controls, audit trails, and role-based access.')
+      metaDescription.setAttribute('content', 'NB Aurum is a focused SaaS platform for finance teams. Manage invoices, track receivables, and run disciplined collections with enterprise-grade controls, audit trails, and role-based access.')
     }
   }, [])
 
@@ -20,7 +20,7 @@ export default function Home() {
               <div className="mkt-eyebrow">Enterprise receivables & enterprise-grade controls</div>
               <h1>A single workspace for invoices, dues, and collections.</h1>
               <p className="mkt-lead">
-                Nbaurum is a focused SaaS platform for finance and operations teams that need structured invoicing, live
+                NB Aurum is a focused SaaS platform for finance and operations teams that need structured invoicing, live
                 receivables, and disciplined collections—without losing auditability or control.
               </p>
 
@@ -182,14 +182,14 @@ export default function Home() {
       <section className="mkt-section-full">
         <div className="mkt-container">
           <div className="mkt-page-head">
-            <h2 className="mkt-section-heading">Why teams trust Nbaurum</h2>
+            <h2 className="mkt-section-heading">Why teams trust NB Aurum</h2>
             <p className="mkt-lead">
               Built for finance professionals who need clarity, control, and confidence in their operations.
             </p>
           </div>
           <div className="mkt-grid-2" style={{ marginTop: 48 }}>
             <div className="mkt-card">
-              <h3>Why finance teams choose Nbaurum</h3>
+              <h3>Why finance teams choose NB Aurum</h3>
               <ul className="mkt-benefit-list">
                 <li>Reduce receivables surprises with live balances and overdue views.</li>
                 <li>Move out of spreadsheets without losing auditability or controls.</li>

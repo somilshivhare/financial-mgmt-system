@@ -582,7 +582,7 @@ export default function ContactSupport() {
                 <div>
                   <div className="support-office-label">Registered Address</div>
                   <div className="support-office-value">
-                    Nbaurum Technologies Pvt. Ltd.<br />
+                    NB Aurum Technologies Pvt. Ltd.<br />
                     123 Business Street, Andheri East<br />
                     Mumbai, Maharashtra 400001, India
                   </div>
@@ -595,7 +595,7 @@ export default function ContactSupport() {
                   <div className="support-office-label">GST Details</div>
                   <div className="support-office-value">
                     GSTIN: <span className="support-mono">—</span><br />
-                    Legal Entity: Nbaurum Technologies Pvt. Ltd.
+                    Legal Entity: NB Aurum Technologies Pvt. Ltd.
                   </div>
                   <div className="support-help">Update GSTIN when applicable for tax invoices.</div>
                 </div>

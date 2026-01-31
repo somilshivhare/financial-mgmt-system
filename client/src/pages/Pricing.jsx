@@ -31,10 +31,10 @@ const tiers = [
 
 export default function Pricing() {
   useEffect(() => {
-    document.title = 'Pricing – Nbaurum Plans & Features'
+    document.title = 'Pricing – NB Aurum Plans & Features'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Choose a Nbaurum plan aligned with your finance workflows. Start with Trial, scale to Growth, or customize Enterprise. Transparent pricing, no hidden fees.')
+      metaDescription.setAttribute('content', 'Choose a NB Aurum plan aligned with your finance workflows. Start with Trial, scale to Growth, or customize Enterprise. Transparent pricing, no hidden fees.')
     }
   }, [])
 

@@ -4,10 +4,10 @@ export default function Contact() {
   const [status, setStatus] = useState('idle')
 
   useEffect(() => {
-    document.title = 'Contact Nbaurum – Get in Touch'
+    document.title = 'Contact NB Aurum – Get in Touch'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Contact Nbaurum for sales inquiries, support, or questions about our enterprise finance platform. We\'re here to help structure your invoicing and collections workflows.')
+      metaDescription.setAttribute('content', 'Contact NB Aurum for sales inquiries, support, or questions about our enterprise finance platform. We\'re here to help structure your invoicing and collections workflows.')
     }
   }, [])
 
@@ -32,14 +32,14 @@ export default function Contact() {
             <div className="mkt-card">
               <h2 style={{ marginTop: 0 }}>How to reach us</h2>
               <p className="mkt-body">
-                If you are evaluating Nbaurum or planning a rollout, use this form or email us directly. Existing customers
+                If you are evaluating NB Aurum or planning a rollout, use this form or email us directly. Existing customers
                 can also raise requests from inside the product.
               </p>
               <div className="mkt-contact-meta">
                 <div className="mkt-contact-line">
                   <span className="mkt-contact-key">Head office</span>
                   <span className="mkt-contact-val">
-                    Nbaurum Pvt. Ltd.
+                    NB Aurum Pvt. Ltd.
                     <br />
                     4th Floor, Business District
                     <br />

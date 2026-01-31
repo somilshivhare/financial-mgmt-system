@@ -93,6 +93,40 @@ function Reports() {
     }
   }, [selectedReport, filters])
 
+  // Auto-refresh when underlying data changes elsewhere in the app
+  useEffect(() => {
+    const handleDataUpdate = () => {
+      loadKPIs()
+      loadReport()
+    }
+
+    window.addEventListener('invoiceUpdated', handleDataUpdate)
+    window.addEventListener('paymentUpdated', handleDataUpdate)
+    window.addEventListener('paymentDeleted', handleDataUpdate)
+    window.addEventListener('collectionPlanUpdated', handleDataUpdate)
+    window.addEventListener('poEntryUpdated', handleDataUpdate)
+    window.addEventListener('poUpdated', handleDataUpdate)
+    window.addEventListener('poDeleted', handleDataUpdate)
+
+    const onFocus = () => {
+      loadKPIs()
+      loadReport()
+    }
+    window.addEventListener('focus', onFocus)
+
+    return () => {
+      window.removeEventListener('invoiceUpdated', handleDataUpdate)
+      window.removeEventListener('paymentUpdated', handleDataUpdate)
+      window.removeEventListener('paymentDeleted', handleDataUpdate)
+      window.removeEventListener('collectionPlanUpdated', handleDataUpdate)
+      window.removeEventListener('poEntryUpdated', handleDataUpdate)
+      window.removeEventListener('poUpdated', handleDataUpdate)
+      window.removeEventListener('poDeleted', handleDataUpdate)
+      window.removeEventListener('focus', onFocus)
+    }
+    // We intentionally depend on selectedReport/filters so the refresh uses latest params
+  }, [selectedReport, filters])
+
   const loadKPIs = async () => {
     try {
       const response = await reportsApi.getKPIs({
