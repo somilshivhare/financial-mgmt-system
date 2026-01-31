@@ -1,8 +1,43 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Filter, Eye, Edit, Trash2, X } from 'lucide-react'
+import { Plus, Search, Filter, Eye, Edit, Trash2, X, RefreshCw } from 'lucide-react'
 import * as poEntryService from '../services/poEntryService'
 import '../styles/POEntry.css'
+
+// Read a field from PO row or from draft_data.formData (when saved via draft)
+function getPOField(po, field) {
+  if (po[field] != null && po[field] !== '') return po[field]
+  try {
+    const draft = typeof po.draft_data === 'string' ? JSON.parse(po.draft_data) : po.draft_data
+    return draft?.formData?.[field] ?? null
+  } catch {
+    return null
+  }
+}
+
+function formatDate(value) {
+  if (!value) return ''
+  const s = String(value)
+  // Handles "2026-01-22T00:00:00.000Z" and "2026-01-22"
+  return s.includes('T') ? s.split('T')[0] : s
+}
+
+function pickPONumber(po) {
+  const fromDraft = getPOField(po, 'poNumber')
+  const fromRow = po.po_number || po.poNumber
+  const candidates = [fromDraft, fromRow].filter(Boolean).map((v) => String(v))
+  // Prefer non-XXXX if available
+  const nonPlaceholder = candidates.find((v) => !v.toUpperCase().includes('XXXX'))
+  return nonPlaceholder || candidates[0] || ''
+}
+
+function formatStatusLabel(status) {
+  const s = String(status || 'draft').toLowerCase()
+  if (s === 'approved') return 'Submitted'
+  if (s === 'closed') return 'Closed'
+  if (s === 'cancelled') return 'Cancelled'
+  return 'Draft'
+}
 
 function POEntryIndex() {
   const navigate = useNavigate()
@@ -16,15 +51,19 @@ function POEntryIndex() {
 
   useEffect(() => {
     loadPOEntries()
-    
-    // Listen for PO updates
+
     const handlePOUpdate = () => loadPOEntries()
     window.addEventListener('poUpdated', handlePOUpdate)
+    window.addEventListener('poEntryUpdated', handlePOUpdate)
     window.addEventListener('poDeleted', handlePOUpdate)
-    
+    const onFocus = () => loadPOEntries()
+    window.addEventListener('focus', onFocus)
+
     return () => {
       window.removeEventListener('poUpdated', handlePOUpdate)
+      window.removeEventListener('poEntryUpdated', handlePOUpdate)
       window.removeEventListener('poDeleted', handlePOUpdate)
+      window.removeEventListener('focus', onFocus)
     }
   }, [])
 
@@ -55,17 +94,14 @@ function POEntryIndex() {
     }
     let filtered = [...poEntries]
 
-    // Search filter
+    // Search filter (include draft_data fields for customer/project/po number)
     if (searchQuery) {
-      const query = searchQuery.toLowerCase()
+      const q = searchQuery.toLowerCase()
       filtered = filtered.filter((po) => {
-        return (
-          po.po_number?.toLowerCase().includes(query) ||
-          po.customer_name?.toLowerCase().includes(query) ||
-          po.customerName?.toLowerCase().includes(query) ||
-          po.poNumber?.toLowerCase().includes(query) ||
-          po.projectDescription?.toLowerCase().includes(query)
-        )
+        const poNum = (po.po_number || getPOField(po, 'poNumber') || '').toString().toLowerCase()
+        const cust = (po.customer_name || getPOField(po, 'customerName') || po.customerName || '').toString().toLowerCase()
+        const proj = (getPOField(po, 'projectDescription') || po.projectDescription || '').toString().toLowerCase()
+        return poNum.includes(q) || cust.includes(q) || proj.includes(q)
       })
     }
 
@@ -80,15 +116,17 @@ function POEntryIndex() {
     // Date range filter
     if (dateFrom) {
       filtered = filtered.filter((po) => {
-        const poDate = po.po_date || po.poDate || po.created_at
-        return poDate && poDate >= dateFrom
+        const poDate = po.issue_date || po.po_date || po.poDate || po.created_at
+        const d = formatDate(poDate)
+        return d && d >= dateFrom
       })
     }
 
     if (dateTo) {
       filtered = filtered.filter((po) => {
-        const poDate = po.po_date || po.poDate || po.created_at
-        return poDate && poDate <= dateTo
+        const poDate = po.issue_date || po.po_date || po.poDate || po.created_at
+        const d = formatDate(poDate)
+        return d && d <= dateTo
       })
     }
 
@@ -98,8 +136,7 @@ function POEntryIndex() {
   const handleDelete = async (poId) => {
     if (window.confirm('Are you sure you want to delete this PO Entry?')) {
       try {
-        // Note: You may need to implement deletePO in poEntryService
-        // await poEntryService.deletePO(poId)
+        await poEntryService.deletePOEntry(poId)
         alert('PO Entry deleted successfully')
         loadPOEntries()
       } catch (error) {
@@ -143,8 +180,8 @@ function POEntryIndex() {
             type="text"
             className="po-entry-index-search-input"
             placeholder="Search by PO Number, Customer, or Project Description..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchQuery ?? ''}
+            onChange={(e) => setSearchQuery(e.target.value ?? '')}
           />
           {searchQuery && (
             <button
@@ -166,6 +203,16 @@ function POEntryIndex() {
           <span>Filters</span>
           {hasActiveFilters && <span className="po-entry-index-filter-badge">{[searchQuery, statusFilter, dateFrom, dateTo].filter(Boolean).length}</span>}
         </button>
+        <button
+          type="button"
+          onClick={() => loadPOEntries()}
+          disabled={loading}
+          className="po-entry-index-filter-button"
+          title="Refresh list"
+        >
+          <RefreshCw className="po-entry-index-filter-icon" size={18} style={loading ? { opacity: 0.7 } : undefined} />
+          <span>Refresh</span>
+        </button>
       </div>
 
       {/* Filter Panel */}
@@ -174,14 +221,14 @@ function POEntryIndex() {
           <div className="po-entry-index-filter-group">
             <label className="po-entry-index-filter-label">Status</label>
             <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              value={statusFilter ?? ''}
+              onChange={(e) => setStatusFilter(e.target.value ?? '')}
               className="po-entry-index-filter-select"
             >
               <option value="">All Statuses</option>
               <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
+              <option value="approved">Submitted</option>
+              <option value="closed">Closed</option>
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
@@ -190,8 +237,8 @@ function POEntryIndex() {
             <label className="po-entry-index-filter-label">Date From</label>
             <input
               type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              value={dateFrom ?? ''}
+              onChange={(e) => setDateFrom(e.target.value ?? '')}
               className="po-entry-index-filter-input"
             />
           </div>
@@ -200,8 +247,8 @@ function POEntryIndex() {
             <label className="po-entry-index-filter-label">Date To</label>
             <input
               type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              value={dateTo ?? ''}
+              onChange={(e) => setDateTo(e.target.value ?? '')}
               className="po-entry-index-filter-input"
             />
           </div>
@@ -242,17 +289,17 @@ function POEntryIndex() {
                 {filteredPOEntries.map((po) => (
                   <tr key={po.id}>
                     <td>
-                      <span className="po-entry-index-po-number">{po.po_number || po.poNumber}</span>
+                      <span className="po-entry-index-po-number">{pickPONumber(po) || 'N/A'}</span>
                     </td>
-                    <td>{po.po_date || po.poDate || po.created_at?.split('T')[0] || 'N/A'}</td>
-                    <td>{po.customer_name || po.customerName || 'N/A'}</td>
+                    <td>{formatDate(po.issue_date || po.po_date || po.poDate || po.created_at) || 'N/A'}</td>
+                    <td>{getPOField(po, 'customerName') || po.customer_name || po.customerName || 'N/A'}</td>
                     <td className="po-entry-index-project-desc">
-                      {po.projectDescription ? (po.projectDescription.length > 50 ? `${po.projectDescription.substring(0, 50)}...` : po.projectDescription) : 'N/A'}
+                      {(() => { const desc = getPOField(po, 'projectDescription') || po.projectDescription; return desc ? (desc.length > 50 ? `${desc.substring(0, 50)}...` : desc) : 'N/A'; })()}
                     </td>
-                    <td>₹{parseFloat(po.po_value || po.poValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td>₹{parseFloat(po.total_amount ?? po.po_value ?? po.poValue ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td>
                       <span className={`po-entry-index-status-badge po-entry-index-status-badge-${(po.status || 'draft').toLowerCase()}`}>
-                        {(po.status || 'Draft').charAt(0).toUpperCase() + (po.status || 'Draft').slice(1)}
+                        {formatStatusLabel(po.status)}
                       </span>
                     </td>
                     <td>

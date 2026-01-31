@@ -31,6 +31,16 @@ export const getApiBaseUrl = () => {
     return baseUrl
   }
   
+  // Development: fix common HTTPS localhost issues
+  // Convert https://localhost to http://localhost (backend typically doesn't use SSL in dev)
+  if (baseUrl && baseUrl.includes('localhost') && baseUrl.startsWith('https://')) {
+    console.warn(
+      '⚠️ HTTPS detected for localhost in development. Converting to HTTP.',
+      'Original:', baseUrl, '→ Fixed:', baseUrl.replace('https://', 'http://')
+    )
+    baseUrl = baseUrl.replace('https://', 'http://')
+  }
+  
   // Development: use env var or fallback to localhost
   return baseUrl || 'http://localhost:4000'
 }

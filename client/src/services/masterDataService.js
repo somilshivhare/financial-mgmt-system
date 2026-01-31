@@ -128,24 +128,39 @@ export const deleteMasterDataRecord = async (type, id) => {
 }
 
 // Get customers (for dropdowns)
+// Returns all customer records from Master Data with complete field mapping
 export const getCustomers = async () => {
   try {
     const records = await getMasterDataByType('customer-profile')
-    return records.map((record) => ({
-      id: record.id,
-      name: record.values?.customerName || record.values?.name || 'Unnamed Customer',
-      gstin: record.values?.gstin || record.values?.customerGSTIN || '',
-      address: record.values?.corporateOfficeAddress || record.values?.address || '',
-      city: record.values?.city || '',
-      state: record.values?.state || '',
-      pinCode: record.values?.pinCode || record.values?.customerPinCode || '',
-      contactPerson: record.values?.contactPersonName || record.values?.customerContactPerson || '',
-      contactNumber: record.values?.contactNumber || record.values?.customerContactNumber || '',
-      email: record.values?.emailId || record.values?.customerEmail || '',
-      consigneeId: record.values?.consigneeId || null,
-      payerId: record.values?.payerId || null,
-      fullRecord: record,
-    }))
+    return records.map((record) => {
+      const values = record.values || {}
+      return {
+        id: record.id,
+        name: values.customerName || values.name || 'Unnamed Customer',
+        customerName: values.customerName || values.name || 'Unnamed Customer',
+        legalEntityName: values.legalEntityName || '',
+        gstin: values.gstNo || values.gstin || values.customerGSTIN || '',
+        gstNo: values.gstNo || values.gstin || values.customerGSTIN || '',
+        address: values.correspondenceAddress || values.corporateOfficeAddress || values.address || '',
+        customerAddress: values.correspondenceAddress || values.corporateOfficeAddress || values.address || '',
+        district: values.district || '',
+        customerDistrict: values.district || '',
+        state: values.state || '',
+        customerState: values.state || '',
+        country: values.country || 'India',
+        customerCountry: values.country || 'India',
+        pinCode: values.pinCode || values.customerPinCode || '',
+        customerPinCode: values.pinCode || values.customerPinCode || '',
+        city: values.city || '',
+        segment: values.segment || '',
+        contactPerson: values.poIssuingAuthority || values.contactPersonName || values.customerContactPerson || '',
+        contactNumber: values.contactPersonContactNo || values.contactNumber || values.customerContactNumber || '',
+        email: values.emailId || values.customerEmail || '',
+        consigneeId: values.consigneeId || null,
+        payerId: values.payerId || null,
+        fullRecord: record,
+      }
+    })
   } catch (error) {
     console.error('Failed to fetch customers:', error)
     return []

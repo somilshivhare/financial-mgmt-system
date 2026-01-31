@@ -1,7 +1,8 @@
 import client from './client'
 
 export const getAllPOs = async (params = {}) => {
-  const query = new URLSearchParams(params).toString()
+  const q = { ...params, _: Date.now() }
+  const query = new URLSearchParams(q).toString()
   const response = await client.get(`/pos?${query}`)
   return response.data
 }

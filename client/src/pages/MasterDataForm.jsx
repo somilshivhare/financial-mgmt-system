@@ -6,11 +6,9 @@ import {
   AlertTriangle,
   Plus,
   X,
-  Eye,
-  Edit,
 } from 'lucide-react'
 import { COUNTRIES, INDIA_STATES } from '../utils/indiaStates'
-import { saveMasterDataRecord, upsertMasterDataRecord, getLatestMasterDataByType, getMasterDataById } from '../api/masterData'
+import { saveMasterDataRecord, upsertMasterDataRecord, getLatestMasterDataByType, getMasterDataById, isStepLocked } from '../api/masterData'
 import { useFormPersistence } from '../hooks/useFormPersistence'
 import '../styles/MasterData.css'
 
@@ -279,9 +277,42 @@ const FORM_DEFS = {
   },
 }
 
+/**
+ * MasterDataForm Component
+ * 
+ * CRITICAL ISOLATION REQUIREMENTS:
+ * - Each master data record is completely independent and isolated
+ * - When creating new records (no ID in URL), form starts completely fresh with no prefilled data
+ * - No data from previous records is ever reused, merged, auto-linked, or mixed
+ * - Each save creates a NEW record (never updates when creating new)
+ * - Form persistence is ONLY enabled when editing existing records (ID present)
+ * - All steps (Company, Customer, Consignee, etc.) belong only to that specific master data
+ * - Each master data generates its own independent card on the Master Data Records page
+ */
 function MasterDataForm() {
   const navigate = useNavigate()
-  const { type, id } = useParams() // Get ID if editing existing record
+  const { type, id } = useParams() // Get ID if editing existing record (null when creating new)
+  const [isLocked, setIsLocked] = useState(false)
+  const [checkingLock, setCheckingLock] = useState(true)
+
+  // Check if step is locked (has been saved)
+  // Only lock when editing a specific record (id present) - allow multiple new records
+  useEffect(() => {
+    const checkLockStatus = async () => {
+      // Don't check lock status if editing specific record (id present)
+      if (id) {
+        setCheckingLock(false)
+        setIsLocked(false) // Allow editing when ID is present (explicit edit mode)
+        return
+      }
+      
+      // For new records, never lock - allow creating multiple records
+      setCheckingLock(false)
+      setIsLocked(false)
+    }
+    
+    checkLockStatus()
+  }, [type, id, navigate])
 
   // Validate type exists - prevent crashes
   if (!type || !FORM_DEFS[type]) {
@@ -305,7 +336,8 @@ function MasterDataForm() {
   const [status, setStatus] = useState({ kind: 'idle', message: '' })
   const [multipleEntries, setMultipleEntries] = useState({})
   const [logoPreviews, setLogoPreviews] = useState({})
-  const [showReview, setShowReview] = useState(false)
+  const [showSaveOptions, setShowSaveOptions] = useState(false)
+  const [savingInProgress, setSavingInProgress] = useState(false)
   
   // Special state for array-based forms: array of complete objects
   const [consignees, setConsignees] = useState([{ id: 0, values: {}, logoPreviews: {} }])
@@ -323,40 +355,39 @@ function MasterDataForm() {
   const isArrayBasedForm = isConsigneeProfile || isPayerProfile || isEmployeeProfile || isPaymentTerms
   
   // Single-record types that should use persistence (customer-profile only - company-profile allows multiple entries)
+  // IMPORTANT: Only enable persistence when editing an existing record (id present)
+  // For new records, NEVER use persistence to ensure complete isolation
   const singleRecordTypes = ['customer-profile']
-  const usePersistence = singleRecordTypes.includes(type) && !isArrayBasedForm
+  const usePersistence = singleRecordTypes.includes(type) && !isArrayBasedForm && !!id // Only when editing (id present)
   
   // Memoize loadFn to prevent infinite loops - with error handling
   const loadFnRef = useRef(null)
   const loadFn = useCallback(async () => {
     try {
-      let data = null
-      
-      // If editing (ID present), fetch specific record by ID
-      if (id) {
-        const response = await getMasterDataById(type, id)
-        if (response?.data) {
-          // Handle different response structures
-          const record = response.data.data || response.data
-          if (record?.values) {
-            data = record.values
-          } else if (record && typeof record === 'object') {
-            data = record
-          }
-        }
-      } else {
-        // Otherwise, get latest record for this type
-        data = await getLatestMasterDataByType(type)
+      // Only load data if explicitly editing (ID present in URL)
+      // For new profiles, always return null to start fresh
+      if (!id) {
+        // Creating new - don't load any existing data
+        return null
       }
       
-      if (data) {
-        // Extract logoPreviews if present
-        if (data.logoPreviews) {
-          setLogoPreviews(data.logoPreviews)
+      // Editing existing record - fetch by ID
+      const response = await getMasterDataById(type, id)
+      if (response?.data) {
+        // Handle different response structures
+        const record = response.data.data || response.data
+        if (record?.values) {
+          const data = record.values
+          // Extract logoPreviews if present
+          if (data.logoPreviews) {
+            setLogoPreviews(data.logoPreviews)
+          }
+          // Return values without logoPreviews (already extracted)
+          const { logoPreviews: _, ...values } = data
+          return values
+        } else if (record && typeof record === 'object') {
+          return record
         }
-        // Return values without logoPreviews (already extracted)
-        const { logoPreviews: _, ...values } = data
-        return values
       }
       return null
     } catch (error) {
@@ -397,6 +428,8 @@ function MasterDataForm() {
   }, [type]) // Only type as dependency - logoPreviews accessed via ref
   
   // Form persistence hook for single-record types
+  // Only enable persistence when editing (id present) or when explicitly needed
+  // For new profiles, disable persistence to ensure fresh start
   const {
     values,
     setValues,
@@ -407,12 +440,86 @@ function MasterDataForm() {
     load: persistenceLoad,
   } = useFormPersistence({
     saveFn: usePersistence ? saveFn : null,
-    loadFn: usePersistence ? loadFn : null,
+    loadFn: usePersistence && id ? loadFn : null, // Only load if ID is present (editing)
     entityType: type,
     defaultValues: {},
-    enableAutoSave: usePersistence,
+    enableAutoSave: usePersistence && id, // Only auto-save when editing, not when creating new
     autoSaveDelay: 2000,
   })
+  
+  // Track previous type/id to detect navigation to new record
+  const prevTypeRef = useRef(type)
+  const prevIdRef = useRef(id)
+  
+  /**
+   * RESET LOGIC FOR NEW RECORDS
+   * 
+   * This effect ensures that when clicking "New Master Data" from any page:
+   * 1. The form starts completely fresh with no prefilled data
+   * 2. All form state is reset to initial empty values
+   * 3. No data from previous records is carried over
+   * 4. The reset happens immediately on mount and when type/id changes
+   * 
+   * This is critical for data isolation - each master data record must be independent
+   */
+  useEffect(() => {
+    const typeChanged = prevTypeRef.current !== type
+    const idChanged = prevIdRef.current !== id
+    const isNewRecord = !id && type
+    
+    // Update refs for next comparison
+    prevTypeRef.current = type
+    prevIdRef.current = id
+    
+    // Always reset when creating new (no ID) - don't wait for anything
+    // Reset triggers:
+    // - On initial mount with no ID (new record)
+    // - When type changes and no ID (navigating between form types for new records)
+    // - When ID changes from present to absent (switching from edit to create)
+    if (isNewRecord && (typeChanged || idChanged || !prevTypeRef.current)) {
+      // Immediately reset all form state when creating new
+      // This ensures a completely fresh start every time "New Master Data" is clicked
+      setValues({})
+      setLogoPreviews({})
+      setMultipleEntries({})
+      setStatus({ kind: 'idle', message: '' })
+      setShowSaveOptions(false)
+      setSavingInProgress(false)
+      
+      // Reset array-based form states to initial empty state
+      if (isConsigneeProfile) {
+        setConsignees([{ id: 0, values: {}, logoPreviews: {} }])
+      } else if (isPayerProfile) {
+        setPayers([{ id: 0, values: {}, logoPreviews: {} }])
+      } else if (isEmployeeProfile) {
+        setEmployees([{ id: 0, values: {}, logoPreviews: {} }])
+      } else if (isPaymentTerms) {
+        setPaymentTerms([{ id: 0, values: {} }])
+      }
+    }
+  }, [id, type, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, setValues])
+  
+  /**
+   * CLEANUP: Reset form state when component unmounts
+   * 
+   * When user navigates away from creating a new record (no ID),
+   * clear all form state to ensure fresh start on next mount.
+   * This prevents any stale state from persisting between navigations.
+   */
+  useEffect(() => {
+    return () => {
+      // Only reset if we were creating a new record (no ID)
+      // Don't reset if editing existing record (ID present)
+      if (!id) {
+        setValues({})
+        setLogoPreviews({})
+        setMultipleEntries({})
+        setStatus({ kind: 'idle', message: '' })
+        setShowSaveOptions(false)
+        setSavingInProgress(false)
+      }
+    }
+  }, [id, setValues])
   
   // Show loading state from persistence
   useEffect(() => {
@@ -429,8 +536,9 @@ function MasterDataForm() {
   }, [persistenceError, usePersistence])
 
   // Initialize multiple entries for groups that allow it (skip for array-based forms)
+  // CRITICAL: Only initialize when creating new (no ID) to ensure fresh start
   useEffect(() => {
-    if (!def || isArrayBasedForm) return
+    if (!def || isArrayBasedForm || id) return // Skip if editing existing record (id present)
     const initialEntries = {}
     def.groups.forEach((group, groupIndex) => {
       if (group.allowMultiple) {
@@ -438,7 +546,7 @@ function MasterDataForm() {
       }
     })
     setMultipleEntries(initialEntries)
-  }, [def, isArrayBasedForm])
+  }, [def, isArrayBasedForm, id])
   
   // Generic handler factory for array-based forms
   const createArrayHandlers = (items, setItems, formType, itemName) => {
@@ -691,6 +799,7 @@ function MasterDataForm() {
                               className="md-form-file-input"
                               type="file"
                               accept={f.accept}
+                              disabled={isLocked}
                               onChange={(e) => handleFileChange(item.id, f.key, e.target.files[0])}
                             />
                           </label>
@@ -701,6 +810,7 @@ function MasterDataForm() {
                         id={fieldId}
                         className="md-form-select"
                         value={fieldValue}
+                        disabled={isLocked}
                         onChange={(e) => {
                           handleChange(item.id, f.key, e.target.value)
                           // Clear state when country changes
@@ -725,8 +835,8 @@ function MasterDataForm() {
                         id={fieldId}
                         className="md-form-select"
                         value={fieldValue}
+                        disabled={isLocked || !getStateOptions(f.key, null, group.fields, itemValues).length}
                         onChange={(e) => handleChange(item.id, f.key, e.target.value)}
-                        disabled={!getStateOptions(f.key, null, group.fields, itemValues).length}
                       >
                         <option value="">Select state...</option>
                         {getStateOptions(f.key, null, group.fields, itemValues).map((state) => (
@@ -741,6 +851,8 @@ function MasterDataForm() {
                         className="md-form-textarea"
                         rows={4}
                         value={fieldValue}
+                        disabled={isLocked}
+                        readOnly={isLocked}
                         onChange={(e) => handleChange(item.id, f.key, e.target.value)}
                         placeholder={`Enter ${f.label.toLowerCase()}...`}
                       />
@@ -750,6 +862,7 @@ function MasterDataForm() {
                           id={fieldId}
                           className="md-form-select"
                           value={fieldValue}
+                          disabled={isLocked}
                           onChange={(e) => handleChange(item.id, f.key, e.target.value)}
                         >
                           <option value="">Select {f.label.toLowerCase()}...</option>
@@ -765,6 +878,8 @@ function MasterDataForm() {
                             id={`${fieldId}Other`}
                             className="md-form-input md-form-input-other"
                             type="text"
+                            disabled={isLocked}
+                            readOnly={isLocked}
                             value={itemValues[`${f.key}Other`] || ''}
                             onChange={(e) => handleChange(item.id, `${f.key}Other`, e.target.value)}
                             placeholder={`Enter ${f.label.toLowerCase()}...`}
@@ -777,6 +892,8 @@ function MasterDataForm() {
                         className="md-form-input"
                         type={f.type}
                         value={fieldValue}
+                        disabled={isLocked}
+                        readOnly={isLocked}
                         onChange={(e) => handleChange(item.id, f.key, e.target.value)}
                         placeholder={`Enter ${f.label.toLowerCase()}...`}
                       />
@@ -856,37 +973,6 @@ function MasterDataForm() {
     })
   }
 
-  const handleReview = () => {
-    if (requiredMissing) {
-      setStatus({ kind: 'error', message: 'Please fill all required fields.' })
-      return
-    }
-    
-    // Skip review for array-based forms (submit directly)
-    if (isArrayBasedForm) {
-      onSubmit({ preventDefault: () => {} })
-      return
-    }
-    
-    // Save current form data before showing review
-    const formData = {
-      type,
-      title: def.title,
-      values,
-      logoPreviews,
-      groups: def.groups,
-      multipleEntries,
-      savedAt: new Date().toISOString(),
-    }
-    localStorage.setItem(`masterDataForm_${type}`, JSON.stringify(formData))
-    
-    setShowReview(true)
-  }
-
-  const handleEdit = () => {
-    setShowReview(false)
-  }
-
   const handleSaveAndContinue = async () => {
     try {
       if (usePersistence) {
@@ -894,17 +980,27 @@ function MasterDataForm() {
         await persistenceSave(true)
         setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
       } else {
-        // For array-based forms, save to localStorage as before
-        const formData = {
-          type,
-          title: def.title,
-          values,
-          logoPreviews,
-          groups: def.groups,
-          multipleEntries,
-          savedAt: new Date().toISOString(),
+        // For array-based forms, save directly to database
+        const records = transformToTabularRecords()
+        const cleanValues = (vals) => {
+          const cleaned = { ...vals }
+          Object.keys(cleaned).forEach(key => {
+            if (cleaned[key] instanceof File) {
+              delete cleaned[key]
+            }
+          })
+          return cleaned
         }
-        localStorage.setItem(`masterDataForm_${type}`, JSON.stringify(formData))
+        
+        const savePromises = records.map(record => 
+          saveMasterDataRecord(type, {
+            values: cleanValues(record.values),
+            logoPreviews: record.logoPreviews,
+          })
+        )
+        
+        await Promise.all(savePromises)
+        window.dispatchEvent(new Event('masterDataUpdated'))
         setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
       }
     } catch (error) {
@@ -978,10 +1074,58 @@ function MasterDataForm() {
     return records
   }
 
-  const onSubmit = async (e) => {
-    if (e && e.preventDefault) {
-      e.preventDefault()
+  // Helper function to reset form to initial state
+  // CRITICAL: This ensures complete isolation - no data from previous records
+  const resetForm = () => {
+    // Clear all form state completely
+    setValues({})
+    setLogoPreviews({})
+    setMultipleEntries({})
+    setStatus({ kind: 'idle', message: '' })
+    setShowSaveOptions(false)
+    setSavingInProgress(false)
+    
+    // Reset array-based form states to initial empty state
+    if (isConsigneeProfile) {
+      setConsignees([{ id: 0, values: {}, logoPreviews: {} }])
+    } else if (isPayerProfile) {
+      setPayers([{ id: 0, values: {}, logoPreviews: {} }])
+    } else if (isEmployeeProfile) {
+      setEmployees([{ id: 0, values: {}, logoPreviews: {} }])
+    } else if (isPaymentTerms) {
+      setPaymentTerms([{ id: 0, values: {} }])
     }
+    
+    // Re-initialize multiple entries for groups that allow it (fresh start)
+    if (!isArrayBasedForm && def) {
+      const initialEntries = {}
+      def.groups.forEach((group, groupIndex) => {
+        if (group.allowMultiple) {
+          initialEntries[groupIndex] = [0] // Start with one empty entry
+        }
+      })
+      setMultipleEntries(initialEntries)
+    }
+    
+    // Focus first input field after form re-renders
+    setTimeout(() => {
+      // Try to find the first visible input field (excluding file inputs and hidden inputs)
+      const formContainer = document.querySelector('.md-form-container')
+      if (formContainer) {
+        const firstInput = formContainer.querySelector(
+          'input:not([type="file"]):not([type="hidden"]), textarea, select'
+        )
+        if (firstInput) {
+          firstInput.focus()
+          // Scroll to the input if needed
+          firstInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }
+    }, 150)
+  }
+
+  // Save record and show options
+  const saveRecord = async () => {
     if (!def) return
 
     if (requiredMissing) {
@@ -989,11 +1133,12 @@ function MasterDataForm() {
       return
     }
 
-    // Special handling for company-profile: always create new record (not update)
-    if (type === 'company-profile') {
-      try {
-        setStatus({ kind: 'idle', message: 'Creating company profile...' })
-        
+    setSavingInProgress(true)
+    setStatus({ kind: 'idle', message: 'Saving record...' })
+
+    try {
+      // Special handling for company-profile: always create new record (not update)
+      if (type === 'company-profile') {
         // Helper function to clean values (remove File objects)
         const cleanValues = (vals) => {
           const cleaned = { ...vals }
@@ -1014,20 +1159,14 @@ function MasterDataForm() {
         // Trigger refresh of Master Data Records page
         window.dispatchEvent(new Event('masterDataUpdated'))
         
-        setStatus({ kind: 'success', message: 'Company profile created successfully! You can now add other master data steps.' })
-        setTimeout(() => {
-          navigate('/master-data/new')
-        }, 2500)
-      } catch (error) {
-        console.error('Failed to save company profile:', error)
-        setStatus({ kind: 'error', message: 'Failed to save company profile. Please try again.' })
+        setStatus({ kind: 'success', message: 'Company profile saved successfully!' })
+        setShowSaveOptions(true)
+        setSavingInProgress(false)
+        return
       }
-      return
-    }
 
-    // Special handling for array-based forms: save as array
-    if (isArrayBasedForm) {
-      try {
+      // Special handling for array-based forms: save as array
+      if (isArrayBasedForm) {
         let items = []
         let itemName = ''
         if (isConsigneeProfile) {
@@ -1043,8 +1182,6 @@ function MasterDataForm() {
           items = paymentTerms
           itemName = 'payment term(s)'
         }
-        
-        setStatus({ kind: 'idle', message: `Saving ${itemName} to database...` })
         
         // Helper function to clean values (remove File objects that can't be serialized)
         const cleanValues = (vals) => {
@@ -1071,23 +1208,16 @@ function MasterDataForm() {
         // Trigger refresh of Master Data Records page
         window.dispatchEvent(new Event('masterDataUpdated'))
         
-        setStatus({ kind: 'success', message: `${items.length} ${itemName} saved successfully to database!` })
-        setTimeout(() => {
-          navigate('/master-data/new')
-        }, 2500)
-      } catch (error) {
-        console.error(`Failed to save ${type}:`, error)
-        setStatus({ kind: 'error', message: `Failed to save ${type}. Please try again.` })
+        setStatus({ kind: 'success', message: `${items.length} ${itemName} saved successfully!` })
+        setShowSaveOptions(true)
+        setSavingInProgress(false)
+        return
       }
-      return
-    }
 
-    // For single-record types, use persistence system
-    if (usePersistence) {
-      try {
-        setStatus({ kind: 'idle', message: 'Saving to database...' })
-        
-        // Use persistence save (which handles upsert)
+      // For single-record types when editing (id present), use persistence system
+      // For new records (no id), always create new record to ensure isolation
+      if (usePersistence && id) {
+        // Editing existing record - use persistence save (which handles upsert)
         const savedResult = await persistenceSave(true)
         
         // Re-fetch the saved record to ensure UI is synced with backend
@@ -1103,91 +1233,97 @@ function MasterDataForm() {
         // Trigger refresh of Master Data Records page
         window.dispatchEvent(new Event('masterDataUpdated'))
         
-        setStatus({ kind: 'success', message: 'Record saved successfully to database!' })
-        setTimeout(() => {
-          navigate('/master-data/new')
-        }, 2500)
-      } catch (error) {
-        console.error('Failed to save:', error)
-        setStatus({ kind: 'error', message: 'Failed to save record. Please try again.' })
+        setStatus({ kind: 'success', message: 'Record saved successfully!' })
+        setShowSaveOptions(true)
+        setSavingInProgress(false)
+        return
       }
-      return
-    }
-
-    // For other forms that need database saving
-    const shouldSaveToDatabase = true
-    
-    if (shouldSaveToDatabase) {
-      try {
-        setStatus({ kind: 'idle', message: 'Saving records to database...' })
-        
-        // Transform multiple entries into tabular format
-        const records = transformToTabularRecords()
-        
-        // Helper function to clean values (remove File objects that can't be serialized)
+      
+      // For new records (no id), always create new record (never update)
+      // This ensures complete isolation - each master data is independent
+      if (!id) {
+        // Helper function to clean values (remove File objects)
         const cleanValues = (vals) => {
           const cleaned = { ...vals }
           Object.keys(cleaned).forEach(key => {
             if (cleaned[key] instanceof File) {
-              // Remove File objects - they're already in logoPreviews as base64
               delete cleaned[key]
             }
           })
           return cleaned
         }
         
-        // Save each record separately to database
-        const savePromises = records.map(record => 
-          saveMasterDataRecord(type, {
-            values: cleanValues(record.values),
-            logoPreviews: record.logoPreviews,
-          })
-        )
-        
-        await Promise.all(savePromises)
-        
-        // Also save to localStorage for review
-        const formData = {
-          type,
-          title: def.title,
-          values,
-          logoPreviews,
-          groups: def.groups,
-          multipleEntries,
-          savedAt: new Date().toISOString(),
-        }
-        localStorage.setItem(`masterDataForm_${type}`, JSON.stringify(formData))
+        // Always create new record (not update) for complete isolation
+        await saveMasterDataRecord(type, {
+          values: cleanValues(values),
+          logoPreviews: logoPreviewsRef.current,
+        })
         
         // Trigger refresh of Master Data Records page
         window.dispatchEvent(new Event('masterDataUpdated'))
         
-        setStatus({ kind: 'success', message: `${records.length} record(s) saved successfully to database!` })
-        setTimeout(() => {
-          navigate('/master-data/new')
-        }, 2500)
-      } catch (error) {
-        console.error('Failed to save records:', error)
-        setStatus({ kind: 'error', message: 'Failed to save records. Please try again.' })
+        setStatus({ kind: 'success', message: 'Record saved successfully!' })
+        setShowSaveOptions(true)
+        setSavingInProgress(false)
+        return
       }
-    } else {
-      // For other forms, save to localStorage only
-      const formData = {
-        type,
-        title: def.title,
-        values,
-        logoPreviews,
-        groups: def.groups,
-        multipleEntries,
-        savedAt: new Date().toISOString(),
+
+      // For other forms that need database saving
+      // Transform multiple entries into tabular format
+      const records = transformToTabularRecords()
+      
+      // Helper function to clean values (remove File objects that can't be serialized)
+      const cleanValues = (vals) => {
+        const cleaned = { ...vals }
+        Object.keys(cleaned).forEach(key => {
+          if (cleaned[key] instanceof File) {
+            // Remove File objects - they're already in logoPreviews as base64
+            delete cleaned[key]
+          }
+        })
+        return cleaned
       }
       
-      localStorage.setItem(`masterDataForm_${type}`, JSON.stringify(formData))
-
-      setStatus({ kind: 'success', message: 'Form saved! Proceed to Review & Submit to finalize.' })
-      setTimeout(() => {
-        setStatus({ kind: 'idle', message: '' })
-      }, 2000)
+      // Save each record separately to database
+      const savePromises = records.map(record => 
+        saveMasterDataRecord(type, {
+          values: cleanValues(record.values),
+          logoPreviews: record.logoPreviews,
+        })
+      )
+      
+      await Promise.all(savePromises)
+      
+      // Trigger refresh of Master Data Records page
+      window.dispatchEvent(new Event('masterDataUpdated'))
+      
+      setStatus({ kind: 'success', message: `${records.length} record(s) saved successfully!` })
+      setShowSaveOptions(true)
+      setSavingInProgress(false)
+    } catch (error) {
+      console.error('Failed to save:', error)
+      setStatus({ kind: 'error', message: 'Failed to save record. Please try again.' })
+      setSavingInProgress(false)
     }
+  }
+
+  // Handle Save & Create Another
+  const handleSaveAndCreateAnother = () => {
+    setShowSaveOptions(false)
+    resetForm()
+  }
+
+  // Handle Save & Exit
+  const handleSaveAndExit = () => {
+    setShowSaveOptions(false)
+    navigate('/master-data')
+  }
+
+  const onSubmit = async (e) => {
+    if (e && e.preventDefault) {
+      e.preventDefault()
+    }
+    await saveRecord()
   }
 
   if (!def) {
@@ -1202,6 +1338,17 @@ function MasterDataForm() {
         >
           Go back
         </button>
+      </div>
+    )
+  }
+
+  // Show loading state while checking lock status
+  if (checkingLock) {
+    return (
+      <div className="md-form-page">
+        <div className="md-form-container" style={{ textAlign: 'center', padding: '3rem' }}>
+          <p>Checking step status...</p>
+        </div>
       </div>
     )
   }
@@ -1226,7 +1373,7 @@ function MasterDataForm() {
             <h1 className="md-form-title">Create {title}</h1>
             <p className="md-form-description">{description}</p>
           </div>
-          {isArrayBasedForm && (
+          {isArrayBasedForm && !isLocked && (
             <button
               type="button"
               className="md-form-button md-form-button-primary"
@@ -1247,86 +1394,16 @@ function MasterDataForm() {
               </span>
             </button>
           )}
+          {isLocked && (
+            <div style={{ marginTop: '0.5rem', padding: '0.75rem 1rem', backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', color: '#92400e' }}>
+              <strong>Step Locked:</strong> This step has been completed. Data is view-only.
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Review Step */}
-      {showReview ? (
-        <div className="md-form-container">
-          <div className="md-form-review-header">
-            <h2 className="md-form-review-title">Review & Submit</h2>
-            <p className="md-form-review-description">Please review all information before submitting.</p>
-          </div>
-          <div className="md-form-review-body">
-            {def.groups.map((group, groupIndex) => {
-              const entries = group.allowMultiple ? (multipleEntries[groupIndex] || [0]) : [0]
-              return (
-                <div key={groupIndex} className="md-form-review-group">
-                  <h3 className="md-form-review-group-title">{group.title}</h3>
-                  {entries.map((entryIndex) => (
-                    <div key={entryIndex} className="md-form-review-entry">
-                      {group.fields.map((f) => {
-                        const fieldKey = group.allowMultiple ? `${f.key}_${entryIndex}` : f.key
-                        const value = values[fieldKey]
-                        const preview = logoPreviews[fieldKey]
-                        
-                        if (!value && !preview) return null
-                        
-                        return (
-                          <div key={fieldKey} className="md-form-review-field">
-                            <span className="md-form-review-label">{f.label}:</span>
-                            <span className="md-form-review-value">
-                              {f.type === 'file' && preview ? (
-                                <img src={preview} alt="Preview" className="md-form-review-image" />
-                              ) : f.type === 'select' && value === 'Other' ? (
-                                values[`${fieldKey}Other`] || value
-                              ) : (
-                                String(value || '')
-                              )}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
-          
-          {/* Status Message */}
-          {status.kind !== 'idle' && (
-            <div className={`md-form-status md-form-status-${status.kind}`}>
-              {status.kind === 'success' ? (
-                <CheckCircle2 className="md-form-status-icon" />
-              ) : (
-                <AlertTriangle className="md-form-status-icon" />
-              )}
-              <span>{status.message}</span>
-            </div>
-          )}
-          
-          <div className="md-form-actions">
-            <button
-              type="button"
-              className="md-form-button md-form-button-secondary"
-              onClick={handleEdit}
-            >
-              <Edit className="md-form-button-icon" />
-              <span>Edit</span>
-            </button>
-            <button
-              type="button"
-              className="md-form-button md-form-button-primary"
-              onClick={onSubmit}
-            >
-              Submit
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* Form Container */
-        <form className="md-form-container" onSubmit={(e) => { e.preventDefault(); isConsigneeProfile ? onSubmit(e) : handleReview(); }}>
+      {/* Form Container */}
+      <form className="md-form-container" onSubmit={(e) => { e.preventDefault(); onSubmit(e); }}>
         <div className="md-form-body">
           {isArrayBasedForm ? (
             /* Render array-based forms */
@@ -1413,6 +1490,7 @@ function MasterDataForm() {
                                       className="md-form-file-input"
                                       type="file"
                                       accept={f.accept}
+                                      disabled={isLocked}
                                       onChange={(e) => onFileChange(f.key, e.target.files[0], group.allowMultiple ? entryIndex : null)}
                                     />
                                   </label>
@@ -1423,6 +1501,7 @@ function MasterDataForm() {
                                 id={fieldId}
                                 className="md-form-select"
                                 value={values[fieldKey] || ''}
+                                disabled={isLocked}
                                 onChange={(e) => {
                                   onChange(f.key, e.target.value, group.allowMultiple ? entryIndex : null)
                                   // Clear state when country changes - find state field in same group
@@ -1448,8 +1527,8 @@ function MasterDataForm() {
                                 id={fieldId}
                                 className="md-form-select"
                                 value={values[fieldKey] || ''}
+                                disabled={isLocked || !getStateOptions(f.key, group.allowMultiple ? entryIndex : null, group.fields).length}
                                 onChange={(e) => onChange(f.key, e.target.value, group.allowMultiple ? entryIndex : null)}
-                                disabled={!getStateOptions(f.key, group.allowMultiple ? entryIndex : null, group.fields).length}
                               >
                                 <option value="">Select state...</option>
                                 {getStateOptions(f.key, group.allowMultiple ? entryIndex : null, group.fields).map((state) => (
@@ -1464,6 +1543,8 @@ function MasterDataForm() {
                                 className="md-form-textarea"
                                 rows={4}
                                 value={values[fieldKey] || ''}
+                                disabled={isLocked}
+                                readOnly={isLocked}
                                 onChange={(e) => onChange(f.key, e.target.value, group.allowMultiple ? entryIndex : null)}
                                 placeholder={`Enter ${f.label.toLowerCase()}...`}
                               />
@@ -1473,6 +1554,7 @@ function MasterDataForm() {
                                   id={fieldId}
                                   className="md-form-select"
                                   value={values[fieldKey] || ''}
+                                  disabled={isLocked}
                                   onChange={(e) => onChange(f.key, e.target.value, group.allowMultiple ? entryIndex : null)}
                                 >
                                   <option value="">Select {f.label.toLowerCase()}...</option>
@@ -1488,6 +1570,8 @@ function MasterDataForm() {
                                     id={`${fieldKey}Other`}
                                     className="md-form-input md-form-input-other"
                                     type="text"
+                                    disabled={isLocked}
+                                    readOnly={isLocked}
                                     value={values[`${fieldKey}Other`] || ''}
                                     onChange={(e) => onChange(`${f.key}Other`, e.target.value, group.allowMultiple ? entryIndex : null)}
                                     placeholder={`Enter ${f.label.toLowerCase()}...`}
@@ -1500,6 +1584,8 @@ function MasterDataForm() {
                                 className="md-form-input"
                                 type={f.type}
                                 value={values[fieldKey] || ''}
+                                disabled={isLocked}
+                                readOnly={isLocked}
                                 onChange={(e) => onChange(f.key, e.target.value, group.allowMultiple ? entryIndex : null)}
                                 placeholder={`Enter ${f.label.toLowerCase()}...`}
                               />
@@ -1512,7 +1598,7 @@ function MasterDataForm() {
                   </div>
                 ))}
                 
-                {group.allowMultiple && !isArrayBasedForm && (
+                {group.allowMultiple && !isArrayBasedForm && !isLocked && (
                   <div className="md-form-entry-add-wrapper">
                     <button
                       type="button"
@@ -1556,24 +1642,73 @@ function MasterDataForm() {
             type="button"
             className="md-form-button md-form-button-secondary"
             onClick={() => navigate('/master-data')}
+            disabled={savingInProgress}
           >
-            Cancel
+            {isLocked ? 'Back to Index' : 'Cancel'}
           </button>
-          <button
-            type="button"
-            className="md-form-button md-form-button-secondary"
-            onClick={handleSaveAndContinue}
-          >
-            Save & Continue
-          </button>
-          <button
-            type="submit"
-            className="md-form-button md-form-button-primary"
-          >
-            {isArrayBasedForm ? 'Submit' : 'Review & Submit'}
-          </button>
+          {!isLocked && (
+            <>
+              <button
+                type="button"
+                className="md-form-button md-form-button-secondary"
+                onClick={handleSaveAndContinue}
+                disabled={savingInProgress}
+              >
+                Save & Continue
+              </button>
+              <button
+                type="submit"
+                className="md-form-button md-form-button-primary"
+                disabled={savingInProgress || requiredMissing}
+              >
+                {savingInProgress ? 'Saving...' : (isArrayBasedForm ? 'Save' : 'Save')}
+              </button>
+            </>
+          )}
+          {isLocked && (
+            <button
+              type="button"
+              className="md-form-button md-form-button-primary"
+              onClick={() => navigate('/master-data/review')}
+            >
+              View on Review Page
+            </button>
+          )}
         </div>
       </form>
+
+      {/* Save Options Modal */}
+      {showSaveOptions && (
+        <div className="md-save-options-overlay" onClick={() => setShowSaveOptions(false)}>
+          <div className="md-save-options-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="md-save-options-header">
+              <CheckCircle2 className="md-save-options-icon" style={{ color: '#10b981' }} />
+              <h3 className="md-save-options-title">Record Saved Successfully!</h3>
+              <p className="md-save-options-description">
+                What would you like to do next?
+              </p>
+            </div>
+            <div className="md-save-options-actions">
+              <button
+                type="button"
+                className="md-form-button md-form-button-primary"
+                onClick={handleSaveAndCreateAnother}
+                style={{ flex: 1 }}
+              >
+                <Plus className="md-form-button-icon" />
+                Save & Create Another
+              </button>
+              <button
+                type="button"
+                className="md-form-button md-form-button-secondary"
+                onClick={handleSaveAndExit}
+                style={{ flex: 1 }}
+              >
+                Save & Exit
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

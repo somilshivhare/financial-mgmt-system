@@ -39,8 +39,7 @@ EXECUTE alterIfNotExists;
 DEALLOCATE PREPARE alterIfNotExists;
 
 -- Add draft_data to payments (if not exists)
--- Note: payments table has 'amount' column, not 'payment_amount'
--- Adding after 'other_deductions' which is the last column before created_by
+-- Add at end of table to avoid depending on optional columns (e.g. other_deductions)
 SET @tablename = 'payments';
 SET @preparedStatement = (SELECT IF(
   (
@@ -51,7 +50,7 @@ SET @preparedStatement = (SELECT IF(
       AND (COLUMN_NAME = @columnname)
   ) > 0,
   'SELECT 1', -- Column exists, do nothing
-  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' JSON NULL AFTER other_deductions')
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' JSON NULL')
 ));
 PREPARE alterIfNotExists FROM @preparedStatement;
 EXECUTE alterIfNotExists;

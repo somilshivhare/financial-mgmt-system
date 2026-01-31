@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, Plus, X, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, Plus, X, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
 import * as poEntryService from '../services/poEntryService'
 import { getPODraft, upsertPODraft, getPOById } from '../api/po'
@@ -14,7 +14,20 @@ const SEGMENTS = ['Domestic', 'Export']
 const ZONES = ['North', 'East', 'West', 'South']
 const PAYMENT_TYPES = ['Secured','Unsecured', 'Govt', 'Other']
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'Other']
+const INSURANCE_TYPES = ['Marine Insurance', 'Group Accidental Policy', 'Workmen Compensation Policy', 'All Erection Policy', 'Others']
+const BANK_GUARANTEE_TYPES = ['Advance Bank Guarantee', 'Performance Bank Guarantee', 'Bid Security', 'Retention', 'Others']
 
+/**
+ * PO Entry Component
+ * 
+ * MASTER DATA INTEGRATION REQUIREMENTS:
+ * - Customer Name dropdown lists ALL customers from Master Data
+ * - When a customer is selected, ALL related fields are auto-populated from that specific master data record
+ * - Auto-filled fields are read-only/system-controlled to ensure data accuracy
+ * - Each PO Entry is strictly linked to the selected master data record
+ * - No data from other master data records is mixed or prefilled
+ * - Data isolation ensures consistency across the system
+ */
 function POEntry() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -193,6 +206,9 @@ function POEntry() {
     // PO Signed Concern Name
     poSignedConcernName: '',
     
+    // BOQ section visibility (enable/disable)
+    boqEnabled: true,
+
     // Internal fields for calculations and other purposes
     poValue: '',
     poCurrency: 'INR',
@@ -204,6 +220,8 @@ function POEntry() {
     paymentTypeOther: '',
     poCurrencyOther: '',
     customerStateOther: '',
+    insuranceTypeOther: '',
+    bankGuaranteeTypeOther: '',
   }
 
   // Form persistence hook
@@ -334,8 +352,11 @@ function POEntry() {
     autoSaveDelay: 2000,
   })
 
-  // Extract formData and boqItems from persisted data
-  const formData = persistedData.formData || defaultFormData
+  // Extract formData and boqItems from persisted data (merge with defaults; coerce undefined to '' so inputs stay controlled)
+  const rawForm = { ...defaultFormData, ...(persistedData.formData || {}) }
+  const formData = Object.fromEntries(
+    Object.entries(rawForm).map(([k, v]) => [k, v === undefined || v === null ? '' : v])
+  )
   const boqItems = persistedData.boqItems || [{
     id: 1,
     materialDescription: '',
@@ -456,35 +477,65 @@ function POEntry() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  /**
+   * Get first value when Master Data stores allowMultiple as array
+   */
+  const first = (v) => (Array.isArray(v) ? v[0] : v)
+
+  /**
+   * Get value from Master Data values; supports allowMultiple keys (key_0, key_1, ...)
+   */
+  const val = (v, key) => {
+    if (!v || !key) return ''
+    const direct = v[key]
+    if (direct !== undefined && direct !== null && direct !== '') return String(direct)
+    const withZero = v[`${key}_0`]
+    if (withZero !== undefined && withZero !== null && withZero !== '') return String(withZero)
+    return Array.isArray(direct) ? (direct[0] != null ? String(direct[0]) : '') : ''
+  }
+
+  /**
+   * Handle customer selection from Master Data
+   * Fetches the selected customer's saved data from Master Data and populates all
+   * customer-related PO form fields (including contact info). Data comes from customer-profile values only.
+   */
   const handleCustomerChange = (e) => {
     const customerId = e.target.value
     const customer = customers.find((c) => c.id === customerId)
     
     if (customer) {
-      // Auto-fill customer details from Master Data
+      const v = customer.values || customer
+      const address = val(v, 'correspondenceAddress') || val(v, 'corporateOfficeAddress') || first(v.correspondenceAddress) || first(v.corporateOfficeAddress) || ''
+      const district = (val(v, 'district') || first(v.district)) ?? v.district ?? ''
+      const state = (val(v, 'state') || first(v.state)) ?? v.state ?? ''
+      const country = (val(v, 'country') || first(v.country)) ?? v.country ?? 'India'
+      const pinCode = (val(v, 'pinCode') || first(v.pinCode)) ?? v.pinCode ?? ''
       setFormData((prev) => ({
         ...prev,
         customerId,
-        customerName: customer.name || customer.customerName || '',
-        customerAddress: customer.address || customer.customerAddress || '',
-        customerState: customer.state || '',
-        customerDistrict: customer.district || '',
-        customerPinCode: customer.pinCode || '',
-        customerGSTIN: customer.gstin || customer.gstNo || '',
-        segment: customer.segment || '',
-        legalEntityName: customer.legalEntityName || '',
+        customerName: v.customerName || customer.customerName || customer.name || '',
+        legalEntityName: v.legalEntityName || customer.legalEntityName || '',
+        customerAddress: address || v.customerAddress || customer.customerAddress || customer.address || '',
+        customerDistrict: district || v.customerDistrict || customer.customerDistrict || customer.district || '',
+        customerState: state || v.customerState || customer.customerState || customer.state || '',
+        customerCountry: country || v.customerCountry || customer.customerCountry || customer.country || 'India',
+        customerPinCode: pinCode || v.customerPinCode || customer.customerPinCode || customer.pinCode || '',
+        customerGSTIN: v.gstNo || customer.gstNo || customer.gstin || '',
+        segment: v.segment || customer.segment || '',
       }))
     } else {
       setFormData((prev) => ({
         ...prev,
         customerId: '',
         customerName: '',
+        legalEntityName: '',
         customerAddress: '',
-        customerState: '',
         customerDistrict: '',
+        customerState: '',
+        customerCountry: 'India',
         customerPinCode: '',
         customerGSTIN: '',
-        legalEntityName: '',
+        segment: '',
       }))
     }
   }
@@ -494,10 +545,12 @@ function POEntry() {
     const terms = paymentTerms.find((t) => t.id === paymentTermsId)
     
     if (terms) {
+      const tValues = terms.values || terms
+      const description = tValues.paymentTermsDescription || terms.paymentTermsDescription || terms.description || terms.name || ''
       setFormData((prev) => ({
         ...prev,
         paymentTermsId,
-        poPaymentTerms: terms.paymentTermsDescription || terms.description || terms.name || '',
+        poPaymentTerms: description,
       }))
     } else {
       setFormData((prev) => ({
@@ -568,24 +621,39 @@ function POEntry() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // Validate required fields
-    if (!formData.customerId || !formData.poNumber || !formData.poDate) {
-      alert('Please fill in all required fields (Customer, PO Number, PO Date)')
+    const customerId = String(formData.customerId || '').trim()
+    const poNumber = String(formData.poNumber || '').trim() || poEntryService.generatePONumber(formData.businessUnit || 'MAIN')
+    const poDate = String(formData.poDate || '').trim()
+    
+    const missing = []
+    if (!customerId) missing.push('Customer Name')
+    if (!poNumber) missing.push('PO Number')
+    if (!poDate) missing.push('Purchase Order Date')
+    if (missing.length > 0) {
+      alert(`Please fill in the required fields: ${missing.join(', ')}`)
       return
     }
     
-    // Save PO Entry with Master Data references
+    // Ensure form state has generated PO Number if it was empty
+    if (!String(formData.poNumber || '').trim()) {
+      setFormData((prev) => ({ ...prev, poNumber }))
+    }
+    
+    // Build full payload for save (all form fields + BOQ) so backend stores in draft_data
     const poEntry = {
       ...formData,
+      customerId,
+      poNumber,
+      poDate,
+      // "Submit" should not remain draft. Backend enum uses: draft/approved/closed/cancelled.
+      // We treat submit as approved (= submitted/confirmed).
+      status: 'approved',
       boqItems,
       boqTotals,
       submittedAt: new Date().toISOString(),
-      // Maintain relationships to Master Data
-      customerId: formData.customerId,
       paymentTermsId: formData.paymentTermsId,
     }
     
-    // Save using PO Entry service
     try {
       const savedPO = await poEntryService.savePOEntry(poEntry)
       
@@ -595,8 +663,19 @@ function POEntry() {
           const refreshedPO = await poEntryService.getPOEntryById(savedPO?.id || id)
           if (refreshedPO) {
             const { boqItems: refreshedBoqItems, ...refreshedFormData } = refreshedPO
+            // Normalize backend row fields to form fields
+            const normalizedForm = {
+              ...refreshedFormData,
+              poNumber: refreshedFormData.poNumber || refreshedFormData.po_number || poEntry.poNumber,
+              poDate:
+                refreshedFormData.poDate ||
+                refreshedFormData.issue_date ||
+                (refreshedFormData.created_at ? String(refreshedFormData.created_at).split('T')[0] : poEntry.poDate),
+              customerId: refreshedFormData.customerId || refreshedFormData.customer_id || poEntry.customerId,
+              customerName: refreshedFormData.customerName || refreshedFormData.customer_name || poEntry.customerName,
+            }
             setPersistedData({
-              formData: refreshedFormData || {},
+              formData: normalizedForm || {},
               boqItems: Array.isArray(refreshedBoqItems) ? refreshedBoqItems : [],
             })
           }
@@ -614,19 +693,28 @@ function POEntry() {
     }
   }
 
-  // Filter employees by role
+  // Filter employees by role (reads from Master Data values.role)
   const getEmployeesByRole = (roleKeywords) => {
     if (!Array.isArray(employees)) {
       console.warn('employees is not an array:', employees)
       return []
     }
     return employees.filter((emp) => {
-      const role = (emp.role || emp.designation || '').toLowerCase()
+      const v = emp.values || {}
+      const role = (v.role || v.role_0 || emp.role || emp.designation || '').toLowerCase()
       return roleKeywords.some((keyword) => role.includes(keyword.toLowerCase()))
     })
   }
 
-  // Ensure all employee arrays are actually arrays
+  // Employee display label from Master Data (values.nameOfEmployee, values.designation)
+  const getEmployeeLabel = (emp) => {
+    const v = emp.values || {}
+    const name = v.nameOfEmployee || v.nameOfEmployee_0 || emp.nameOfEmployee || emp.name || ''
+    const des = v.designation || v.designation_0 || emp.designation || ''
+    return name + (des ? ` (${des})` : '')
+  }
+
+  // Ensure all employee arrays are actually arrays (from Master Data employee-profile)
   const salesManagers = getEmployeesByRole(['sales manager'])
   const salesHeads = getEmployeesByRole(['sales head'])
   const projectManagers = getEmployeesByRole(['project manager'])
@@ -668,6 +756,19 @@ function POEntry() {
           </button>
           <button
             type="button"
+            onClick={() => setFormData((prev) => ({ ...prev, boqEnabled: !prev.boqEnabled }))}
+            className={`po-entry-action-button po-entry-action-button-secondary ${formData.boqEnabled !== false ? 'po-entry-boq-toggle-on' : ''}`}
+            title={formData.boqEnabled !== false ? 'BOQ is enabled. Click to hide BOQ section.' : 'BOQ is disabled. Click to show BOQ section.'}
+          >
+            {formData.boqEnabled !== false ? (
+              <ToggleRight className="po-entry-action-icon" aria-hidden />
+            ) : (
+              <ToggleLeft className="po-entry-action-icon" aria-hidden />
+            )}
+            <span>BOQ {formData.boqEnabled !== false ? 'On' : 'Off'}</span>
+          </button>
+          <button
+            type="button"
             onClick={() => navigate('/po-entry')}
             className="po-entry-action-button po-entry-action-button-secondary"
           >
@@ -695,15 +796,25 @@ function POEntry() {
                 required
               >
                 <option value="">Select Customer from Master Data</option>
-                {Array.isArray(customers) && customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name || customer.customerName} {customer.gstin || customer.gstNo ? `(${customer.gstin || customer.gstNo})` : ''}
-                  </option>
-                ))}
+                {Array.isArray(customers) && customers.map((customer) => {
+                  const v = customer.values || customer
+                  const name = v.customerName || customer.customerName || customer.name || ''
+                  const gst = v.gstNo || customer.gstNo || customer.gstin || ''
+                  return (
+                    <option key={customer.id} value={customer.id}>
+                      {name}{gst ? ` (${gst})` : ''}
+                    </option>
+                  )
+                })}
               </select>
               {customers.length === 0 && (
                 <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
                   No customers found. <a href="/master-data/new/customer-profile" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
+                </p>
+              )}
+              {formData.customerId && (
+                <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px', fontStyle: 'italic' }}>
+                  Customer data is fetched from Master Data. Auto-filled fields are read-only.
                 </p>
               )}
             </div>
@@ -726,7 +837,7 @@ function POEntry() {
             
             <div className="po-entry-field">
               <label htmlFor="legalEntityName" className="po-entry-label">
-                Legal Entity Name
+                Legal Entity Name (Auto-filled)
               </label>
               <input
                 type="text"
@@ -735,12 +846,14 @@ function POEntry() {
                 value={formData.legalEntityName}
                 onChange={handleChange}
                 className="po-entry-input"
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)' }}
               />
             </div>
             
             <div className="po-entry-field po-entry-field-full">
               <label htmlFor="customerAddress" className="po-entry-label">
-                Customer Address
+                Customer Address (Auto-filled)
               </label>
               <textarea
                 id="customerAddress"
@@ -749,12 +862,14 @@ function POEntry() {
                 onChange={handleChange}
                 className="po-entry-textarea"
                 rows="3"
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)' }}
               />
             </div>
             
             <div className="po-entry-field">
               <label htmlFor="customerDistrict" className="po-entry-label">
-                District
+                District (Auto-filled)
               </label>
               <input
                 type="text"
@@ -763,64 +878,46 @@ function POEntry() {
                 value={formData.customerDistrict}
                 onChange={handleChange}
                 className="po-entry-input"
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)' }}
               />
             </div>
             
             <div className="po-entry-field">
               <label htmlFor="customerState" className="po-entry-label">
-                State
+                State (Auto-filled)
               </label>
-              <select
+              <input
+                type="text"
                 id="customerState"
                 name="customerState"
                 value={formData.customerState}
                 onChange={handleChange}
-                className="po-entry-select"
-              >
-                <option value="">Select State</option>
-                {INDIA_STATES.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-                <option value="Other">Other</option>
-              </select>
-              {formData.customerState === 'Other' && (
-                <input
-                  type="text"
-                  id="customerStateOther"
-                  name="customerStateOther"
-                  value={formData.customerStateOther}
-                  onChange={handleChange}
-                  className="po-entry-input"
-                  placeholder="Enter state name"
-                  style={{ marginTop: '8px' }}
-                />
-              )}
+                className="po-entry-input"
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)' }}
+              />
             </div>
             
             <div className="po-entry-field">
               <label htmlFor="customerCountry" className="po-entry-label">
-                Country
+                Country (Auto-filled)
               </label>
-              <select
+              <input
+                type="text"
                 id="customerCountry"
                 name="customerCountry"
                 value={formData.customerCountry}
                 onChange={handleChange}
-                className="po-entry-select"
-              >
-                {COUNTRIES.map((country) => (
-                  <option key={country} value={country}>
-                    {country}
-                  </option>
-                ))}
-              </select>
+                className="po-entry-input"
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)' }}
+              />
             </div>
             
             <div className="po-entry-field">
               <label htmlFor="customerPinCode" className="po-entry-label">
-                Pin Code
+                Pin Code (Auto-filled)
               </label>
               <input
                 type="text"
@@ -829,12 +926,14 @@ function POEntry() {
                 value={formData.customerPinCode}
                 onChange={handleChange}
                 className="po-entry-input"
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)' }}
               />
             </div>
             
             <div className="po-entry-field">
               <label htmlFor="customerGSTIN" className="po-entry-label">
-                GST No
+                GST No (Auto-filled)
               </label>
               <input
                 type="text"
@@ -843,6 +942,8 @@ function POEntry() {
                 value={formData.customerGSTIN}
                 onChange={handleChange}
                 className="po-entry-input"
+                readOnly
+                style={{ background: 'var(--color-bg-tertiary)' }}
               />
             </div>
             
@@ -1145,11 +1246,15 @@ function POEntry() {
                 className="po-entry-select"
               >
                 <option value="">Select Payment Terms from Master Data</option>
-                {Array.isArray(paymentTerms) && paymentTerms.map((terms) => (
-                  <option key={terms.id} value={terms.id}>
-                    {terms.name || terms.paymentTermsDescription}
-                  </option>
-                ))}
+                {Array.isArray(paymentTerms) && paymentTerms.map((terms) => {
+                  const tValues = terms.values || terms
+                  const label = tValues.paymentTermsDescription || terms.paymentTermsDescription || terms.description || terms.name || `Payment Term (${terms.id?.slice(0, 8) || '—'})`
+                  return (
+                    <option key={terms.id} value={terms.id}>
+                      {label}
+                    </option>
+                  )
+                })}
               </select>
               {paymentTerms.length === 0 && (
                 <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
@@ -1199,15 +1304,33 @@ function POEntry() {
               <label htmlFor="insuranceType" className="po-entry-label">
                 Insurance Type
               </label>
-              <input
-                type="text"
+              <select
                 id="insuranceType"
                 name="insuranceType"
                 value={formData.insuranceType}
                 onChange={handleChange}
-                className="po-entry-input"
-                placeholder="e.g., General Liability"
-              />
+                className="po-entry-select"
+              >
+                <option value="">Select Insurance Type</option>
+                {INSURANCE_TYPES.filter((type) => type !== 'Others').map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+                <option value="Others">Others</option>
+              </select>
+              {formData.insuranceType === 'Others' && (
+                <input
+                  type="text"
+                  id="insuranceTypeOther"
+                  name="insuranceTypeOther"
+                  value={formData.insuranceTypeOther}
+                  onChange={handleChange}
+                  className="po-entry-input"
+                  placeholder="Specify insurance type"
+                  style={{ marginTop: '8px' }}
+                />
+              )}
             </div>
             
             <div className="po-entry-field">
@@ -1306,15 +1429,33 @@ function POEntry() {
               <label htmlFor="bankGuaranteeType" className="po-entry-label">
                 Bank Guarantee Type
               </label>
-              <input
-                type="text"
+              <select
                 id="bankGuaranteeType"
                 name="bankGuaranteeType"
                 value={formData.bankGuaranteeType}
                 onChange={handleChange}
-                className="po-entry-input"
-                placeholder="e.g., Performance BG"
-              />
+                className="po-entry-select"
+              >
+                <option value="">Select Bank Guarantee Type</option>
+                {BANK_GUARANTEE_TYPES.filter((type) => type !== 'Others').map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+                <option value="Others">Others</option>
+              </select>
+              {formData.bankGuaranteeType === 'Others' && (
+                <input
+                  type="text"
+                  id="bankGuaranteeTypeOther"
+                  name="bankGuaranteeTypeOther"
+                  value={formData.bankGuaranteeTypeOther}
+                  onChange={handleChange}
+                  className="po-entry-input"
+                  placeholder="Specify bank guarantee type"
+                  style={{ marginTop: '8px' }}
+                />
+              )}
             </div>
             
             <div className="po-entry-field">
@@ -1438,7 +1579,7 @@ function POEntry() {
                 <option value="">Select Sales Manager</option>
                 {Array.isArray(salesManagers) && salesManagers.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                    {getEmployeeLabel(emp)}
                   </option>
                 ))}
               </select>
@@ -1458,7 +1599,7 @@ function POEntry() {
                 <option value="">Select Sales Head</option>
                 {Array.isArray(salesHeads) && salesHeads.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                    {getEmployeeLabel(emp)}
                   </option>
                 ))}
               </select>
@@ -1478,7 +1619,7 @@ function POEntry() {
                 <option value="">Select Business Head</option>
                 {Array.isArray(businessHeads) && businessHeads.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                    {getEmployeeLabel(emp)}
                   </option>
                 ))}
               </select>
@@ -1498,7 +1639,7 @@ function POEntry() {
                 <option value="">Select Project Manager</option>
                 {Array.isArray(projectManagers) && projectManagers.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                    {getEmployeeLabel(emp)}
                   </option>
                 ))}
               </select>
@@ -1518,7 +1659,7 @@ function POEntry() {
                 <option value="">Select Project Head</option>
                 {Array.isArray(projectHeads) && projectHeads.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                    {getEmployeeLabel(emp)}
                   </option>
                 ))}
               </select>
@@ -1538,7 +1679,7 @@ function POEntry() {
                 <option value="">Select Collection Incharge</option>
                 {Array.isArray(collectionIncharges) && collectionIncharges.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                    {getEmployeeLabel(emp)}
                   </option>
                 ))}
               </select>
@@ -1558,7 +1699,7 @@ function POEntry() {
                 <option value="">Select Sales Agent</option>
                 {Array.isArray(salesAgents) && salesAgents.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                    {getEmployeeLabel(emp)}
                   </option>
                 ))}
               </select>
@@ -1594,7 +1735,7 @@ function POEntry() {
                 <option value="">Select Collection Agent</option>
                 {Array.isArray(collectionAgents) && collectionAgents.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name || emp.nameOfEmployee} {emp.designation ? `(${emp.designation})` : ''}
+                    {getEmployeeLabel(emp)}
                   </option>
                 ))}
               </select>
@@ -1697,16 +1838,16 @@ function POEntry() {
           </div>
         </div>
 
-        {/* BOQ Section */}
+        {/* BOQ as per PO (Form) - table and calculated summary */}
         <div className="po-entry-section">
-          <h2 className="po-entry-section-title">Bill of Quantities (BOQ)</h2>
+          <h2 className="po-entry-section-title">BOQ as per PO (Form)</h2>
           <div className="po-entry-boq-container">
             <div className="po-entry-boq-table-wrapper">
               <table className="po-entry-boq-table">
                 <thead>
                   <tr>
                     <th style={{ width: '30%' }}>Material Description</th>
-                    <th style={{ width: '10%' }}>Quantity</th>
+                    <th style={{ width: '10%' }}>Qty</th>
                     <th style={{ width: '8%' }}>UOM</th>
                     <th style={{ width: '10%' }}>Unit Price</th>
                     <th style={{ width: '10%' }}>Unit Cost</th>
@@ -1820,17 +1961,17 @@ function POEntry() {
               className="po-entry-boq-add-button"
             >
               <Plus className="po-entry-action-icon" />
-              <span>Add Row</span>
+              <span>Add line item</span>
             </button>
           </div>
         </div>
 
-        {/* BOQ Summary */}
+        {/* BOQ Summary - calculated from table */}
         <div className="po-entry-section">
-          <h2 className="po-entry-section-title">BOQ Summary</h2>
+          <h2 className="po-entry-section-title">Total</h2>
           <div className="po-entry-form-grid">
             <div className="po-entry-field">
-              <label className="po-entry-label">Total Ex-Works</label>
+              <label className="po-entry-label">Total Ex Works</label>
               <input
                 type="text"
                 value={boqTotals.totalExWorks}
@@ -1841,7 +1982,7 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label className="po-entry-label">Total Freight</label>
+              <label className="po-entry-label">Total Freight Amount</label>
               <input
                 type="text"
                 value={boqTotals.totalFreight}
@@ -1852,7 +1993,7 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label className="po-entry-label">Total GST</label>
+              <label className="po-entry-label">GST</label>
               <input
                 type="text"
                 value={boqTotals.totalGST}

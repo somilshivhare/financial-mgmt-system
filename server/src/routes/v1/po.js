@@ -3,7 +3,7 @@ const { requireAuth } = require('../../middleware/requireAuth');
 const { requireRole } = require('../../middleware/requireRole');
 const { validate } = require('../../middleware/validate');
 const { poSchema } = require('../../validators/poValidators');
-const { listPOs, createPO, updatePOStatus, getPO, getPODraft, upsertPODraft } = require('../../controllers/poController');
+const { listPOs, createPO, updatePOStatus, getPO, getPODraft, upsertPODraft, deletePO } = require('../../controllers/poController');
 
 const router = express.Router();
 
@@ -15,6 +15,7 @@ router.post('/', requireAuth, requireRole('admin', 'operations', 'sales'), valid
 router.post('/draft', requireAuth, requireRole('admin', 'operations', 'sales'), upsertPODraft);
 router.post('/:id/draft', requireAuth, requireRole('admin', 'operations', 'sales'), upsertPODraft);
 router.patch('/:id/status', requireAuth, requireRole('admin', 'operations'), updatePOStatus);
+router.delete('/:id', requireAuth, requireRole('admin', 'operations'), deletePO);
 
 module.exports = router;
 

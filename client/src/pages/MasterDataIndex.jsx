@@ -1,10 +1,13 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Building2, Truck, CreditCard, IdCard, FileCheck2, Users, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Building2, Truck, CreditCard, IdCard, FileCheck2, Users, ArrowRight, CheckCircle2, Lock } from 'lucide-react'
+import { getAllStepsLockedStatus } from '../api/masterData'
 import '../styles/MasterData.css'
 
 function MasterDataIndex() {
   const navigate = useNavigate()
+  const [lockedSteps, setLockedSteps] = useState({})
+  const [loadingLockStatus, setLoadingLockStatus] = useState(true)
 
   const items = useMemo(
     () => [
@@ -52,8 +55,8 @@ function MasterDataIndex() {
       },
       {
         key: 'review-submit',
-        title: 'Review and Submit',
-        description: 'Review all master data entries and submit for final approval.',
+        title: 'Review All Master Data',
+        description: 'Review all saved master data records. You can continue creating new records at any time.',
         icon: CheckCircle2,
         step: 7,
       },
@@ -61,10 +64,41 @@ function MasterDataIndex() {
     [],
   )
 
+  // Load locked status for all steps
+  useEffect(() => {
+    const loadLockStatus = async () => {
+      try {
+        setLoadingLockStatus(true)
+        const status = await getAllStepsLockedStatus()
+        setLockedSteps(status)
+      } catch (error) {
+        console.error('[MasterDataIndex] Failed to load lock status:', error)
+        // On error, allow all steps (not locked)
+        setLockedSteps({})
+      } finally {
+        setLoadingLockStatus(false)
+      }
+    }
+    
+    loadLockStatus()
+    
+    // Listen for updates when master data is saved
+    const handleUpdate = () => {
+      loadLockStatus()
+    }
+    
+    window.addEventListener('masterDataUpdated', handleUpdate)
+    return () => {
+      window.removeEventListener('masterDataUpdated', handleUpdate)
+    }
+  }, [])
+  
   const handleRowClick = (key) => {
     if (key === 'review-submit') {
       navigate('/master-data/review')
     } else {
+      // Always allow creating new records - navigate to form
+      // Locked status only applies when editing existing records, not creating new ones
       navigate(`/master-data/new/${key}`)
     }
   }
@@ -109,10 +143,13 @@ function MasterDataIndex() {
           <tbody>
             {items.map((item) => {
               const Icon = item.icon
+              const isLocked = item.key !== 'review-submit' && lockedSteps[item.key]
+              const isReviewStep = item.key === 'review-submit'
+              
               return (
                 <tr
                   key={item.key}
-                  className="md-index-table-row"
+                  className={`md-index-table-row ${isReviewStep ? 'md-index-table-row-review' : ''}`}
                   onClick={() => handleRowClick(item.key)}
                   onKeyDown={(e) => handleKeyDown(e, item.key)}
                   tabIndex={0}
@@ -127,11 +164,16 @@ function MasterDataIndex() {
                       <div className="md-index-module-icon-wrapper">
                         <Icon className="md-index-module-icon" />
                       </div>
-                      <span className="md-index-module-title">{item.title}</span>
+                      <span className="md-index-module-title">
+                        {item.title}
+                        {isLocked && <span style={{ marginLeft: '8px', fontSize: '12px', color: '#10b981', fontWeight: '500' }}>(Has Records)</span>}
+                      </span>
                     </div>
                   </td>
                   <td className="md-index-table-cell md-index-table-description">
-                    <span className="md-index-module-description">{item.description}</span>
+                    <span className="md-index-module-description">
+                      {item.description}
+                    </span>
                   </td>
                   <td className="md-index-table-cell md-index-table-action">
                     <ArrowRight className="md-index-action-icon" />

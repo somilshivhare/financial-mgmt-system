@@ -22,21 +22,31 @@ export const generatePONumber = (businessUnit = 'MAIN', financialYear = null) =>
   return `PO-${businessUnit}-${fyShort}-XXXX` // Backend will handle sequence
 }
 
-// Get all PO entries
+// Get all PO entries - backend returns { success, data: { data: [...], page, pageSize, total } }
 export const getAllPOEntries = async () => {
   try {
-    const response = await poApi.getAllPOs()
-    // Handle different response structures
-    if (Array.isArray(response)) {
-      return response
+    const raw = await poApi.getAllPOs({ page: 1, pageSize: 100 })
+    if (raw === undefined || raw === null) return []
+
+    // Support multiple response shapes so list always displays
+    let list = []
+    if (Array.isArray(raw?.data?.data)) {
+      list = raw.data.data
+    } else if (Array.isArray(raw?.data)) {
+      list = raw.data
+    } else if (Array.isArray(raw)) {
+      list = raw
     }
-    if (response && Array.isArray(response.data)) {
-      return response.data
+
+    if (import.meta.env.DEV && list.length === 0 && raw?.data) {
+      const dataObj = raw.data && typeof raw.data === 'object' && !Array.isArray(raw.data) ? raw.data : null
+      console.info('[PO List] API returned 0 entries. Response shape:', {
+        hasData: !!raw.data,
+        dataKeys: dataObj ? Object.keys(dataObj) : [],
+        total: dataObj?.total,
+      })
     }
-    if (response && response.success && Array.isArray(response.data)) {
-      return response.data
-    }
-    return []
+    return Array.isArray(list) ? [...list] : []
   } catch (error) {
     console.error('Failed to load PO entries:', error)
     return []
@@ -54,33 +64,48 @@ export const getPOEntryByPONumber = async (poNumber) => {
   }
 }
 
-// Get PO entry by ID
+// Get PO entry by ID (returns PO row; API wraps in { data: po })
 export const getPOEntryById = async (id) => {
   try {
     const response = await poApi.getPOById(id)
-    return response.data || null
+    const body = response?.data ?? response
+    return body?.data ?? body ?? null
   } catch (error) {
     console.error(`Failed to load PO ${id}:`, error)
     return null
   }
 }
 
-// Save PO entry
+// Save PO entry (submit) - uses draft endpoint so all form fields + BOQ are saved to database (draft_data)
 export const savePOEntry = async (poData) => {
   try {
-    let response
+    let result
     if (poData.id) {
-      response = await poApi.updatePO(poData.id, poData)
+      const response = await poApi.updatePO(poData.id, poData)
+      result = response.data
     } else {
-      response = await poApi.createPO(poData)
+      // New PO: use upsertPODraft so full form + boqItems are saved in draft_data and lines in purchase_order_lines
+      result = await poApi.upsertPODraft(poData)
     }
 
-    // Trigger update event
-    window.dispatchEvent(new CustomEvent('poEntryUpdated', { detail: { poEntry: response.data } }))
-
-    return response.data
+    if (result) {
+      window.dispatchEvent(new CustomEvent('poEntryUpdated', { detail: { poEntry: result } }))
+    }
+    return result
   } catch (error) {
     console.error('Failed to save PO entry:', error)
+    throw error
+  }
+}
+
+// Delete PO entry by id
+export const deletePOEntry = async (id) => {
+  try {
+    const result = await poApi.deletePO(id)
+    window.dispatchEvent(new CustomEvent('poDeleted', { detail: { id } }))
+    return result
+  } catch (error) {
+    console.error(`Failed to delete PO ${id}:`, error)
     throw error
   }
 }

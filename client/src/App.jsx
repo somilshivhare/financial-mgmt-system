@@ -141,6 +141,8 @@ function App() {
                 <Route path="/master-data/view/:companyId?" element={<ErrorBoundary><MasterDataView /></ErrorBoundary>} />
                 <Route path="/po-entry" element={<ErrorBoundary><POEntryIndex /></ErrorBoundary>} />
                 <Route path="/po-entry/new" element={<ErrorBoundary><POEntry /></ErrorBoundary>} />
+                <Route path="/po-entry/edit/:id" element={<ErrorBoundary><POEntry /></ErrorBoundary>} />
+                <Route path="/po-entry/view/:id" element={<ErrorBoundary><POEntry /></ErrorBoundary>} />
                 <Route path="/invoices" element={<ErrorBoundary><InvoiceIndex /></ErrorBoundary>} />
                 <Route path="/invoices/new" element={<ErrorBoundary><InvoiceEntry /></ErrorBoundary>} />
                 <Route path="/payments" element={<ErrorBoundary><PaymentIndex /></ErrorBoundary>} />

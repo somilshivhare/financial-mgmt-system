@@ -1,30 +1,100 @@
 const { v4: uuidv4 } = require('uuid');
 const { query, transaction } = require('../db/query');
 
+const normalizeBusinessUnit = (bu) => {
+  const cleaned = String(bu || 'MAIN')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+  return cleaned || 'MAIN';
+};
+
+// Financial year uses April–March cycle and is formatted as 20252026 (no dash)
+const getFinancialYearConcat = (dateLike = null) => {
+  const d = dateLike ? new Date(dateLike) : new Date();
+  // If invalid date, fallback to now
+  const dt = Number.isNaN(d.getTime()) ? new Date() : d;
+  const year = dt.getFullYear();
+  const month = dt.getMonth() + 1; // 1-12
+  const startYear = month >= 4 ? year : year - 1;
+  const endYear = startYear + 1;
+  return `${startYear}${endYear}`;
+};
+
+const needsGeneratedPONumber = (poNumber) => {
+  if (!poNumber) return true;
+  const s = String(poNumber).trim().toUpperCase();
+  return s.includes('XXXX') || s.endsWith('-XXXX');
+};
+
+const normalizePOStatus = (status) => {
+  const s = String(status || '').trim().toLowerCase();
+  const allowed = new Set(['draft', 'approved', 'closed', 'cancelled']);
+  return allowed.has(s) ? s : null;
+};
+
+/**
+ * Generate next PO number (transaction-safe)
+ * Format: PO-{BU}-{FY}-{NNNN}
+ */
+const generateNextPONumber = async (businessUnit, poDateLike = null) => {
+  const bu = normalizeBusinessUnit(businessUnit);
+  const fy = getFinancialYearConcat(poDateLike);
+
+  return transaction(async (conn) => {
+    const [rows] = await conn.execute(
+      'SELECT counter FROM po_number_counter WHERE business_unit = ? AND financial_year = ? FOR UPDATE',
+      [bu, fy],
+    );
+
+    let counter = 0;
+    if (!rows || rows.length === 0) {
+      await conn.execute(
+        'INSERT INTO po_number_counter (business_unit, financial_year, counter) VALUES (?, ?, 0)',
+        [bu, fy],
+      );
+    } else {
+      counter = Number(rows[0].counter) || 0;
+    }
+
+    counter += 1;
+    await conn.execute(
+      'UPDATE po_number_counter SET counter = ?, updated_at = NOW() WHERE business_unit = ? AND financial_year = ?',
+      [counter, bu, fy],
+    );
+
+    return `PO-${bu}-${fy}-${String(counter).padStart(4, '0')}`;
+  });
+};
+
 const listPOs = async ({ page = 1, pageSize = 20, status, q }) => {
   try {
-    const offset = (page - 1) * pageSize;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageSizeNum = Math.min(1000, Math.max(1, parseInt(pageSize, 10) || 20));
+    const offset = (pageNum - 1) * pageSizeNum;
     const where = [];
     const params = [];
-    if (status) {
+    if (status != null && String(status).trim() !== '') {
       where.push('status = ?');
-      params.push(status);
+      params.push(String(status).trim());
     }
-    if (q) {
+    if (q != null && String(q).trim() !== '') {
       where.push('po_number LIKE ?');
-      params.push(`%${q}%`);
+      params.push(`%${String(q).trim()}%`);
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    // IMPORTANT: Some MySQL/MariaDB setups error with bound params in LIMIT/OFFSET.
+    // We safely interpolate sanitized integers instead (pageSizeNum/offset are clamped ints).
     const data = await query(
-      `SELECT * FROM purchase_orders ${whereSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, Number(pageSize), Number(offset)],
+      `SELECT * FROM purchase_orders ${whereSql} ORDER BY created_at DESC LIMIT ${pageSizeNum} OFFSET ${offset}`,
+      params,
     );
     const countResult = await query(`SELECT COUNT(*) as total FROM purchase_orders ${whereSql}`, params);
-    const total = countResult && countResult[0] ? countResult[0].total : 0;
-    return { data: data || [], page: Number(page), pageSize: Number(pageSize), total };
+    const total = countResult && countResult[0] ? Number(countResult[0].total) : 0;
+    return { data: data || [], page: pageNum, pageSize: pageSizeNum, total };
   } catch (err) {
     console.error('[PO Service] Error listing POs:', err.message);
-    return { data: [], page: Number(page), pageSize: Number(pageSize), total: 0 };
+    return { data: [], page: 1, pageSize: 20, total: 0 };
   }
 };
 
@@ -133,17 +203,12 @@ const upsertPODraft = async (formData, userId, poId = null) => {
   // Check if we need to add draft_data column (for migration compatibility)
   // For now, we'll use a separate approach - store in a JSON column if it exists
   
-  // Try to get existing PO
+  // Resolve existing PO only by id or by poNumber (do not reuse "latest draft" so each new submit creates a new row)
   let existingPO = null;
   if (poId) {
     existingPO = await getPO(poId);
   } else if (formData.poNumber) {
     existingPO = await getPOByNumber(formData.poNumber);
-  }
-  
-  // If no existing PO, try to get latest draft
-  if (!existingPO) {
-    existingPO = await getLatestDraftPO(userId);
   }
   
   // Extract BOQ items if present
@@ -157,6 +222,19 @@ const upsertPODraft = async (formData, userId, poId = null) => {
     }
     return acc;
   }, {});
+
+  // Determine requested status (Submit sends "approved")
+  const requestedStatus = normalizePOStatus(cleanFormData.status || formData.status);
+
+  // If PO number is missing/placeholder, generate a real one (0001, 0002...) on the server
+  const shouldGenerateNumber = needsGeneratedPONumber(cleanFormData.poNumber);
+  
+  // We'll inject the generated poNumber into draft_data.formData so UI shows the correct value
+  let generatedPoNumber = null;
+  if (shouldGenerateNumber) {
+    generatedPoNumber = await generateNextPONumber(cleanFormData.businessUnit || 'MAIN', cleanFormData.poDate || null);
+    cleanFormData.poNumber = generatedPoNumber;
+  }
   
   const draftDataJson = JSON.stringify({
     formData: cleanFormData,
@@ -165,24 +243,44 @@ const upsertPODraft = async (formData, userId, poId = null) => {
   });
   
   if (existingPO) {
-    // Update existing PO
+    // If this PO was previously saved with XXXX, upgrade it to the real sequential number
+    const existingNeedsUpgrade =
+      needsGeneratedPONumber(existingPO.po_number) || needsGeneratedPONumber(existingPO.poNumber);
+
+    if (existingNeedsUpgrade && generatedPoNumber) {
+      await query(
+        `UPDATE purchase_orders
+         SET po_number = ?, draft_data = ?, updated_by = ?, updated_at = NOW()
+         WHERE id = ?`,
+        [generatedPoNumber, draftDataJson, userId, existingPO.id],
+      );
+    }
+
+    // Update existing PO (draft_data + optional status)
     // Check if draft_data column exists, if not, we'll need to add it via migration
     // For now, try to update with draft_data
     try {
       await query(
         `UPDATE purchase_orders 
-         SET draft_data = ?, updated_by = ?, updated_at = NOW() 
+         SET draft_data = ?, status = COALESCE(?, status), updated_by = ?, updated_at = NOW() 
          WHERE id = ?`,
-        [draftDataJson, userId, existingPO.id]
+        [draftDataJson, requestedStatus, userId, existingPO.id]
       );
     } catch (err) {
       // If draft_data column doesn't exist, create a migration entry
       // For now, update basic fields
       await query(
         `UPDATE purchase_orders 
-         SET customer_id = ?, po_number = ?, currency = ?, updated_by = ?, updated_at = NOW() 
+         SET customer_id = ?, po_number = ?, currency = ?, status = COALESCE(?, status), updated_by = ?, updated_at = NOW() 
          WHERE id = ?`,
-        [formData.customerId || existingPO.customer_id, formData.poNumber || existingPO.po_number, formData.poCurrency || existingPO.currency || 'INR', userId, existingPO.id]
+        [
+          formData.customerId || existingPO.customer_id,
+          cleanFormData.poNumber || existingPO.po_number,
+          formData.poCurrency || existingPO.currency || 'INR',
+          requestedStatus,
+          userId,
+          existingPO.id,
+        ]
       );
     }
     
@@ -224,15 +322,17 @@ const upsertPODraft = async (formData, userId, poId = null) => {
   } else {
     // Create new PO
     const newPoId = poId || uuidv4();
-    const poNumber = formData.poNumber || `PO-${Date.now()}`;
+    const poNumber = cleanFormData.poNumber || `PO-${Date.now()}`;
+    const initialStatus = requestedStatus || 'draft';
     
     await query(
       `INSERT INTO purchase_orders (id, po_number, customer_id, status, currency, issue_date, due_date, total_amount, created_by, updated_by)
-       VALUES (?, ?, ?, 'draft', ?, ?, ?, 0, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
       [
         newPoId,
         poNumber,
         formData.customerId || null,
+        initialStatus,
         formData.poCurrency || 'INR',
         formData.poDate || null,
         formData.lastDateOfDelivery || null,
@@ -337,6 +437,17 @@ const getPODraft = async (poId = null, userId = null) => {
   };
 };
 
+/**
+ * Delete PO (cascades to lines/history via FK constraints)
+ */
+const deletePO = async (poId) => {
+  const existing = await getPO(poId);
+  if (!existing) return null;
+
+  await query('DELETE FROM purchase_orders WHERE id = ?', [poId]);
+  return { id: poId };
+};
+
 module.exports = { 
   listPOs, 
   createPO, 
@@ -346,5 +457,6 @@ module.exports = {
   getLatestDraftPO,
   upsertPODraft,
   getPODraft,
+  deletePO,
 };
 

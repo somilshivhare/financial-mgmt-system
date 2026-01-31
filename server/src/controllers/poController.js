@@ -5,6 +5,8 @@ const listPOs = async (req, res, next) => {
   try {
     const { page = 1, pageSize = 20, status, q } = req.query;
     const result = await poService.listPOs({ page, pageSize, status, q });
+    res.set('Cache-Control', 'no-store, no-cache');
+    res.set('Pragma', 'no-cache');
     res.json(apiSuccess(result));
   } catch (err) {
     next(err);
@@ -57,6 +59,18 @@ const getPODraft = async (req, res, next) => {
   }
 };
 
+const deletePO = async (req, res, next) => {
+  try {
+    const result = await poService.deletePO(req.params.id);
+    if (!result) {
+      return res.status(404).json(apiError('PO not found', 'NOT_FOUND'));
+    }
+    res.json(apiSuccess(result, 'PO deleted'));
+  } catch (err) {
+    next(err);
+  }
+};
+
 const upsertPODraft = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -68,5 +82,5 @@ const upsertPODraft = async (req, res, next) => {
   }
 };
 
-module.exports = { listPOs, createPO, updatePOStatus, getPO, getPODraft, upsertPODraft };
+module.exports = { listPOs, createPO, updatePOStatus, getPO, getPODraft, upsertPODraft, deletePO };
 
