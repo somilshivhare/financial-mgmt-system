@@ -132,7 +132,7 @@ const getSalesReport = async (filters = {}) => {
       i.amount_paid,
       i.balance,
       i.currency,
-      u.name AS created_by_name
+      u.full_name AS created_by_name
     FROM invoices i
     LEFT JOIN customers c ON c.id = i.customer_id
     LEFT JOIN business_units bu ON bu.id = c.business_unit_id
@@ -191,7 +191,7 @@ const getPOReport = async (filters = {}) => {
       po.status,
       po.total_amount,
       po.currency,
-      u.name AS created_by_name,
+      u.full_name AS created_by_name,
       (SELECT COUNT(*) FROM invoices i WHERE i.po_id = po.id) AS invoice_count
     FROM purchase_orders po
     LEFT JOIN customers c ON c.id = po.customer_id
@@ -283,7 +283,7 @@ const getPaymentReport = async (filters = {}) => {
       c.name AS customer_name,
       c.business_unit_id,
       bu.name AS business_unit_name,
-      u.name AS created_by_name
+      u.full_name AS created_by_name
     FROM payments p
     LEFT JOIN invoices i ON i.id = p.invoice_id
     LEFT JOIN payment_advices pa ON pa.id = p.payment_advice_id
@@ -365,7 +365,7 @@ const getCollectionReport = async (filters = {}) => {
       i.total_amount AS invoice_amount,
       i.amount_paid,
       i.balance,
-      u.name AS owner_name
+      u.full_name AS owner_name
     FROM collection_plans cp
     LEFT JOIN invoices i ON i.id = cp.invoice_id
     LEFT JOIN customers c ON c.id = i.customer_id
@@ -664,7 +664,7 @@ const getCommissionReport = async (filters = {}) => {
   const commissionData = await query(
     `SELECT 
       u.id AS user_id,
-      u.name AS user_name,
+      u.full_name AS user_name,
       u.email,
       COUNT(DISTINCT i.id) AS invoices_created,
       SUM(i.total_amount) AS sales_amount,
@@ -674,7 +674,7 @@ const getCommissionReport = async (filters = {}) => {
     FROM users u
     LEFT JOIN invoices i ON i.created_by = u.id ${whereClause.replace('WHERE', 'AND')}
     LEFT JOIN payments p ON p.created_by = u.id
-    GROUP BY u.id, u.name, u.email
+    GROUP BY u.id, u.full_name, u.email
     HAVING invoices_created > 0 OR payments_processed > 0
     ORDER BY sales_amount DESC`,
     params
@@ -821,7 +821,7 @@ const getAuditLogReport = async (filters = {}) => {
     `SELECT 
       ual.id,
       ual.user_id,
-      u.name AS user_name,
+      u.full_name AS user_name,
       u.email,
       ual.action_type,
       ual.action_description,
