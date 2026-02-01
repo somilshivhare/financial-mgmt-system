@@ -1,58 +1,74 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, Calculator, TrendingUp, Calendar } from 'lucide-react'
+import { ArrowLeft, Save, Calculator, TrendingUp, Calendar as CalendarIcon } from 'lucide-react'
+import DatePicker from '../components/DatePicker'
 import { useMasterData } from '../contexts/MasterDataContext'
+import { useToast } from '../contexts/ToastContext'
+import { usePersistedFormState } from '../hooks/usePersistedFormState'
 import * as paymentService from '../services/paymentService'
 import * as invoiceService from '../services/invoiceService'
 import { getPaymentById, updatePayment } from '../api/payment'
 import '../styles/PaymentEntry.css'
 
+const INITIAL_PAYMENT_STATE = {
+  formData: {
+    paymentID: '',
+    paymentReceiptDate: new Date().toISOString().split('T')[0],
+    customerName: '',
+    customerId: '',
+    projectName: '',
+    packageName: '',
+    paymentAmount: '',
+    paymentType: '1st Due',
+    bankName: '',
+    bankId: '',
+    paymentCreditInBankDate: '',
+    invoicePayments: [],
+  },
+  charges: {
+    tds: '',
+    bankCharges: '',
+    penalty: '',
+    otherDeductions: '',
+  },
+}
+
 function PaymentEntry() {
   const navigate = useNavigate()
   const { id } = useParams() // Get ID if editing existing payment
   const { getCustomers } = useMasterData()
+  const { showToast } = useToast()
   
   const [customers, setCustomers] = useState([])
   const [openInvoices, setOpenInvoices] = useState([])
   const [selectedInvoices, setSelectedInvoices] = useState([])
   const [customerLocked, setCustomerLocked] = useState(false)
   
-  const [formData, setFormData] = useState({
-    // Payment Header
-    paymentID: '', // Auto-generated, immutable
-    paymentReceiptDate: new Date().toISOString().split('T')[0],
-    
-    // Customer & Project
-    customerName: '',
-    customerId: '',
-    projectName: '',
-    packageName: '',
-    
-    // Payment Details
-    paymentAmount: '',
-    paymentType: '1st Due', // 1st Due / 2nd Due / 3rd Due
-    
-    // Bank Details
-    bankName: '',
-    bankId: '',
-    paymentCreditInBankDate: '',
-    
-    // Invoice Payments (array for multiple invoices)
-    invoicePayments: [],
+  const { values, setValues, clearLocalDraft, persistNow } = usePersistedFormState({
+    pathKey: 'payment-entry',
+    defaultValues: INITIAL_PAYMENT_STATE,
+    entityId: id || null,
   })
-  
-  const [charges, setCharges] = useState({
-    tds: '',
-    bankCharges: '',
-    penalty: '',
-    otherDeductions: '',
-  })
+  const formData = values.formData ?? INITIAL_PAYMENT_STATE.formData
+  const charges = values.charges ?? INITIAL_PAYMENT_STATE.charges
+  const setFormData = useCallback((updater) => {
+    setValues((prev) => ({
+      ...prev,
+      formData: typeof updater === 'function' ? updater(prev.formData ?? INITIAL_PAYMENT_STATE.formData) : updater,
+    }))
+  }, [setValues])
+  const setCharges = useCallback((updater) => {
+    setValues((prev) => ({
+      ...prev,
+      charges: typeof updater === 'function' ? updater(prev.charges ?? INITIAL_PAYMENT_STATE.charges) : updater,
+    }))
+  }, [setValues])
   
   useEffect(() => {
     // Load Master Data
     setCustomers(getCustomers())
     
-    // Auto-generate Payment ID only if not editing
+    // Auto-generate Payment ID only if not editing and not restored from draft
     if (!id && !formData.paymentID) {
       const generatedID = paymentService.generatePaymentID()
       setFormData((prev) => ({ ...prev, paymentID: generatedID }))
@@ -68,35 +84,34 @@ function PaymentEntry() {
           const paymentData = response?.data || response
           if (paymentData) {
             const payment = paymentData.data || paymentData
-            
-            // Transform payment data to form format
-            setFormData(prev => ({
-              ...prev,
-              paymentID: payment.payment_id || payment.paymentID || payment.id || prev.paymentID,
-              paymentReceiptDate: payment.paid_at?.split('T')[0] || payment.paymentReceiptDate || prev.paymentReceiptDate,
-              customerName: payment.customer_name || payment.customerName || '',
-              customerId: payment.customer_id || payment.customerId || '',
-              projectName: payment.project_name || payment.projectName || '',
-              packageName: payment.package_name || payment.packageName || '',
-              paymentAmount: payment.amount || payment.paymentAmount || '',
-              paymentType: payment.payment_type || payment.paymentType || '1st Due',
-              bankName: payment.bank_name || payment.bankName || '',
-              bankId: payment.bank_id || payment.bankId || '',
-              paymentCreditInBankDate: payment.payment_credit_in_bank_date || payment.paymentCreditInBankDate || '',
-              invoicePayments: payment.invoice_payments || payment.invoicePayments || [],
-            }))
-            
-            // Set charges if available
-            if (payment.tds || payment.bank_charges || payment.penalty || payment.other_deductions) {
-              setCharges({
-                tds: payment.tds || '',
-                bankCharges: payment.bank_charges || payment.bank_charges || '',
-                penalty: payment.penalty || '',
-                otherDeductions: payment.other_deductions || payment.otherDeductions || '',
-              })
-            }
-            
-            // Lock customer if payment already has customer
+            setValues((prev) => {
+              const prevForm = prev.formData ?? INITIAL_PAYMENT_STATE.formData
+              const prevCharges = prev.charges ?? INITIAL_PAYMENT_STATE.charges
+              const nextFormData = {
+                ...prevForm,
+                paymentID: payment.payment_id || payment.paymentID || payment.id || prevForm.paymentID,
+                paymentReceiptDate: payment.paid_at?.split('T')[0] || payment.paymentReceiptDate || prevForm.paymentReceiptDate,
+                customerName: payment.customer_name || payment.customerName || '',
+                customerId: payment.customer_id || payment.customerId || '',
+                projectName: payment.project_name || payment.projectName || '',
+                packageName: payment.package_name || payment.packageName || '',
+                paymentAmount: payment.amount || payment.paymentAmount || '',
+                paymentType: payment.payment_type || payment.paymentType || '1st Due',
+                bankName: payment.bank_name || payment.bankName || '',
+                bankId: payment.bank_id || payment.bankId || '',
+                paymentCreditInBankDate: payment.payment_credit_in_bank_date || payment.paymentCreditInBankDate || '',
+                invoicePayments: payment.invoice_payments || payment.invoicePayments || [],
+              }
+              const nextCharges = (payment.tds || payment.bank_charges || payment.penalty || payment.other_deductions)
+                ? {
+                    tds: payment.tds || '',
+                    bankCharges: payment.bank_charges || payment.bank_charges || '',
+                    penalty: payment.penalty || '',
+                    otherDeductions: payment.other_deductions || payment.otherDeductions || '',
+                  }
+                : prevCharges
+              return { ...prev, formData: nextFormData, charges: nextCharges }
+            })
             if (payment.customer_id || payment.customerId) {
               setCustomerLocked(true)
             }
@@ -205,17 +220,11 @@ function PaymentEntry() {
   
   const handleSaveDraft = () => {
     try {
-      const draft = {
-        ...formData,
-        charges,
-        savedAt: new Date().toISOString(),
-        draft: true,
-      }
-      localStorage.setItem('paymentEntryDraft', JSON.stringify(draft))
-      alert('Draft saved successfully!')
+      persistNow()
+      showToast('Draft saved successfully!', 'success')
     } catch (error) {
       console.error('Failed to save draft:', error)
-      alert('Failed to save draft. Please try again.')
+      showToast('Failed to save draft. Please try again.', 'error')
     }
   }
   
@@ -224,12 +233,12 @@ function PaymentEntry() {
     
     // Validate required fields
     if (!formData.customerId || !formData.paymentReceiptDate || !formData.paymentAmount) {
-      alert('Please fill in all required fields (Customer, Payment Receipt Date, Payment Amount)')
+      showToast('Please fill in all required fields (Customer, Payment Receipt Date, Payment Amount)', 'error')
       return
     }
     
     if (selectedInvoices.length === 0) {
-      alert('Please select at least one invoice')
+      showToast('Please select at least one invoice', 'error')
       return
     }
     
@@ -285,11 +294,12 @@ function PaymentEntry() {
         }
       }
       
-      alert(`Payment ${savedPayment?.paymentID || savedPayment?.id || formData.paymentID || ''} saved successfully!`)
+      showToast(`Payment ${savedPayment?.paymentID || savedPayment?.id || formData.paymentID || ''} saved successfully!`, 'success')
+      if (typeof clearLocalDraft === 'function') clearLocalDraft()
       navigate('/payments')
     } catch (error) {
       console.error('Failed to save payment:', error)
-      alert('Failed to save payment. Please try again.')
+      showToast('Failed to save payment. Please try again.', 'error')
     }
   }
   
@@ -351,13 +361,11 @@ function PaymentEntry() {
               <label htmlFor="paymentReceiptDate" className="payment-entry-label">
                 Payment Receipt Date <span className="payment-entry-required">*</span>
               </label>
-              <input
-                type="date"
-                id="paymentReceiptDate"
-                name="paymentReceiptDate"
-                value={formData.paymentReceiptDate}
+              <DatePicker
+                selected={formData.paymentReceiptDate}
                 onChange={handleChange}
-                className="payment-entry-input"
+                name="paymentReceiptDate"
+                id="paymentReceiptDate"
                 required
               />
             </div>
@@ -666,13 +674,11 @@ function PaymentEntry() {
                 <label htmlFor="paymentCreditInBankDate" className="payment-entry-label">
                   Payment Credit in Bank Date
                 </label>
-                <input
-                  type="date"
-                  id="paymentCreditInBankDate"
-                  name="paymentCreditInBankDate"
-                  value={formData.paymentCreditInBankDate}
+                <DatePicker
+                  selected={formData.paymentCreditInBankDate}
                   onChange={handleChange}
-                  className="payment-entry-input"
+                  name="paymentCreditInBankDate"
+                  id="paymentCreditInBankDate"
                 />
               </div>
             </div>

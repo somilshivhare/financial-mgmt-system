@@ -264,7 +264,7 @@
 .profile-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
 .profile-input.is-error {
@@ -599,13 +599,13 @@
 .profile-btn-primary {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: #111827;
-  border-color: rgba(212, 175, 55, 0.35);
-  box-shadow: 0 8px 18px rgba(212, 175, 55, 0.18);
+  border-color: rgba(15, 76, 129, 0.3);
+  box-shadow: 0 8px 18px rgba(15, 76, 129, 0.2);
 }
 
 .profile-btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(212, 175, 55, 0.22);
+  box-shadow: 0 12px 24px rgba(15, 76, 129, 0.25);
 }
 
 .profile-btn-secondary {

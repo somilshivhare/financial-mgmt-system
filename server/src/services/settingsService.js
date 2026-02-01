@@ -187,8 +187,8 @@ const updateSettings = async (settingsObj, userId, changeReason = null) => {
 const resetToDefaults = async (userId, settingKeys = null) => {
   const defaults = {
     general: {
-      companyName: 'NB Aurum',
-      companyEmail: 'finance@nbaurum.com',
+      companyName: 'NB Aurum Solutions',
+      companyEmail: 'finance@nbaurumsolutions.com',
       companyPhone: '+91 00000 00000',
       financialYear: '2024-2025',
       currency: 'INR',

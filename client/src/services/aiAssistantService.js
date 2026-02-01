@@ -26,6 +26,71 @@ const formatCurrency = (amount, currency = 'INR') => {
 }
 
 /**
+ * Get page-specific quick actions (for "What can I do here?")
+ */
+const getPageQuickActions = (pathname) => {
+  const actions = {
+    '/dashboard': [
+      { action: 'Create Invoice', description: 'Start a new invoice', path: '/invoices/new' },
+      { action: 'Record Payment', description: 'Record a payment received', path: '/payments/new' },
+      { action: 'Add Customer', description: 'Add a new customer in Master Data', path: '/master-data/new/customer-profile' },
+      { action: 'Create PO', description: 'Create a new purchase order', path: '/po-entry/new' },
+      { action: 'View Invoices', description: 'See all invoices', path: '/invoices' },
+      { action: 'View Alerts', description: 'Check alerts', path: '/alerts' },
+    ],
+    '/invoices': [
+      { action: 'New Invoice', description: 'Create a new invoice', path: '/invoices/new' },
+      { action: 'View Dashboard', description: 'Back to overview', path: '/dashboard' },
+    ],
+    '/payments': [
+      { action: 'Record Payment', description: 'Record a new payment', path: '/payments/new' },
+      { action: 'View Invoices', description: 'See invoices', path: '/invoices' },
+    ],
+    '/po-entry': [
+      { action: 'New PO', description: 'Create a new purchase order', path: '/po-entry/new' },
+      { action: 'View Invoices', description: 'See invoices', path: '/invoices' },
+    ],
+    '/collection': [
+      { action: 'View Invoices', description: 'See invoices to plan collections', path: '/invoices' },
+      { action: 'View Dashboard', description: 'Back to overview', path: '/dashboard' },
+    ],
+    '/master-data': [
+      { action: 'New Customer', description: 'Add customer profile', path: '/master-data/new/customer-profile' },
+      { action: 'New Entry', description: 'Start new master data', path: '/master-data/new' },
+    ],
+    '/reports': [
+      { action: 'View Dashboard', description: 'Back to overview', path: '/dashboard' },
+    ],
+    '/alerts': [
+      { action: 'View Invoices', description: 'Act on invoice alerts', path: '/invoices' },
+      { action: 'View Dashboard', description: 'Back to overview', path: '/dashboard' },
+    ],
+    '/notifications': [
+      { action: 'View Dashboard', description: 'Back to overview', path: '/dashboard' },
+    ],
+    '/profile': [
+      { action: 'Settings', description: 'Open settings', path: '/settings' },
+    ],
+    '/support': [
+      { action: 'Dashboard', description: 'Back to overview', path: '/dashboard' },
+    ],
+    '/settings': [
+      { action: 'Profile', description: 'Edit your profile', path: '/profile' },
+    ],
+  }
+  for (const [path, list] of Object.entries(actions)) {
+    if (pathname === path || pathname.startsWith(path + '/')) {
+      return list
+    }
+  }
+  return [
+    { action: 'Dashboard', description: 'Go to overview', path: '/dashboard' },
+    { action: 'Invoices', description: 'View invoices', path: '/invoices' },
+    { action: 'Payments', description: 'View payments', path: '/payments' },
+  ]
+}
+
+/**
  * Get page context based on current route
  */
 const getPageContext = (pathname) => {
@@ -60,10 +125,40 @@ const getPageContext = (pathname) => {
       description: 'Customer, vendor, and business data management',
       keyMetrics: ['customers', 'vendors', 'products', 'entities'],
     },
+    '/po-entry': {
+      name: 'PO Entry',
+      description: 'Create and manage purchase orders',
+      keyMetrics: ['pos', 'pending', 'approved', 'invoiced'],
+    },
     '/reports': {
       name: 'Reports',
       description: 'Business reports and analytics',
       keyMetrics: ['reports', 'analytics', 'insights', 'trends'],
+    },
+    '/alerts': {
+      name: 'Alerts',
+      description: 'Business alerts and important notifications',
+      keyMetrics: ['alerts', 'unread', 'priority'],
+    },
+    '/notifications': {
+      name: 'Notifications',
+      description: 'System and activity notifications',
+      keyMetrics: ['notifications', 'unread'],
+    },
+    '/subscription': {
+      name: 'Subscription',
+      description: 'Subscription and usage management',
+      keyMetrics: ['plan', 'usage', 'storage'],
+    },
+    '/profile': {
+      name: 'My Profile',
+      description: 'Your profile and account details',
+      keyMetrics: ['profile', 'account'],
+    },
+    '/support': {
+      name: 'Support',
+      description: 'Contact support and help',
+      keyMetrics: ['tickets', 'help'],
     },
     '/settings': {
       name: 'Settings',
@@ -301,6 +396,54 @@ export const generatePageContext = (pathname, pageData) => {
       guidance += `• Filter reports by date, customer, or other criteria\n\n`
       break
 
+    case '/po-entry':
+    case '/po-entry/new':
+      guidance += `**What you can do here:**\n`
+      guidance += `• Create new purchase orders (POs)\n`
+      guidance += `• Link POs to customers and line items\n`
+      guidance += `• Set payment terms and delivery details\n`
+      guidance += `• View and edit existing POs\n\n`
+      if (pathname === '/po-entry') {
+        guidance += `**To create a new PO:** Click "New PO" or go to PO Entry from the sidebar.\n`
+      }
+      break
+
+    case '/alerts':
+      guidance += `**What you can do here:**\n`
+      guidance += `• View all business alerts\n`
+      guidance += `• See overdue and high-priority items\n`
+      guidance += `• Mark alerts as read\n`
+      guidance += `• Act on recommended follow-ups\n\n`
+      break
+
+    case '/notifications':
+      guidance += `**What you can do here:**\n`
+      guidance += `• View system and activity notifications\n`
+      guidance += `• Mark notifications as read\n`
+      guidance += `• Stay updated on invoices, payments, and approvals\n\n`
+      break
+
+    case '/subscription':
+      guidance += `**What you can do here:**\n`
+      guidance += `• View your current plan and usage\n`
+      guidance += `• Check storage and limits\n`
+      guidance += `• Upgrade or manage subscription\n\n`
+      break
+
+    case '/profile':
+      guidance += `**What you can do here:**\n`
+      guidance += `• View and edit your profile\n`
+      guidance += `• Update contact and account details\n`
+      guidance += `• Change password if needed\n\n`
+      break
+
+    case '/support':
+      guidance += `**What you can do here:**\n`
+      guidance += `• Create support tickets\n`
+      guidance += `• View ticket status and history\n`
+      guidance += `• Get help from the support team\n\n`
+      break
+
     case '/settings':
       guidance += `**What you can do here:**\n`
       guidance += `• Configure application settings\n`
@@ -390,7 +533,119 @@ export const generateResponse = (query, context) => {
     }
   }
 
+  // "Take me to" / "Open" / "Go to" navigation
+  if (
+    lowerQuery.includes('take me to') ||
+    lowerQuery.includes('open ') ||
+    lowerQuery.includes('go to ') ||
+    lowerQuery.includes('show me ')
+  ) {
+    const navTargets = [
+      { match: 'collection', path: '/collection', label: 'Collection Plan', description: 'Plan follow-ups and track collection targets.' },
+      { match: 'master data', path: '/master-data', label: 'Master Data', description: 'Manage customers, vendors, and business data.' },
+      { match: 'reports', path: '/reports', label: 'Reports', description: 'View reports and analytics.' },
+      { match: 'alerts', path: '/alerts', label: 'Alerts', description: 'View business alerts and priorities.' },
+      { match: 'invoices', path: '/invoices', label: 'Invoices', description: 'View and manage invoices.' },
+      { match: 'payments', path: '/payments', label: 'Payments', description: 'View and record payments.' },
+      { match: 'dashboard', path: '/dashboard', label: 'Dashboard', description: 'Your business overview and quick actions.' },
+      { match: 'po entry', path: '/po-entry', label: 'PO Entry', description: 'Create and manage purchase orders.' },
+      { match: 'subscription', path: '/subscription', label: 'Subscription', description: 'View plan and usage.' },
+      { match: 'profile', path: '/profile', label: 'My Profile', description: 'Your profile and account.' },
+      { match: 'support', path: '/support', label: 'Support', description: 'Contact support and help.' },
+      { match: 'settings', path: '/settings', label: 'Settings', description: 'Application settings.' },
+    ]
+    for (const t of navTargets) {
+      if (lowerQuery.includes(t.match)) {
+        return {
+          response: `Opening **${t.label}** for you. ${t.description}`,
+          type: 'navigation',
+          recommendations: [{
+            priority: 'high',
+            action: `Go to ${t.label}`,
+            description: t.description,
+            path: t.path,
+          }],
+        }
+      }
+    }
+  }
+
+  // "Show my alerts" / "Open reports" shortcuts
+  if (lowerQuery.includes('show my alerts') || lowerQuery.includes('show alerts')) {
+    return {
+      response: 'Here are your alerts. You can view and act on them from the Alerts page.',
+      type: 'navigation',
+      recommendations: [{ priority: 'high', action: 'View Alerts', description: 'See all business alerts and priorities.', path: '/alerts' }],
+    }
+  }
+  if (lowerQuery.includes('open reports') || lowerQuery.includes('show reports')) {
+    return {
+      response: 'Opening Reports. You can generate and view financial reports and analytics there.',
+      type: 'navigation',
+      recommendations: [{ priority: 'high', action: 'Open Reports', description: 'View reports and analytics.', path: '/reports' }],
+    }
+  }
+
+  // "What can I do here?" – page-specific actions
+  if (
+    lowerQuery.includes('what can i do') ||
+    lowerQuery.includes('what can i do here') ||
+    lowerQuery.includes('help me with this page')
+  ) {
+    const pageContext = generatePageContext(context.pathname, context.pageData)
+    const actions = getPageQuickActions(context.pathname)
+    let response = `${pageContext.guidance}\n\n`
+    if (actions.length > 0) {
+      response += `**Quick actions you can take:**\n`
+      actions.forEach((a) => {
+        response += `• **${a.action}** – ${a.description}\n`
+      })
+    }
+    return {
+      response,
+      type: 'guidance',
+      recommendations: actions,
+    }
+  }
+
   if (lowerQuery.includes('how to') || lowerQuery.includes('how do i')) {
+    // Specific how-to with navigation
+    if (lowerQuery.includes('record a payment') || lowerQuery.includes('record payment')) {
+      return {
+        response: `**How to record a payment:**\n\n• Go to **Payments** from the sidebar\n• Click **"New Payment"** or **"Record Payment"**\n• Select the customer and link the payment to the relevant invoice(s)\n• Enter the amount, date, and payment method\n• Save to update invoice balances and collection status\n\nI can take you to the Payments page to record a payment now.`,
+        type: 'guidance',
+        recommendations: [
+          { priority: 'high', action: 'Record Payment', description: 'Go to Payments to record a new payment.', path: '/payments/new' },
+        ],
+      }
+    }
+    if (lowerQuery.includes('create a po') || lowerQuery.includes('create po') || lowerQuery.includes('purchase order')) {
+      return {
+        response: `**How to create a PO (Purchase Order):**\n\n• Go to **PO Entry** from the sidebar\n• Click **"New PO"** to create a new purchase order\n• Select the customer and add line items (products/services)\n• Set payment terms, delivery details, and dates\n• Save or submit for approval\n• Once approved, you can create invoices from the PO\n\nI can take you to PO Entry to create a new PO.`,
+        type: 'guidance',
+        recommendations: [
+          { priority: 'high', action: 'Create PO', description: 'Go to PO Entry to create a new purchase order.', path: '/po-entry/new' },
+        ],
+      }
+    }
+    if (lowerQuery.includes('create an invoice') || lowerQuery.includes('create invoice')) {
+      return {
+        response: `**How to create an invoice:**\n\n• Go to **Invoices** from the sidebar\n• Click **"New Invoice"** or use the quick action on the Dashboard\n• Select the customer and add line items (or link to a PO)\n• Set due date, payment terms, and tax if needed\n• Save as draft or submit\n• Track status (draft, open, paid, overdue) on the Invoices page\n\nI can take you to create a new invoice.`,
+        type: 'guidance',
+        recommendations: [
+          { priority: 'high', action: 'Create Invoice', description: 'Go to Invoices to create a new invoice.', path: '/invoices/new' },
+        ],
+      }
+    }
+    if (lowerQuery.includes('add customer') || lowerQuery.includes('add a customer')) {
+      return {
+        response: `**How to add a customer:**\n\n• Go to **Master Data** from the sidebar\n• Click **"New"** and choose **Customer Profile**\n• Enter customer name, contact details, and address\n• Set payment terms and other defaults if needed\n• Save and review in Master Data\n\nI can take you to Master Data to add a customer.`,
+        type: 'guidance',
+        recommendations: [
+          { priority: 'high', action: 'Add Customer', description: 'Go to Master Data to add a new customer.', path: '/master-data/new/customer-profile' },
+        ],
+      }
+    }
     const pageContext = generatePageContext(context.pathname, context.pageData)
     return {
       response: pageContext.guidance,
@@ -416,7 +671,7 @@ export const generateResponse = (query, context) => {
   // Default response
   const pageContext = generatePageContext(context.pathname, context.pageData)
   return {
-    response: `I'm here to help! You can ask me things like:\n\n• "Give me a summary" - Get a complete overview of your business\n• "What's overdue?" - Check overdue invoices\n• "How do I create an invoice?" - Get step-by-step guidance\n• "What is the dashboard?" - Learn about any page or feature\n\nCurrently, you're on the **${pageContext.pageName}** page. ${pageContext.description}. Would you like to know more about this page or your business status?`,
+    response: `I'm here to help! You can ask me:\n\n• **"Give me a summary"** – Overview of your business and receivables\n• **"What's overdue?"** – Check overdue invoices\n• **"Total outstanding?"** – See total receivables\n• **"How do I create an invoice?"** – Step-by-step guide\n• **"How do I record a payment?"** – Record a payment\n• **"How do I create a PO?"** – Create a purchase order\n• **"Open Collection Plan"** / **"Open Master Data"** / **"Open Reports"** – Go to that section\n• **"What can I do here?"** – Actions on this page\n• **"Show my alerts"** – View alerts\n\nYou're on **${pageContext.pageName}**. ${pageContext.description}. What would you like to do?`,
     type: 'help',
   }
 }

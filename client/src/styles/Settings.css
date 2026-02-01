@@ -176,7 +176,7 @@
 .settings-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.12);
 }
 
 .settings-input.is-error {
@@ -312,8 +312,8 @@
 }
 
 .settings-toggle input:checked + .settings-toggle-ui {
-  background: rgba(212, 175, 55, 0.18);
-  border-color: rgba(212, 175, 55, 0.35);
+  background: rgba(15, 76, 129, 0.18);
+  border-color: rgba(15, 76, 129, 0.35);
 }
 
 .settings-toggle input:checked + .settings-toggle-ui::after {
@@ -371,8 +371,8 @@
 }
 
 .settings-switch input:checked + .settings-switch-ui {
-  background: rgba(212, 175, 55, 0.18);
-  border-color: rgba(212, 175, 55, 0.35);
+  background: rgba(15, 76, 129, 0.18);
+  border-color: rgba(15, 76, 129, 0.35);
 }
 
 .settings-switch input:checked + .settings-switch-ui::after {
@@ -464,8 +464,8 @@
 .settings-role-chip {
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(212, 175, 55, 0.12);
-  border: 1px solid rgba(212, 175, 55, 0.22);
+  background: rgba(15, 76, 129, 0.12);
+  border: 1px solid rgba(15, 76, 129, 0.22);
   color: #7c5e0b;
   font-size: 12px;
   font-weight: 800;
@@ -521,13 +521,13 @@
 .settings-btn-primary {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: #111827;
-  border-color: rgba(212, 175, 55, 0.35);
-  box-shadow: 0 8px 18px rgba(212, 175, 55, 0.18);
+  border-color: rgba(15, 76, 129, 0.35);
+  box-shadow: 0 8px 18px rgba(15, 76, 129, 0.18);
 }
 
 .settings-btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(212, 175, 55, 0.22);
+  box-shadow: 0 12px 24px rgba(15, 76, 129, 0.22);
 }
 
 .settings-btn-secondary {

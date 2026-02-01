@@ -107,8 +107,8 @@ const query = async (sql, params = []) => {
   
   return executeWithRetry(async () => {
     try {
-      const [rows] = await pool.execute(sql, sanitizedParams);
-  return rows;
+      const [rows] = await pool.query(sql, sanitizedParams);
+      return rows;
     } catch (error) {
       // Enhance error message for pool exhaustion
       if (isPoolExhaustionError(error)) {

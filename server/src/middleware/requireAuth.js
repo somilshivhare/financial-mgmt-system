@@ -1,8 +1,9 @@
 const jwt = require('jsonwebtoken');
 const { env } = require('../config/env');
 const { apiError } = require('../utils/apiResponse');
+const { query } = require('../db/query');
 
-const requireAuth = (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     console.error('[Auth] Missing or invalid authorization header');
@@ -11,11 +12,23 @@ const requireAuth = (req, res, next) => {
   const token = authHeader.split(' ')[1];
   try {
     const payload = jwt.verify(token, env.JWT_SECRET);
+    const userId = payload.id;
+    if (!userId) {
+      return res.status(401).json(apiError('User not found. Please log out and log in again.', 'ERR_USER_NOT_FOUND'));
+    }
+    const rows = await query('SELECT id FROM users WHERE id = ? AND status = ? LIMIT 1', [userId, 'active']);
+    if (!rows || rows.length === 0) {
+      console.error('[Auth] User not found or inactive:', userId);
+      return res.status(401).json(apiError('User not found. Please log out and log in again.', 'ERR_USER_NOT_FOUND'));
+    }
     req.user = payload;
     return next();
   } catch (err) {
-    console.error('[Auth] Token verification failed:', err.message);
-    return res.status(401).json(apiError('Unauthorized: Invalid or expired token', 'INVALID_TOKEN'));
+    if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
+      console.error('[Auth] Token verification failed:', err.message);
+      return res.status(401).json(apiError('Unauthorized: Invalid or expired token', 'INVALID_TOKEN'));
+    }
+    return next(err);
   }
 };
 

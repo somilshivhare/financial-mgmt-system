@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Plus, X, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
+import DatePicker from '../components/DatePicker'
 import { useMasterData } from '../contexts/MasterDataContext'
+import { useToast } from '../contexts/ToastContext'
 import * as poEntryService from '../services/poEntryService'
 import { getPODraft, upsertPODraft, getPOById } from '../api/po'
 import { useFormPersistence } from '../hooks/useFormPersistence'
@@ -32,6 +34,7 @@ function POEntry() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { getCustomers, getPaymentTerms, getEmployees, getCompanies } = useMasterData()
+  const { showToast } = useToast()
   const [customers, setCustomers] = useState([])
   const [paymentTerms, setPaymentTerms] = useState([])
   const [employees, setEmployees] = useState([])
@@ -232,108 +235,150 @@ function POEntry() {
     saving: persistenceSaving,
     save: persistenceSave,
     load: persistenceLoad,
+    clearLocalDraft,
   } = useFormPersistence({
     saveFn: async (data, entityId) => {
-      // Combine formData and boqItems for saving
+      // Draft save only: no status so server keeps/ sets draft. Submit uses savePOEntry (status: approved).
       const saveData = {
         ...data.formData,
         boqItems: data.boqItems || [],
+        // Do not send status on draft save so existing row stays draft; Submit sends status: 'approved'
       }
       const result = await upsertPODraft(saveData, entityId || id)
-      return result
-    },
-    loadFn: async () => {
-      // If editing (ID present), fetch actual saved PO from backend
-      if (id) {
-        try {
-          const response = await getPOById(id)
-          const poData = response?.data || response
-          if (poData) {
-            // Transform PO data to form format
-            // Handle different response structures
-            const poEntry = poData.data || poData
-            const { lines: loadedBoqItems, purchase_order_lines, ...formData } = poEntry
-            
-            // Normalize BOQ items - could be 'lines' or 'purchase_order_lines'
-            const boqItems = Array.isArray(loadedBoqItems) 
-              ? loadedBoqItems.map((line, idx) => ({
-                  id: idx + 1,
-                  materialDescription: line.description || line.materialDescription || '',
-                  quantity: line.quantity || '',
-                  uom: line.uom || '',
-                  unitPrice: line.unit_price || line.unitPrice || '',
-                  unitCost: line.unit_cost || line.unitCost || '',
-                  freight: line.freight || '',
-                  gst: line.gst || '',
-                  totalCost: line.total_cost || line.totalCost || '',
-                }))
-              : Array.isArray(purchase_order_lines)
-              ? purchase_order_lines.map((line, idx) => ({
-                  id: idx + 1,
-                  materialDescription: line.description || '',
-                  quantity: line.quantity || '',
-                  uom: '',
-                  unitPrice: line.unit_price || '',
-                  unitCost: '',
-                  freight: '',
-                  gst: '',
-                  totalCost: '',
-                }))
-              : []
-            
-            return {
-              formData: {
-                ...formData,
-                poNumber: formData.po_number || formData.poNumber || '',
-                poDate: formData.issue_date || formData.poDate || formData.created_at?.split('T')[0] || '',
-                customerId: formData.customer_id || formData.customerId || '',
-                customerName: formData.customer_name || formData.customerName || '',
-              },
-              boqItems: boqItems.length > 0 ? boqItems : [{
-                id: 1,
-                materialDescription: '',
-                quantity: '',
-                uom: '',
-                unitPrice: '',
-                unitCost: '',
-                freight: '',
-                gst: '',
-                totalCost: '',
-              }],
-            }
-          }
-        } catch (error) {
-          console.error('[POEntry] Failed to load PO entry:', error)
-          // Fall through to draft loading
+      // Return shape so hook merges id/poNumber into values; Submit and next saves use same PO (no duplicate)
+      if (result && (result.id || result.po_number)) {
+        return {
+          id: result.id,
+          values: {
+            formData: {
+              ...data.formData,
+              id: result.id ?? data.formData?.id,
+              poNumber: result.po_number ?? result.poNumber ?? data.formData?.poNumber,
+            },
+          },
         }
       }
-      
-      // Otherwise, load draft (for new entries or if PO fetch failed)
-      const draft = await getPODraft(id || null)
-      if (draft) {
-        // Separate formData and boqItems
-        const { boqItems: loadedBoqItems, ...formData } = draft
-        return {
-          formData,
-          boqItems: Array.isArray(loadedBoqItems) && loadedBoqItems.length > 0 
-            ? loadedBoqItems 
-            : [{
-                id: 1,
-                materialDescription: '',
-                quantity: '',
-                uom: '',
-                unitPrice: '',
-                unitCost: '',
-                freight: '',
-                gst: '',
-                totalCost: '',
-              }],
+      return result
+    },
+    loadFn: async (entityIdParam) => {
+      const poId = entityIdParam ?? id
+      const emptyBoq = [{
+        id: 1,
+        materialDescription: '',
+        quantity: '',
+        uom: '',
+        unitPrice: '',
+        unitCost: '',
+        freight: '',
+        gst: '',
+        totalCost: '',
+      }]
+      const normalizeForm = (fd) =>
+        Object.fromEntries(
+          Object.entries(fd || {}).map(([k, v]) => [k, v === undefined || v === null ? '' : v])
+        )
+      const normalizeBoq = (items) =>
+        Array.isArray(items) && items.length > 0
+          ? items.map((item, idx) => ({
+              id: item.id ?? idx + 1,
+              materialDescription: item.materialDescription ?? '',
+              quantity: item.quantity ?? '',
+              uom: item.uom ?? '',
+              unitPrice: item.unitPrice ?? '',
+              unitCost: item.unitCost ?? '',
+              freight: item.freight ?? '',
+              gst: item.gst ?? '',
+              totalCost: item.totalCost ?? '',
+            }))
+          : emptyBoq
+
+      // Edit: single GET /pos/:id with timeout so we never hang
+      const FETCH_TIMEOUT_MS = 8000
+      const withTimeout = (p, ms) =>
+        Promise.race([
+          p,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Load timed out. Check your connection.')), ms)
+          ),
+        ])
+
+      if (poId) {
+        try {
+          const response = await withTimeout(getPOById(poId), FETCH_TIMEOUT_MS)
+          const poEntry = response?.data ?? response
+          const row = poEntry?.data ?? poEntry
+          if (row?.formData != null && Array.isArray(row.boqItems)) {
+            return {
+              formData: {
+                ...normalizeForm(row.formData),
+                id: row.id,
+                poNumber: row.formData.poNumber ?? row.po_number ?? '',
+                poDate: row.formData.poDate ?? row.issue_date ?? '',
+                customerId: row.formData.customerId ?? row.customer_id ?? '',
+                customerName: row.formData.customerName ?? '',
+                status: row.status ?? row.formData?.status ?? '',
+              },
+              boqItems: normalizeBoq(row.boqItems),
+            }
+          }
+          if (row?.draft_data) {
+            try {
+              const parsed = typeof row.draft_data === 'string' ? JSON.parse(row.draft_data) : row.draft_data
+              if (parsed?.formData) {
+                return {
+                  formData: {
+                    ...normalizeForm(parsed.formData),
+                    id: row.id,
+                    status: row.status ?? parsed.formData?.status ?? '',
+                  },
+                  boqItems: normalizeBoq(parsed.boqItems),
+                }
+              }
+            } catch (_) {}
+          }
+          // Legacy row: build minimal form from DB fields only
+          if (row) {
+            return {
+              formData: normalizeForm({
+                id: row.id,
+                poNumber: row.po_number ?? row.poNumber ?? '',
+                poDate: row.issue_date ?? row.poDate ?? '',
+                customerId: row.customer_id ?? row.customerId ?? '',
+                customerName: row.customer_name ?? row.customerName ?? '',
+                status: row.status ?? '',
+              }),
+              boqItems: normalizeBoq(row.boqItems),
+            }
+          }
+        } catch (err) {
+          console.error('[POEntry] Failed to load PO:', err)
         }
+        return null
+      }
+
+      // New entry (no poId): load latest draft if any; include id/status so Submit and autosave use same record
+      try {
+        const draft = await getPODraft(poId || null)
+        if (draft) {
+          const { boqItems: loadedBoqItems, ...rest } = draft
+          return {
+            formData: {
+              ...normalizeForm(rest),
+              id: draft.id,
+              poNumber: rest.poNumber ?? rest.po_number ?? '',
+              status: rest.status ?? '',
+            },
+            boqItems: normalizeBoq(loadedBoqItems),
+          }
+        }
+      } catch (err) {
+        console.error('[POEntry] Failed to load draft:', err)
       }
       return null
     },
     entityType: 'po',
     entityId: id || null,
+    storagePathKey: 'po-entry',
     defaultValues: {
       formData: defaultFormData,
       boqItems: [{
@@ -348,7 +393,8 @@ function POEntry() {
         totalCost: '',
       }],
     },
-    enableAutoSave: true,
+    // Autosave only for drafts; never overwrite a submitted PO (status approved)
+    enableAutoSave: (values) => (values?.formData?.status || '').toString().toLowerCase() !== 'approved',
     autoSaveDelay: 2000,
   })
 
@@ -413,13 +459,14 @@ function POEntry() {
     setCompanies(Array.isArray(companiesData) ? companiesData : [])
   }, [getCustomers, getPaymentTerms, getEmployees, getCompanies])
   
-  // Auto-generate PO Number when form is initialized (only once, and only if not loaded from persistence)
+  // Auto-generate PO Number only for new entries (no id), and only when not loaded from persistence
   useEffect(() => {
+    if (id) return
     if (!persistenceLoading && !formData.poNumber) {
       const generatedPONumber = poEntryService.generatePONumber(formData.businessUnit || 'MAIN')
       setFormData((prev) => ({ ...prev, poNumber: generatedPONumber }))
     }
-  }, [persistenceLoading, formData.poNumber, formData.businessUnit])
+  }, [id, persistenceLoading, formData.poNumber, formData.businessUnit])
 
   // Calculate BOQ totals
   const boqTotals = useMemo(() => {
@@ -610,11 +657,15 @@ function POEntry() {
 
   const handleSaveDraft = async () => {
     try {
-      await persistenceSave(true)
-      alert('Draft saved successfully!')
+      const result = await persistenceSave(true)
+      // After first save (new PO), navigate to /po-entry/:id so Submit and autosave use same record
+      if (result?.id && !id) {
+        navigate(`/po-entry/${result.id}`, { replace: true })
+      }
+      showToast('Draft saved successfully!', 'success')
     } catch (error) {
       console.error('Failed to save draft:', error)
-      alert('Failed to save draft. Please try again.')
+      showToast('Failed to save draft. Please try again.', 'error')
     }
   }
 
@@ -630,7 +681,7 @@ function POEntry() {
     if (!poNumber) missing.push('PO Number')
     if (!poDate) missing.push('Purchase Order Date')
     if (missing.length > 0) {
-      alert(`Please fill in the required fields: ${missing.join(', ')}`)
+      showToast(`Please fill in the required fields: ${missing.join(', ')}`, 'error')
       return
     }
     
@@ -640,13 +691,14 @@ function POEntry() {
     }
     
     // Build full payload for save (all form fields + BOQ) so backend stores in draft_data
+    // Include id when editing so server updates that row and sets status to approved
     const poEntry = {
       ...formData,
+      id: id || formData.id,
       customerId,
       poNumber,
       poDate,
-      // "Submit" should not remain draft. Backend enum uses: draft/approved/closed/cancelled.
-      // We treat submit as approved (= submitted/confirmed).
+      // "Submit" = approved (submitted). Server draft endpoint persists this to DB.
       status: 'approved',
       boqItems,
       boqTotals,
@@ -685,11 +737,12 @@ function POEntry() {
         }
       }
       
-      alert('PO Entry submitted successfully!')
+      showToast('PO Entry submitted successfully!', 'success')
+      if (typeof clearLocalDraft === 'function') clearLocalDraft()
       navigate('/po-entry')
     } catch (error) {
       console.error('Failed to save PO Entry:', error)
-      alert('Failed to save PO Entry. Please try again.')
+      showToast('Failed to save PO Entry. Please try again.', 'error')
     }
   }
 
@@ -723,6 +776,27 @@ function POEntry() {
   const collectionIncharges = getEmployeesByRole(['collection incharge'])
   const salesAgents = getEmployeesByRole(['sales agent'])
   const collectionAgents = getEmployeesByRole(['collection agent'])
+
+  // Edit mode: show loading until data is loaded so form does not flash empty
+  if (id && persistenceLoading) {
+    return (
+      <div className="po-entry-page">
+        <div className="po-entry-header">
+          <button type="button" onClick={() => navigate('/po-entry')} className="po-entry-back-button" aria-label="Back">
+            <ArrowLeft className="po-entry-back-icon" />
+            <span>Back</span>
+          </button>
+          <div className="po-entry-header-content">
+            <h1 className="po-entry-title">PO Entry</h1>
+            <p className="po-entry-subtitle">Loading…</p>
+          </div>
+        </div>
+        <div className="po-entry-loading" style={{ padding: '2rem', textAlign: 'center' }}>
+          Loading PO data…
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="po-entry-page">
@@ -1044,13 +1118,11 @@ function POEntry() {
               <label htmlFor="contractAgreementDate" className="po-entry-label">
                 Contract Agreement Date
               </label>
-              <input
-                type="date"
-                id="contractAgreementDate"
-                name="contractAgreementDate"
-                value={formData.contractAgreementDate}
+              <DatePicker
+                selected={formData.contractAgreementDate}
                 onChange={handleChange}
-                className="po-entry-input"
+                name="contractAgreementDate"
+                id="contractAgreementDate"
               />
             </div>
             
@@ -1074,13 +1146,11 @@ function POEntry() {
               <label htmlFor="poDate" className="po-entry-label">
                 Purchase Order Date <span className="po-entry-required">*</span>
               </label>
-              <input
-                type="date"
-                id="poDate"
-                name="poDate"
-                value={formData.poDate}
+              <DatePicker
+                selected={formData.poDate}
                 onChange={handleChange}
-                className="po-entry-input"
+                name="poDate"
+                id="poDate"
                 required
               />
             </div>
@@ -1109,13 +1179,11 @@ function POEntry() {
               <label htmlFor="loiDate" className="po-entry-label">
                 Letter of Intent Date
               </label>
-              <input
-                type="date"
-                id="loiDate"
-                name="loiDate"
-                value={formData.loiDate}
+              <DatePicker
+                selected={formData.loiDate}
                 onChange={handleChange}
-                className="po-entry-input"
+                name="loiDate"
+                id="loiDate"
               />
             </div>
             
@@ -1137,13 +1205,11 @@ function POEntry() {
               <label htmlFor="loaDate" className="po-entry-label">
                 Letter of Award Date
               </label>
-              <input
-                type="date"
-                id="loaDate"
-                name="loaDate"
-                value={formData.loaDate}
+              <DatePicker
+                selected={formData.loaDate}
                 onChange={handleChange}
-                className="po-entry-input"
+                name="loaDate"
+                id="loaDate"
               />
             </div>
             
@@ -1165,13 +1231,11 @@ function POEntry() {
               <label htmlFor="tenderDate" className="po-entry-label">
                 Tender Date
               </label>
-              <input
-                type="date"
-                id="tenderDate"
-                name="tenderDate"
-                value={formData.tenderDate}
+              <DatePicker
+                selected={formData.tenderDate}
                 onChange={handleChange}
-                className="po-entry-input"
+                name="tenderDate"
+                id="tenderDate"
               />
             </div>
           </div>
@@ -1351,13 +1415,11 @@ function POEntry() {
               <label htmlFor="insurancePolicyDate" className="po-entry-label">
                 Policy Date
               </label>
-              <input
-                type="date"
-                id="insurancePolicyDate"
-                name="insurancePolicyDate"
-                value={formData.insurancePolicyDate}
+              <DatePicker
+                selected={formData.insurancePolicyDate}
                 onChange={handleChange}
-                className="po-entry-input"
+                name="insurancePolicyDate"
+                id="insurancePolicyDate"
               />
             </div>
             
@@ -1379,13 +1441,11 @@ function POEntry() {
               <label htmlFor="insurancePolicyValidUpto" className="po-entry-label">
                 Policy Valid upto
               </label>
-              <input
-                type="date"
-                id="insurancePolicyValidUpto"
-                name="insurancePolicyValidUpto"
-                value={formData.insurancePolicyValidUpto}
+              <DatePicker
+                selected={formData.insurancePolicyValidUpto}
                 onChange={handleChange}
-                className="po-entry-input"
+                name="insurancePolicyValidUpto"
+                id="insurancePolicyValidUpto"
               />
             </div>
             
@@ -1476,13 +1536,11 @@ function POEntry() {
               <label htmlFor="bankGuaranteeDate" className="po-entry-label">
                 Bank Guarantee Date
               </label>
-              <input
-                type="date"
-                id="bankGuaranteeDate"
-                name="bankGuaranteeDate"
-                value={formData.bankGuaranteeDate}
+              <DatePicker
+                selected={formData.bankGuaranteeDate}
                 onChange={handleChange}
-                className="po-entry-input"
+                name="bankGuaranteeDate"
+                id="bankGuaranteeDate"
               />
             </div>
             
@@ -1519,13 +1577,11 @@ function POEntry() {
               <label htmlFor="bankGuaranteeValidity" className="po-entry-label">
                 Bank Guarantee Validity
               </label>
-              <input
-                type="date"
-                id="bankGuaranteeValidity"
-                name="bankGuaranteeValidity"
-                value={formData.bankGuaranteeValidity}
+              <DatePicker
+                selected={formData.bankGuaranteeValidity}
                 onChange={handleChange}
-                className="po-entry-input"
+                name="bankGuaranteeValidity"
+                id="bankGuaranteeValidity"
               />
             </div>
             
@@ -1797,13 +1853,11 @@ function POEntry() {
               <label htmlFor="lastDateOfDelivery" className="po-entry-label">
                 Last Date of Delivery
               </label>
-              <input
-                type="date"
-                id="lastDateOfDelivery"
-                name="lastDateOfDelivery"
-                value={formData.lastDateOfDelivery}
+              <DatePicker
+                selected={formData.lastDateOfDelivery}
                 onChange={handleChange}
-                className="po-entry-input"
+                name="lastDateOfDelivery"
+                id="lastDateOfDelivery"
               />
             </div>
             

@@ -36,6 +36,7 @@ function MasterDataView() {
   const { aggregatedDataList, aggregatedLoading, loadAggregatedMasterData } = useMasterData()
   const [aggregatedData, setAggregatedData] = useState(null)
   const [expandedSections, setExpandedSections] = useState({})
+  const [editLoading, setEditLoading] = useState(false)
 
   useEffect(() => {
     loadAggregatedMasterData()
@@ -72,6 +73,25 @@ function MasterDataView() {
       ...prev,
       [step]: !prev[step],
     }))
+  }
+
+  const startDraftForStep = async (stepKey) => {
+    if (!aggregatedData) return
+    if (aggregatedData.status === 'draft') {
+      navigate(`/master-data/new?draftId=${aggregatedData.companyId}&step=${stepKey}`)
+      return
+    }
+    try {
+      setEditLoading(true)
+      const draftCompany = await masterDataService.createDraftFromPublished(aggregatedData.companyId)
+      if (draftCompany?.id) {
+        navigate(`/master-data/new?draftId=${draftCompany.id}&step=${stepKey}`)
+      }
+    } catch (error) {
+      console.error('[MasterDataView] Failed to start draft step:', error)
+    } finally {
+      setEditLoading(false)
+    }
   }
 
   const getDisplayValue = (value, logoPreviews, key) => {
@@ -113,6 +133,7 @@ function MasterDataView() {
     const isExpanded = expandedSections[step.key] || false
     const values = stepData?.values || {}
     const logoPreviews = stepData?.logoPreviews || {}
+    const recordId = stepData?.id
 
     return (
       <div key={step.key} className="md-view-section">
@@ -136,7 +157,7 @@ function MasterDataView() {
             className="md-view-section-edit"
             onClick={(e) => {
               e.stopPropagation()
-              navigate(`/master-data/new/${step.key}`)
+              startDraftForStep(step.key)
             }}
           >
             <Edit className="h-4 w-4" />
@@ -167,7 +188,7 @@ function MasterDataView() {
                 <button
                   type="button"
                   className="md-btn md-btn-primary"
-                  onClick={() => navigate(`/master-data/new/${step.key}`)}
+                  onClick={() => startDraftForStep(step.key)}
                 >
                   Complete {FORM_TITLES[step.key]}
                 </button>
@@ -177,6 +198,25 @@ function MasterDataView() {
         )}
       </div>
     )
+  }
+
+  const handleEditMasterData = async () => {
+    if (!aggregatedData) return
+    if (aggregatedData.status === 'draft') {
+      navigate(`/master-data/new?draftId=${aggregatedData.companyId}`)
+      return
+    }
+    try {
+      setEditLoading(true)
+      const draftCompany = await masterDataService.createDraftFromPublished(aggregatedData.companyId)
+      if (draftCompany?.id) {
+        navigate(`/master-data/new?draftId=${draftCompany.id}`)
+      }
+    } catch (error) {
+      console.error('[MasterDataView] Failed to start draft edit:', error)
+    } finally {
+      setEditLoading(false)
+    }
   }
 
   if (aggregatedLoading) {
@@ -234,11 +274,12 @@ function MasterDataView() {
         <div className="md-header-actions">
           <button
             type="button"
-            onClick={() => navigate('/master-data/new')}
+            onClick={handleEditMasterData}
             className="md-btn md-btn-primary"
+            disabled={editLoading}
           >
             <Edit className="h-4 w-4" />
-            <span>Edit Master Data</span>
+            <span>{aggregatedData?.status === 'draft' ? 'Resume Draft' : 'Edit Master Data'}</span>
           </button>
         </div>
       </div>

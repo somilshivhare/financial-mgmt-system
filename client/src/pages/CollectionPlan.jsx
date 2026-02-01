@@ -1,17 +1,25 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useMasterData } from '../contexts/MasterDataContext'
+import { useToast } from '../contexts/ToastContext'
+import { usePersistedFormState } from '../hooks/usePersistedFormState'
 import * as collectionPlanService from '../services/collectionPlanService'
+import DatePicker from '../components/DatePicker'
 import '../styles/CollectionPlan.css'
 
 function CollectionPlan() {
   const { getEmployees } = useMasterData()
+  const { showToast } = useToast()
   const [employees, setEmployees] = useState([])
   
-  const [filters, setFilters] = useState({
-    personId: '',
-    businessUnit: '',
-    month: null,
+  const { values: filterValues, setValues: setFilterValues } = usePersistedFormState({
+    pathKey: 'collection-plan',
+    defaultValues: { personId: '', businessUnit: '', monthIso: null },
   })
+  const filters = useMemo(() => ({
+    personId: filterValues.personId ?? '',
+    businessUnit: filterValues.businessUnit ?? '',
+    month: filterValues.monthIso ? new Date(filterValues.monthIso) : null,
+  }), [filterValues.personId, filterValues.businessUnit, filterValues.monthIso])
   
   const [gridData, setGridData] = useState([])
   const [analytics, setAnalytics] = useState(null)
@@ -89,9 +97,9 @@ function CollectionPlan() {
   }
   
   const handleFilterChange = (name, value) => {
-    setFilters((prev) => ({
+    setFilterValues((prev) => ({
       ...prev,
-      [name]: value,
+      ...(name === 'month' ? { monthIso: value ? (value.toISOString?.() ?? null) : null } : { [name]: value }),
     }))
   }
   
@@ -125,7 +133,7 @@ function CollectionPlan() {
       }, 500)
     } catch (error) {
       console.error('Failed to save collection plan:', error)
-      alert('Failed to save collection plan. Please try again.')
+      showToast('Failed to save collection plan. Please try again.', 'error')
     }
   }
   
@@ -229,12 +237,12 @@ function CollectionPlan() {
           <label htmlFor="monthFilter" className="collection-plan-filter-label">
             Planning Period (Month)
           </label>
-          <input
-            type="month"
+          <DatePicker
             id="monthFilter"
-            value={filters.month ? `${filters.month.getFullYear()}-${String(filters.month.getMonth() + 1).padStart(2, '0')}` : ''}
-            onChange={handleMonthChange}
-            className="collection-plan-filter-input"
+            selected={filters.month ? filters.month.toISOString().split('T')[0] : ''}
+            onChange={(e) => handleMonthChange(e)}
+            showMonthYearPicker
+            placeholderText="Select month"
           />
         </div>
       </div>

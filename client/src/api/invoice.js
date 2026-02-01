@@ -1,9 +1,18 @@
 import client from './client'
 
+export const getNextInvoiceNumber = async (params = {}) => {
+  const query = new URLSearchParams(params).toString()
+  const response = await client.get(`/invoices/next-number?${query}`)
+  const body = response?.data ?? response
+  const nextNumber = body?.data
+  return typeof nextNumber === 'string' ? nextNumber : null
+}
+
 export const getAllInvoices = async (params = {}) => {
   const query = new URLSearchParams(params).toString()
   const response = await client.get(`/invoices?${query}`)
-  return response.data
+  // Return the raw response body so service can unwrap consistently
+  return response.data || response
 }
 
 export const getInvoiceById = async (id) => {

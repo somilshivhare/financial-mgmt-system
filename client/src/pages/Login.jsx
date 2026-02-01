@@ -153,7 +153,7 @@ function Login({ onLogin }) {
           <div className="auth-brand-panel-logo-container">
             <img 
               src="/logo.png" 
-              alt="NB Aurum" 
+              alt="NB Aurum Solutions" 
               className="auth-brand-panel-logo"
             />
           </div>
@@ -162,7 +162,7 @@ function Login({ onLogin }) {
               Effortlessly manage invoices, collections, and operations.
             </h2>
             <p className="auth-brand-subcopy">
-              NB Aurum centralizes your finance workflows into a single workspace, so teams can invoice, follow up, and reconcile with confidence.
+              NB Aurum Solutions centralizes your finance workflows into a single workspace, so teams can invoice, follow up, and reconcile with confidence.
             </p>
           </div>
 
@@ -171,7 +171,7 @@ function Login({ onLogin }) {
               <div className="auth-brand-illustration-sidebar">
                 <div className="auth-brand-illustration-logo-row">
                   <span className="auth-brand-illustration-logo-dot" />
-                  <span className="auth-brand-illustration-logo-text">NB Aurum</span>
+                  <span className="auth-brand-illustration-logo-text">NB Aurum Solutions</span>
                 </div>
                 <div className="auth-brand-illustration-nav-item auth-brand-illustration-nav-item--active">
                   <LayoutDashboard className="auth-brand-illustration-nav-icon" />
@@ -247,11 +247,11 @@ function Login({ onLogin }) {
             <div className="auth-mobile-brand-header-logo-container">
               <img 
                 src="/logo.png" 
-                alt="NB Aurum" 
+                alt="NB Aurum Solutions" 
                 className="auth-mobile-brand-header-logo"
               />
             </div>
-            <h1 className="auth-mobile-brand-header-name">NB Aurum</h1>
+            <h1 className="auth-mobile-brand-header-name">NB Aurum Solutions</h1>
             <p className="auth-mobile-brand-header-tagline">Your Dues. Our Duty.</p>
           </div>
 
@@ -260,7 +260,7 @@ function Login({ onLogin }) {
           <div className="auth-card-header">
             <div>
               <h2 className="auth-card-title">Welcome Back</h2>
-              <p className="auth-card-subtitle">Sign in to continue to your NB Aurum workspace</p>
+              <p className="auth-card-subtitle">Sign in to continue to your NB Aurum Solutions workspace</p>
             </div>
             <div className="auth-security-indicator">
               <Lock className="auth-security-icon" />
@@ -378,7 +378,7 @@ function Login({ onLogin }) {
           {/* Footer */}
           <div className="auth-page-footer">
             <p className="auth-page-footer-text">
-              © {new Date().getFullYear()} NB Aurum. All rights reserved.
+              © {new Date().getFullYear()} NB Aurum Solutions Pvt. Ltd. All rights reserved.
             </p>
           </div>
         </div>

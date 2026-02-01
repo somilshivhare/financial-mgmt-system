@@ -315,7 +315,7 @@
 .reports-filter-select:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
 .reports-clear-filters {
@@ -368,7 +368,7 @@
 
 .reports-view-button.active {
   background: var(--color-primary);
-  color: #1e293b;
+  color: #fff;
 }
 
 /* ============================================

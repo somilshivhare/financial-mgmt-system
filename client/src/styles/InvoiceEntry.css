@@ -295,7 +295,7 @@
 .invoice-entry-textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
 .invoice-entry-input::placeholder,
@@ -304,41 +304,34 @@
 }
 
 .invoice-entry-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right var(--space-3) center;
-  padding-right: calc(var(--space-3) + 20px);
+  padding-right: calc(var(--space-3) + 24px) !important;
   cursor: pointer;
-}
-
-.invoice-entry-select:focus {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23d4af37' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  min-height: 44px;
 }
 
 /* Read-only inputs */
 .invoice-entry-input-readonly {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  cursor: not-allowed;
-  border-color: var(--color-border-light);
+  background: #f8fafc !important; /* Very light blue-grey */
+  color: #1e293b !important; /* Slate 800 - very dark for visibility */
+  cursor: default !important;
+  border-color: #cbd5e1 !important;
+  opacity: 1 !important; /* Ensure no transparency */
 }
 
 .invoice-entry-select.invoice-entry-input-readonly,
 .invoice-entry-select:disabled {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  cursor: not-allowed;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background: #f8fafc !important;
+  color: #1e293b !important;
+  cursor: default !important;
+  opacity: 1 !important;
 }
 
-/* Calculated fields */
 .invoice-entry-input-calculated {
-  background: var(--color-primary-light);
-  color: var(--color-text-primary);
+  background: #f0fdf4 !important; /* Light green for calculated */
+  color: #166534 !important; /* Dark green text */
   font-weight: 600;
-  border-color: var(--color-primary);
-  border-width: 2px;
+  border-color: #bbf7d0 !important;
+  border-width: 1px;
 }
 
 .invoice-entry-input-total {
@@ -454,7 +447,7 @@
 
 .invoice-entry-button-primary {
   background: var(--color-primary);
-  color: #1e293b;
+  color: #fff;
   border-color: var(--color-primary);
   box-shadow: var(--shadow-sm);
   font-weight: 700;
@@ -463,8 +456,8 @@
 .invoice-entry-button-primary:hover {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
-  color: #1e293b;
+  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.25);
+  color: #fff;
 }
 
 .invoice-entry-button:focus-visible {
@@ -557,7 +550,7 @@
 .invoice-entry-index-add-button:hover {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
+  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.25);
   color: #1e293b;
 }
 
@@ -638,7 +631,7 @@
 .invoice-entry-index-search-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
 .invoice-entry-index-clear-search {
@@ -689,7 +682,7 @@
 .invoice-entry-index-filter-button.active {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #1e293b;
+  color: #fff;
 }
 
 .invoice-entry-index-filter-icon {
@@ -759,7 +752,7 @@
 .invoice-entry-index-filter-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
 .invoice-entry-index-clear-filters {
@@ -832,6 +825,7 @@
   padding: var(--space-4);
   border-bottom: 1px solid var(--color-border-light);
   color: var(--color-text-primary);
+  vertical-align: middle;
 }
 
 .invoice-entry-index-table tbody tr:hover {
@@ -843,8 +837,14 @@
 }
 
 .invoice-entry-index-invoice-number {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-primary);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.invoice-entry-index-invoice-number:hover {
+  text-decoration: underline;
 }
 
 .invoice-entry-index-po-tag {
@@ -866,22 +866,26 @@
   text-transform: capitalize;
 }
 
-.invoice-entry-index-status-badge-draft {
+.invoice-entry-index-status-badge-draft,
+.invoice-entry-index-status-badge-open {
   background: #fef3c7;
   color: #92400e;
 }
 
-.invoice-entry-index-status-badge-posted {
+.invoice-entry-index-status-badge-posted,
+.invoice-entry-index-status-badge-active {
   background: #d1fae5;
   color: #065f46;
 }
 
-.invoice-entry-index-status-badge-paid {
+.invoice-entry-index-status-badge-paid,
+.invoice-entry-index-status-badge-closed {
   background: #dbeafe;
   color: #1e40af;
 }
 
-.invoice-entry-index-status-badge-cancelled {
+.invoice-entry-index-status-badge-cancelled,
+.invoice-entry-index-status-badge-rejected {
   background: #fee2e2;
   color: #991b1b;
 }

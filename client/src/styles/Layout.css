@@ -4,6 +4,8 @@
    Spacing Scale: 8px system (4px, 8px, 16px, 24px, 32px, 40px, 48px)
    ============================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 :root {
   /* Spacing Scale (8px system) */
   --space-1: 4px;
@@ -22,28 +24,32 @@
   --sidebar-width-collapsed: 80px;
   --content-max-width: 100%;
   
-  /* Colors - Nbaurum Brand Palette */
-  /* Deep Navy & Gold - Premium Identity */
+  /* Colors - NB Aurum Solutions App (aligned with marketing: trust, corporate) */
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #f8fafc;
   --color-bg-tertiary: #f1f5f9;
   --color-border: #e2e8f0;
   --color-border-light: #f1f5f9;
-  --color-text-primary: #1e293b; /* Deep Navy */
-  --color-text-secondary: #475569; /* Navy-toned gray */
-  --color-text-tertiary: #94a3b8;
-  --color-primary: #d4af37; /* Gold - Premium accent */
-  --color-primary-hover: #b8941f; /* Darker gold on hover */
-  --color-primary-light: #fef9e7; /* Light gold background */
-  --color-success: #10b981;
-  --color-danger: #ef4444;
-  --color-danger-hover: #dc2626;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-tertiary: #64748b;
+  /* Primary = deep blue (trust, stability) */
+  --color-primary: #0f4c81;
+  --color-primary-hover: #0d3d6b;
+  --color-primary-light: rgba(15, 76, 129, 0.08);
+  /* Accent = refined gold (Aurum) for highlights */
+  --color-accent: #b8860b;
+  --color-accent-hover: #9a7210;
+  --color-success: #0d9488;
+  --color-danger: #b91c1c;
+  --color-danger-hover: #991b1b;
+  --color-warning: #b45309;
   
   /* Shadows */
-  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -1px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 24px -3px rgba(15, 23, 42, 0.1), 0 4px 8px -2px rgba(15, 23, 42, 0.05);
   
   /* Border Radius */
   --radius-sm: 6px;
@@ -51,8 +57,8 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
   
-  /* Typography */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Typography - matches marketing */
+  --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-base: 14px;
@@ -73,12 +79,11 @@
 .app-layout {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: var(--navbar-height) 1fr;
+  grid-template-rows: var(--navbar-height) minmax(0, 1fr);
   height: 100vh;
   width: 100%;
   max-width: 100vw;
-  overflow-x: hidden;
-  overflow-y: hidden;
+  overflow: hidden;
   background: var(--color-bg-secondary);
   font-family: var(--font-family);
 }
@@ -184,7 +189,7 @@
   outline: none;
   border-color: var(--color-primary);
   background: var(--color-bg-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
 .navbar-search-clear {
@@ -263,7 +268,7 @@
   height: 18px;
 }
 
-/* Logo Group - Nbaurum Branding */
+/* Logo Group - NB Aurum Solutions Branding */
 .navbar-logo-group {
   display: flex;
   align-items: center;
@@ -359,91 +364,89 @@
   flex-shrink: 0;
 }
 
-/* Navbar Dropdowns */
-.navbar-dropdown-wrapper {
-  position: relative;
+/* ============================================
+   GLOBAL FORM ELEMENTS
+   ============================================ */
+
+select, 
+.po-entry-select, 
+.invoice-entry-select, 
+.master-data-select,
+.alerts-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  background-position: right var(--space-3) center;
+  padding-right: calc(var(--space-3) + 24px) !important;
+  cursor: pointer;
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
 }
 
-.navbar-button-actions,
-.navbar-button-notifications {
-  position: relative;
+select:focus,
+.po-entry-select:focus,
+.invoice-entry-select:focus,
+.master-data-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.1);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230f4c81' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-size: 16px 16px;
 }
 
-.navbar-notification-badge {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  background: var(--color-danger);
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 9px;
-  border: 2px solid var(--color-bg-primary);
-  line-height: 1;
+select:hover:not(:disabled) {
+  border-color: var(--color-text-tertiary);
 }
 
+/* Navbar Dropdowns - Modern Refinement */
 .navbar-dropdown {
   position: absolute;
   top: calc(100% + var(--space-2));
   right: 0;
   min-width: 280px;
-  max-width: 360px;
+  max-width: 380px;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
   z-index: 1000;
   overflow: hidden;
+  animation: dropdownFadeIn 0.2s cubic-bezier(0, 0, 0.2, 1);
+  transform-origin: top right;
 }
 
-.navbar-dropdown-notifications {
-  max-height: 400px;
-  display: flex;
-  flex-direction: column;
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .navbar-dropdown-header {
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-xs);
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--font-size-sm);
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-primary);
   border-bottom: 1px solid var(--color-border-light);
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-primary);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.navbar-mark-all-read {
-  background: transparent;
-  border: none;
-  color: var(--color-primary);
-  cursor: pointer;
-  padding: var(--space-1);
-  display: flex;
-  align-items: center;
-  transition: all var(--transition-fast);
-}
-
-.navbar-mark-all-read:hover {
-  color: var(--color-primary-hover);
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-sm);
-}
-
 .navbar-dropdown-items {
   display: flex;
   flex-direction: column;
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
+  padding: var(--space-2);
 }
 
 .navbar-dropdown-item {
@@ -453,11 +456,12 @@
   padding: var(--space-3) var(--space-4);
   border: none;
   background: transparent;
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-base);
   font-weight: 500;
   text-align: left;
   cursor: pointer;
+  border-radius: var(--radius-lg);
   transition: all var(--transition-fast);
   width: 100%;
 }
@@ -465,68 +469,68 @@
 .navbar-dropdown-item:hover {
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
+  transform: translateX(4px);
 }
 
 .navbar-dropdown-item-icon {
   width: 18px;
   height: 18px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary);
   flex-shrink: 0;
+  transition: color var(--transition-fast);
 }
 
 .navbar-dropdown-item:hover .navbar-dropdown-item-icon {
   color: var(--color-primary);
 }
 
-.navbar-dropdown-item-danger {
-  color: var(--color-danger);
-}
-
 .navbar-dropdown-item-danger:hover {
-  background: #fee2e2;
-  color: var(--color-danger-hover);
-}
-
-.navbar-dropdown-item-danger .navbar-dropdown-item-icon {
+  background: #fef2f2;
   color: var(--color-danger);
 }
 
 .navbar-dropdown-item-danger:hover .navbar-dropdown-item-icon {
-  color: var(--color-danger-hover);
+  color: var(--color-danger);
 }
 
+/* User Menu Dropdown Specifics */
 .navbar-dropdown-user {
-  min-width: 200px;
+  min-width: 240px;
 }
 
-/* Notification Items */
+.navbar-user-button {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-xl);
+  border: 1px solid transparent;
+}
+
+.navbar-user-button:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border);
+}
+
+.navbar-user-button[aria-expanded="true"] {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-primary);
+}
+
+/* Notification Item Refinement */
 .navbar-notification-item {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border-light);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  position: relative;
-}
-
-.navbar-notification-item:last-child {
-  border-bottom: none;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  margin-bottom: 2px;
 }
 
 .navbar-notification-item:hover {
-  background: var(--color-bg-tertiary);
-}
-
-.navbar-notification-item.navbar-notification-unread {
   background: var(--color-bg-secondary);
-  border-left: 3px solid var(--color-primary);
 }
 
-.navbar-notification-item.navbar-notification-unread:hover {
-  background: var(--color-bg-tertiary);
+.navbar-notification-unread {
+  background: var(--color-primary-light);
+}
+
+.navbar-notification-unread:hover {
+  background: rgba(15, 76, 129, 0.12);
 }
 
 .navbar-notification-content {
@@ -613,6 +617,7 @@
 .app-sidebar {
   grid-column: 1;
   grid-row: 2;
+  min-height: 0; /* Allow grid to constrain height so sidebar scroll works */
   height: calc(100vh - var(--navbar-height));
   background: var(--color-bg-primary);
   border-right: 1px solid var(--color-border);
@@ -620,7 +625,6 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  /* Align top edge exactly with navbar bottom */
   margin-top: 0;
   padding-top: 0;
 }
@@ -642,6 +646,9 @@
   padding: var(--space-4) 0;
   overflow-y: auto;
   overflow-x: hidden;
+  /* Support for Firefox scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
 }
 
 .sidebar-section {
@@ -701,7 +708,7 @@
 
 .sidebar-nav-item.active {
   background: var(--color-primary-light);
-  color: var(--color-text-primary);
+  color: var(--color-primary);
   font-weight: 600;
   border-left: 3px solid var(--color-primary);
   padding-left: calc(var(--space-3) - 3px);
@@ -754,7 +761,7 @@
   width: 100%;
   padding: var(--space-3);
   background: var(--color-danger);
-  color: white;
+  color: #fff;
   border: none;
   border-radius: var(--radius-lg);
   font-size: var(--font-size-base);
@@ -762,10 +769,12 @@
   cursor: pointer;
   transition: all var(--transition-base);
   min-height: 44px;
+  box-shadow: 0 2px 8px rgba(185, 28, 28, 0.2);
 }
 
 .sidebar-logout-button:hover {
   background: var(--color-danger-hover);
+  box-shadow: 0 4px 12px rgba(185, 28, 28, 0.28);
 }
 
 .sidebar-logout-button:focus-visible {
@@ -777,22 +786,30 @@
   display: none;
 }
 
-/* Sidebar Scrollbar */
-.app-sidebar-content::-webkit-scrollbar {
-  width: 6px;
+/* Sidebar Scrollbar - Modern Minimal Design */
+.app-sidebar-content::-webkit-scrollbar,
+.sidebar-nav::-webkit-scrollbar {
+  width: 5px;
 }
 
-.app-sidebar-content::-webkit-scrollbar-track {
+.app-sidebar-content::-webkit-scrollbar-track,
+.sidebar-nav::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.app-sidebar-content::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
+.app-sidebar-content::-webkit-scrollbar-thumb,
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: background var(--transition-base);
 }
 
-.app-sidebar-content::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-tertiary);
+.app-sidebar-content::-webkit-scrollbar-thumb:hover,
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+  background-clip: content-box;
 }
 
 /* ============================================
@@ -802,11 +819,13 @@
 .app-main {
   grid-column: 2;
   grid-row: 2;
+  min-height: 0; /* Allow grid to constrain height so overflow-y works */
   height: calc(100vh - var(--navbar-height));
   overflow-y: auto;
   overflow-x: hidden;
   background: var(--color-bg-secondary);
   position: relative;
+  -webkit-overflow-scrolling: touch;
 }
 
 .app-main-content {
@@ -825,22 +844,25 @@
   }
 }
 
-/* Main Content Scrollbar */
+/* Main Content Scrollbar - Refined */
 .app-main::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 .app-main::-webkit-scrollbar-track {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-secondary);
 }
 
 .app-main::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  border: 2px solid var(--color-bg-secondary);
+  background-clip: content-box;
 }
 
 .app-main::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-tertiary);
+  background: rgba(0, 0, 0, 0.2);
+  background-clip: content-box;
 }
 
 /* ============================================

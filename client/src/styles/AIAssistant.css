@@ -8,9 +8,9 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   border: none;
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.35);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -22,7 +22,7 @@
 
 .ai-assistant-toggle:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(212, 175, 55, 0.5);
+  box-shadow: 0 6px 16px rgba(15, 76, 129, 0.4);
 }
 
 .ai-assistant-toggle-icon {
@@ -58,7 +58,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: white;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -159,7 +159,7 @@
 .ai-assistant-empty-icon {
   width: 48px;
   height: 48px;
-  color: #d4af37;
+  color: var(--color-primary);
   margin-bottom: 16px;
 }
 
@@ -169,10 +169,13 @@
 }
 
 .ai-assistant-suggestions {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .ai-assistant-suggestion {
@@ -189,8 +192,8 @@
 
 .ai-assistant-suggestion:hover {
   background: #f9fafb;
-  border-color: #d4af37;
-  color: #b8941f;
+  border-color: var(--color-primary);
+  color: var(--color-primary-hover);
 }
 
 /* Messages List */
@@ -215,7 +218,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -253,7 +256,7 @@
 }
 
 .ai-message-user .ai-message-text {
-  background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: white;
   border-radius: 12px 12px 4px 12px;
 }
@@ -385,7 +388,7 @@
 
 .ai-recommendation:hover {
   background: #f9fafb;
-  border-color: #d4af37;
+  border-color: var(--color-primary);
   transform: translateX(4px);
 }
 
@@ -423,7 +426,7 @@
 }
 
 .ai-recommendation:hover svg {
-  color: #d4af37;
+  color: var(--color-primary);
 }
 
 /* Input Form */
@@ -446,7 +449,7 @@
 }
 
 .ai-assistant-input:focus {
-  border-color: #d4af37;
+  border-color: var(--color-primary);
 }
 
 .ai-assistant-input:disabled {
@@ -458,7 +461,7 @@
   width: 40px;
   height: 40px;
   border: none;
-  background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   border-radius: 8px;
   color: white;
   cursor: pointer;
@@ -471,7 +474,7 @@
 
 .ai-assistant-send:hover:not(:disabled) {
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.25);
 }
 
 .ai-assistant-send:disabled {

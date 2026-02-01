@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Download, Edit3, Plus, Save, X, AlertCircle } from 'lucide-react'
+import DatePicker from '../components/DatePicker'
 import '../styles/Meetings.css'
 import * as masterDataApi from '../api/masterData'
 import { me } from '../api/auth'
@@ -770,11 +771,12 @@ export default function Meetings() {
 
                 <div className="mom-field">
                   <label className="mom-label">Date & Time <span className="mom-required">*</span></label>
-                  <input
-                    type="datetime-local"
-                    className={`mom-input ${errors.datetime ? 'is-error' : ''}`}
-                    value={draft.datetime ? new Date(draft.datetime).toISOString().slice(0, 16) : ''}
-                    onChange={(e) => setDraft((p) => ({ ...p, datetime: new Date(e.target.value).toISOString() }))}
+                  <DatePicker
+                    showTimeSelect
+                    className={errors.datetime ? 'is-error' : ''}
+                    selected={draft.datetime}
+                    onChange={(e) => setDraft((p) => ({ ...p, datetime: e.target.value }))}
+                    placeholderText="Select date and time"
                   />
                   {errors.datetime && <div className="mom-error" role="alert">{errors.datetime}</div>}
                 </div>
@@ -877,7 +879,11 @@ export default function Meetings() {
                             <option key={u.id} value={u.id}>{u.label}</option>
                           ))}
                         </select>
-                        <input className="mom-input" type="date" value={a.dueDate} onChange={(e) => updateActionItem(a.id, { dueDate: e.target.value })} />
+                        <DatePicker
+                          selected={a.dueDate}
+                          onChange={(e) => updateActionItem(a.id, { dueDate: e.target.value })}
+                          placeholderText="Due date"
+                        />
                         <select className="mom-input mom-select" value={a.status} onChange={(e) => updateActionItem(a.id, { status: e.target.value })}>
                           <option value="Pending">Pending</option>
                           <option value="In Progress">In Progress</option>
@@ -898,7 +904,11 @@ export default function Meetings() {
 
                 <div className="mom-field">
                   <label className="mom-label">Next Meeting Date</label>
-                  <input className="mom-input" type="date" value={draft.nextMeetingDate} onChange={(e) => setDraft((p) => ({ ...p, nextMeetingDate: e.target.value }))} />
+                  <DatePicker
+                    selected={draft.nextMeetingDate}
+                    onChange={(e) => setDraft((p) => ({ ...p, nextMeetingDate: e.target.value }))}
+                    placeholderText="Select date"
+                  />
                 </div>
               </div>
             </div>

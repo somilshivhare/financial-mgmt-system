@@ -8,6 +8,10 @@ const { listPayments, createPayment } = require('../../controllers/paymentContro
 const router = express.Router();
 
 router.get('/', requireAuth, listPayments);
+router.get('/invoice/:invoiceId', requireAuth, (req, res, next) => {
+  req.query.invoiceId = req.params.invoiceId;
+  return listPayments(req, res, next);
+});
 router.post('/', requireAuth, requireRole('admin', 'finance'), validate(paymentSchema), createPayment);
 
 module.exports = router;

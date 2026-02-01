@@ -12,6 +12,8 @@ import {
   XCircle,
 } from 'lucide-react'
 import { getProfile, updateProfile, updatePassword, revokeSession, getLoginHistory, uploadProfilePhoto } from '../api/user'
+import { ConfirmDialog, useConfirmDialog } from '../components/ConfirmDialog'
+import { useToast } from '../contexts/ToastContext'
 import '../styles/MyProfile.css'
 import { getApiBaseUrl } from '../config/api'
 
@@ -31,7 +33,7 @@ const DEFAULT_PROFILE = {
     phone: '',
   },
   organization: {
-    companyName: 'NB Aurum',
+    companyName: 'NB Aurum Solutions',
     role: 'User',
     department: '',
     designation: '',
@@ -64,6 +66,8 @@ const DEFAULT_PROFILE = {
 }
 
 export default function MyProfile() {
+  const { confirm, dialogProps } = useConfirmDialog()
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState(DEFAULT_PROFILE)
   const [draft, setDraft] = useState(DEFAULT_PROFILE)
@@ -106,7 +110,7 @@ export default function MyProfile() {
               phone: data.profile?.phone || '',
             },
             organization: {
-              companyName: data.profile?.company_name || 'NB Aurum',
+              companyName: data.profile?.company_name || 'NB Aurum Solutions',
               role: data.user?.role || 'User',
               department: data.profile?.department || '',
               designation: data.profile?.designation || '',
@@ -394,8 +398,14 @@ export default function MyProfile() {
   }
 
   const handleRevokeSession = async (sessionId) => {
-    if (!window.confirm('Are you sure you want to revoke this session?')) return
-    
+    const confirmed = await confirm({
+      title: 'Revoke session?',
+      message: 'This device will be signed out and must log in again.',
+      confirmText: 'Revoke session',
+      tone: 'warning',
+    })
+    if (!confirmed) return
+
     try {
       await revokeSession(sessionId)
       // Reload profile to get updated sessions
@@ -419,7 +429,7 @@ export default function MyProfile() {
       }
     } catch (err) {
       console.error('Failed to revoke session:', err)
-      alert('Failed to revoke session. Please try again.')
+      showToast('Failed to revoke session. Please try again.', 'error')
     }
   }
 
@@ -1078,6 +1088,7 @@ export default function MyProfile() {
           </div>
         </section>
       </div>
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

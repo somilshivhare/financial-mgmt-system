@@ -270,7 +270,7 @@
   gap: 0.625rem;
   width: 100%;
   padding: 0.875rem 1rem;
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: var(--color-danger);
   color: white;
   border: none;
   border-radius: 10px;
@@ -278,22 +278,20 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+  box-shadow: 0 2px 8px rgba(185, 28, 28, 0.2);
 }
 
-/* no collapsed mode */
-
 .logout-btn:hover {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  background: var(--color-danger-hover);
+  box-shadow: 0 4px 12px rgba(185, 28, 28, 0.3);
   transform: translateY(-1px);
 }
 
 .logout-btn:active {
   transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);
+  box-shadow: 0 2px 6px rgba(185, 28, 28, 0.25);
 }
 
 /* Scrollbar Styling */
@@ -379,7 +377,7 @@
 }
 
 .logout-btn:focus-visible {
-  outline: 2px solid #ef4444;
+  outline: 2px solid var(--color-danger);
   outline-offset: 2px;
 }
 

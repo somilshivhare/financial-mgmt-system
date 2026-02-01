@@ -63,13 +63,13 @@ export default function MarketingNavbar() {
         <Link 
           to="/" 
           className="mkt-brand" 
-          aria-label="NB Aurum Home" 
+          aria-label="NB Aurum Solutions Home" 
           onClick={close}
         >
           <span className="mkt-brand-mark" aria-hidden="true">
             <img className="mkt-brand-logo" src="/logo.png" alt="" />
           </span>
-          <span className="mkt-brand-name">NB Aurum</span>
+          <span className="mkt-brand-name">NB Aurum Solutions</span>
         </Link>
 
         {/* Navigation Links - Center */}

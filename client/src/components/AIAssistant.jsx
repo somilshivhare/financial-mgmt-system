@@ -148,9 +148,57 @@ export default function AIAssistant() {
                   </button>
                   <button
                     className="ai-assistant-suggestion"
+                    onClick={() => handleQuery('How much is outstanding?')}
+                  >
+                    Total outstanding?
+                  </button>
+                  <button
+                    className="ai-assistant-suggestion"
                     onClick={() => handleQuery('How do I create an invoice?')}
                   >
                     How to create invoice?
+                  </button>
+                  <button
+                    className="ai-assistant-suggestion"
+                    onClick={() => handleQuery('How do I record a payment?')}
+                  >
+                    How to record payment?
+                  </button>
+                  <button
+                    className="ai-assistant-suggestion"
+                    onClick={() => handleQuery('How do I create a PO?')}
+                  >
+                    How to create PO?
+                  </button>
+                  <button
+                    className="ai-assistant-suggestion"
+                    onClick={() => handleQuery('Take me to collection plan')}
+                  >
+                    Open Collection Plan
+                  </button>
+                  <button
+                    className="ai-assistant-suggestion"
+                    onClick={() => handleQuery('Take me to master data')}
+                  >
+                    Open Master Data
+                  </button>
+                  <button
+                    className="ai-assistant-suggestion"
+                    onClick={() => handleQuery('What can I do here?')}
+                  >
+                    What can I do here?
+                  </button>
+                  <button
+                    className="ai-assistant-suggestion"
+                    onClick={() => handleQuery('Show my alerts')}
+                  >
+                    Show my alerts
+                  </button>
+                  <button
+                    className="ai-assistant-suggestion"
+                    onClick={() => handleQuery('Open reports')}
+                  >
+                    Open Reports
                   </button>
                 </div>
               </div>

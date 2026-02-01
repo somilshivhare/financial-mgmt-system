@@ -53,11 +53,14 @@ export const getAllPOEntries = async () => {
   }
 }
 
-// Get PO entry by PO Number (Key ID)
+// Get PO entry by PO Number (Key ID); returns full PO with formData/boqItems
 export const getPOEntryByPONumber = async (poNumber) => {
   try {
     const response = await poApi.getPOByPONumber(poNumber)
-    return response.data || null
+    // API returns { success, data: po }; axios response.data is that body
+    const body = response && typeof response === 'object' ? response : null
+    const po = body?.data ?? body ?? null
+    return po && (po.id || po.po_number) ? po : null
   } catch (error) {
     console.error(`Failed to load PO ${poNumber}:`, error)
     return null
@@ -76,24 +79,19 @@ export const getPOEntryById = async (id) => {
   }
 }
 
-// Save PO entry (submit) - uses draft endpoint so all form fields + BOQ are saved to database (draft_data)
+// Save PO entry (draft or submit) - always use draft endpoint so status (draft/approved) is persisted
+// Server has no PUT /pos/:id; POST /pos/:id/draft updates the row and sets status from payload
 export const savePOEntry = async (poData) => {
   try {
-    let result
-    if (poData.id) {
-      const response = await poApi.updatePO(poData.id, poData)
-      result = response.data
-    } else {
-      // New PO: use upsertPODraft so full form + boqItems are saved in draft_data and lines in purchase_order_lines
-      result = await poApi.upsertPODraft(poData)
-    }
+    const id = poData.id || null
+    const result = await poApi.upsertPODraft(poData, id)
+    const po = result && (result.data !== undefined ? result.data : result)
 
-    if (result) {
-      window.dispatchEvent(new CustomEvent('poEntryUpdated', { detail: { poEntry: result } }))
-      // Back-compat event name used by some screens
-      window.dispatchEvent(new CustomEvent('poUpdated', { detail: { poEntry: result } }))
+    if (po) {
+      window.dispatchEvent(new CustomEvent('poEntryUpdated', { detail: { poEntry: po } }))
+      window.dispatchEvent(new CustomEvent('poUpdated', { detail: { poEntry: po } }))
     }
-    return result
+    return po || result
   } catch (error) {
     console.error('Failed to save PO entry:', error)
     throw error
@@ -112,11 +110,17 @@ export const deletePOEntry = async (id) => {
   }
 }
 
-// Get all PO numbers for dropdown
+// Get all PO numbers for dropdown (returns array of { id, poNumber })
 export const getAllPONumbers = async () => {
   try {
     const response = await poApi.getAllPONumbers()
-    return response.data || []
+    // API returns { success, data: list }; handle both body and raw array
+    const list = Array.isArray(response) ? response : (response?.data ?? [])
+    const arr = Array.isArray(list) ? list : []
+    return arr.map((p) => ({
+      id: p.id,
+      poNumber: String(p.po_number ?? p.poNumber ?? ''),
+    })).filter((p) => p.poNumber)
   } catch (error) {
     console.error('Failed to load PO numbers:', error)
     return []

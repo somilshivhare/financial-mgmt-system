@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Plus, X, Trash2 } from 'lucide-react'
+import DatePicker from '../components/DatePicker'
 import { useMasterData } from '../contexts/MasterDataContext'
+import { useToast } from '../contexts/ToastContext'
+import { usePersistedFormState } from '../hooks/usePersistedFormState'
 import * as momService from '../services/momService'
 import '../styles/Meetings.css'
 
@@ -9,28 +12,35 @@ const MEETING_TYPES = ['Internal', 'Client', 'Vendor', 'Other']
 const ACTION_STATUSES = ['Pending', 'In Progress', 'Completed', 'Cancelled']
 const ACTION_PRIORITIES = ['Low', 'Medium', 'High']
 
+const INITIAL_MOM_FORM_DATA = {
+  title: '',
+  datetime: '',
+  meetingType: 'Internal',
+  participants: [],
+  agenda: '',
+  discussionPoints: '',
+  decisionsTaken: '',
+  actionItems: [
+    { id: `AI-${Date.now()}`, task: '', ownerId: '', dueDate: '', status: 'Pending', priority: 'Medium' },
+  ],
+  nextMeetingDate: '',
+  status: 'draft',
+}
+
 function MoMEntry() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { getEmployees, getCustomers } = useMasterData()
+  const { showToast } = useToast()
   const [employees, setEmployees] = useState([])
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
 
-  const [formData, setFormData] = useState({
-    title: '',
-    datetime: '',
-    meetingType: 'Internal',
-    participants: [],
-    agenda: '',
-    discussionPoints: '',
-    decisionsTaken: '',
-    actionItems: [
-      { id: `AI-${Date.now()}`, task: '', ownerId: '', dueDate: '', status: 'Pending', priority: 'Medium' },
-    ],
-    nextMeetingDate: '',
-    status: 'draft',
+  const { values: formData, setValues: setFormData, clearLocalDraft } = usePersistedFormState({
+    pathKey: 'mom-entry',
+    defaultValues: INITIAL_MOM_FORM_DATA,
+    entityId: id || null,
   })
 
   useEffect(() => {
@@ -78,7 +88,7 @@ function MoMEntry() {
       }
     } catch (error) {
       console.error('Failed to load MoM:', error)
-      alert('Failed to load MoM. Please try again.')
+      showToast('Failed to load MoM. Please try again.', 'error')
     } finally {
       setLoading(false)
     }
@@ -197,16 +207,16 @@ function MoMEntry() {
 
       if (id) {
         await momService.saveMoM({ ...momData, id })
-        alert('MoM updated successfully!')
+        showToast('MoM updated successfully!', 'success')
       } else {
         await momService.saveMoM(momData)
-        alert('MoM created successfully!')
+        showToast('MoM created successfully!', 'success')
       }
-      
+      if (typeof clearLocalDraft === 'function') clearLocalDraft()
       navigate('/meetings')
     } catch (error) {
       console.error('Failed to save MoM:', error)
-      alert('Failed to save MoM. Please try again.')
+      showToast('Failed to save MoM. Please try again.', 'error')
     } finally {
       setLoading(false)
     }
@@ -281,13 +291,13 @@ function MoMEntry() {
               <label htmlFor="datetime" className="mom-entry-label">
                 Date & Time <span className="mom-entry-required">*</span>
               </label>
-              <input
-                type="datetime-local"
-                id="datetime"
-                name="datetime"
-                value={formData.datetime}
+              <DatePicker
+                selected={formData.datetime}
                 onChange={handleChange}
-                className={`mom-entry-input ${errors.datetime ? 'is-error' : ''}`}
+                showTimeSelect
+                placeholderText="Select date and time"
+                name="datetime"
+                id="datetime"
                 required
               />
               {errors.datetime && <div className="mom-entry-error">{errors.datetime}</div>}
@@ -421,13 +431,12 @@ function MoMEntry() {
               <label htmlFor="nextMeetingDate" className="mom-entry-label">
                 Next Meeting Date
               </label>
-              <input
-                type="date"
-                id="nextMeetingDate"
-                name="nextMeetingDate"
-                value={formData.nextMeetingDate}
+              <DatePicker
+                selected={formData.nextMeetingDate}
                 onChange={handleChange}
-                className="mom-entry-input"
+                placeholderText="Select next meeting date"
+                name="nextMeetingDate"
+                id="nextMeetingDate"
               />
             </div>
           </div>
@@ -475,11 +484,10 @@ function MoMEntry() {
                       </select>
                     </td>
                     <td>
-                      <input
-                        type="date"
-                        value={item.dueDate}
+                      <DatePicker
+                        selected={item.dueDate}
                         onChange={(e) => handleActionItemChange(item.id, 'dueDate', e.target.value)}
-                        className="mom-entry-action-input"
+                        placeholderText="Due Date"
                       />
                     </td>
                     <td>

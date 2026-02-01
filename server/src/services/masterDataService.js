@@ -1,6 +1,65 @@
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../db/query');
 
+const parseJson = (value) => {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+  return value;
+};
+
+const normalizeMasterDataRecord = (record) => {
+  if (!record) return null;
+  return {
+    id: record.id,
+    type: record.type,
+    companyId: record.companyId ?? record.company_id ?? null,
+    status: record.status || 'published',
+    values: parseJson(record.values),
+    created_by: record.created_by,
+    updated_by: record.updated_by,
+    created_at: record.created_at,
+    updated_at: record.updated_at,
+  };
+};
+
+const createHttpError = (status, code, message) => {
+  const err = new Error(message);
+  err.status = status;
+  err.code = code;
+  return err;
+};
+
+const assertCompanyAccess = async (companyId, userId) => {
+  if (!companyId) {
+    throw createHttpError(400, 'ERR_MISSING_COMPANY', 'companyId is required');
+  }
+  const [company] = await query(
+    `SELECT id
+     FROM master_data
+     WHERE id = ?
+       AND type = 'company-profile'
+       AND (created_by = ? OR updated_by = ?)
+     LIMIT 1`,
+    [companyId, userId, userId],
+  );
+  if (!company) {
+    throw createHttpError(400, 'ERR_INVALID_COMPANY', 'Invalid companyId for current user');
+  }
+  return company.id;
+};
+
+const normalizeStatus = (status) => {
+  if (!status) return 'published';
+  const normalized = String(status).toLowerCase().trim();
+  return ['draft', 'published', 'archived'].includes(normalized) ? normalized : 'published';
+};
+
 const listCustomers = async ({ page = 1, pageSize = 20, q }) => {
   const offset = (page - 1) * pageSize;
   const search = q ? `%${q}%` : '%';
@@ -68,77 +127,120 @@ const updateProduct = async (id, payload) => {
 };
 
 // Generic Master Data Service Methods
-const getMasterDataByType = async (type) => {
-  const records = await query(
-    'SELECT id, type, `values`, created_by, updated_by, created_at, updated_at FROM master_data WHERE type = ? ORDER BY created_at DESC',
-    [type]
-  );
-  return records.map(record => ({
-    id: record.id,
-    type: record.type,
-    values: typeof record.values === 'string' ? JSON.parse(record.values) : record.values,
-    created_by: record.created_by,
-    updated_by: record.updated_by,
-    created_at: record.created_at,
-    updated_at: record.updated_at,
-  }));
+const getMasterDataByType = async (type, userId, { companyId = null, status = null } = {}) => {
+  if (!type) return [];
+  if (!userId) {
+    throw createHttpError(401, 'ERR_UNAUTHORIZED', 'Authentication required');
+  }
+
+  let sql = `
+    SELECT id, type, company_id AS companyId, status, \`values\`, created_by, updated_by, created_at, updated_at
+    FROM master_data
+    WHERE type = ?
+      AND (created_by = ? OR updated_by = ?)
+  `;
+  const params = [type, userId, userId];
+
+  if (companyId && type !== 'company-profile') {
+    sql += ' AND company_id = ?';
+    params.push(companyId);
+  }
+
+  if (status) {
+    sql += ' AND status = ?';
+    params.push(normalizeStatus(status));
+  }
+
+  sql += ' ORDER BY created_at DESC';
+
+  const records = await query(sql, params);
+  return records.map(normalizeMasterDataRecord);
 };
 
-const getMasterDataById = async (type, id) => {
+const getMasterDataById = async (type, id, userId) => {
   const [record] = await query(
-    'SELECT id, type, `values`, created_by, updated_by, created_at, updated_at FROM master_data WHERE type = ? AND id = ?',
-    [type, id]
+    `SELECT id, type, company_id AS companyId, status, \`values\`, created_by, updated_by, created_at, updated_at
+     FROM master_data
+     WHERE type = ?
+       AND id = ?
+       AND (created_by = ? OR updated_by = ?)
+     LIMIT 1`,
+    [type, id, userId, userId]
   );
-  if (!record) return null;
-  return {
-    id: record.id,
-    type: record.type,
-    values: typeof record.values === 'string' ? JSON.parse(record.values) : record.values,
-    created_by: record.created_by,
-    updated_by: record.updated_by,
-    created_at: record.created_at,
-    updated_at: record.updated_at,
-  };
+  return normalizeMasterDataRecord(record);
 };
 
-const saveMasterDataRecord = async (type, { values, logoPreviews }, userId) => {
+const saveMasterDataRecord = async (type, { values, logoPreviews, companyId, status }, userId) => {
   const id = uuidv4();
+  const safeUserId = userId || null;
+  if (!safeUserId) {
+    throw createHttpError(401, 'ERR_UNAUTHORIZED', 'Authentication required');
+  }
+
+  const needsCompany = type && type !== 'company-profile';
+  const validatedCompanyId = needsCompany ? await assertCompanyAccess(companyId, safeUserId) : null;
   
   // Ensure values is an object and handle null/undefined safely
   const safeValues = values || {};
   const safeLogoPreviews = logoPreviews || {};
-  
-  // Clean up undefined values from the object (MySQL doesn't like undefined in JSON)
-  const cleanValues = Object.entries(safeValues).reduce((acc, [key, value]) => {
-    if (value !== undefined) {
-      acc[key] = value;
+
+  // Keep only JSON-serializable values (strip File, function, undefined; avoid circular refs)
+  const toSerializable = (val) => {
+    if (val === null || val === undefined) return undefined;
+    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return val;
+    if (typeof val === 'object' && val.constructor && val.constructor.name === 'File') return undefined;
+    if (typeof val === 'function') return undefined;
+    if (Array.isArray(val)) return val.map(toSerializable).filter((v) => v !== undefined);
+    if (typeof val === 'object') {
+      const out = {};
+      for (const [k, v] of Object.entries(val)) {
+        const s = toSerializable(v);
+        if (s !== undefined) out[k] = s;
+      }
+      return out;
     }
+    return val;
+  };
+  const cleanValues = Object.entries(safeValues).reduce((acc, [key, value]) => {
+    const s = toSerializable(value);
+    if (s !== undefined) acc[key] = s;
     return acc;
   }, {});
-  
-  // Combine values and logoPreviews into a single JSON object
+  const cleanLogoPreviews = typeof safeLogoPreviews === 'object' && safeLogoPreviews !== null
+    ? toSerializable(safeLogoPreviews)
+    : {};
+
   const combinedData = {
     ...cleanValues,
-    logoPreviews: safeLogoPreviews,
+    logoPreviews: cleanLogoPreviews || {},
   };
-  
-  const valuesJson = JSON.stringify(combinedData);
-  
-  // Ensure userId is not undefined (convert to null if needed for MySQL)
-  const safeUserId = userId || null;
-  
+
+  let valuesJson;
+  try {
+    valuesJson = JSON.stringify(combinedData);
+  } catch (stringifyErr) {
+    console.error('[MasterDataService] JSON stringify error:', stringifyErr);
+    throw createHttpError(400, 'ERR_INVALID_VALUES', 'Invalid form data. Please remove any unsupported content and try again.');
+  }
+
+  const nextStatus = normalizeStatus(status);
+
   try {
     await query(
-      'INSERT INTO master_data (id, type, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?)',
-      [id, type, valuesJson, safeUserId, safeUserId]
+      'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, type, validatedCompanyId, nextStatus, valuesJson, safeUserId, safeUserId]
     );
-    
-    return getMasterDataById(type, id);
+
+    return getMasterDataById(type, id, safeUserId);
   } catch (error) {
+    if (error.errno === 1452 || error.code === 'ER_NO_REFERENCED_ROW_2') {
+      throw createHttpError(400, 'ERR_USER_NOT_FOUND', 'User not found. Please log out and log in again.');
+    }
     console.error('[MasterDataService] Error saving record:', {
       type,
       error: error.message,
       errorCode: error.code,
+      errno: error.errno,
       userId: safeUserId,
       valuesKeys: Object.keys(cleanValues),
     });
@@ -146,10 +248,26 @@ const saveMasterDataRecord = async (type, { values, logoPreviews }, userId) => {
   }
 };
 
-const updateMasterDataRecord = async (type, id, { values, logoPreviews }, userId) => {
-  const existing = await getMasterDataById(type, id);
+const updateMasterDataRecord = async (type, id, { values, logoPreviews, companyId, status }, userId) => {
+  const safeUserId = userId || null;
+  if (!safeUserId) {
+    throw createHttpError(401, 'ERR_UNAUTHORIZED', 'Authentication required');
+  }
+
+  const existing = await getMasterDataById(type, id, safeUserId);
   if (!existing) return null;
   
+  // Company linkage rules:
+  // - company-profile has no companyId
+  // - other types must keep a stable companyId (cannot be moved between companies via update)
+  const needsCompany = type && type !== 'company-profile';
+  if (needsCompany) {
+    const validatedCompanyId = await assertCompanyAccess(companyId || existing.companyId, safeUserId);
+    if (existing.companyId && validatedCompanyId !== existing.companyId) {
+      throw createHttpError(400, 'ERR_COMPANY_MISMATCH', 'Record cannot be moved to a different company');
+    }
+  }
+
   const updatedValues = { ...existing.values, ...values };
   if (logoPreviews) {
     updatedValues.logoPreviews = { ...(existing.values.logoPreviews || {}), ...logoPreviews };
@@ -157,47 +275,52 @@ const updateMasterDataRecord = async (type, id, { values, logoPreviews }, userId
   
   const valuesJson = JSON.stringify(updatedValues);
   
+  const nextStatus = status ? normalizeStatus(status) : existing.status || 'published';
+
   await query(
-    'UPDATE master_data SET `values` = ?, updated_by = ?, updated_at = NOW() WHERE type = ? AND id = ?',
-    [valuesJson, userId, type, id]
+    'UPDATE master_data SET `values` = ?, status = ?, updated_by = ?, updated_at = NOW() WHERE type = ? AND id = ? AND (created_by = ? OR updated_by = ?)',
+    [valuesJson, nextStatus, safeUserId, type, id, safeUserId, safeUserId]
   );
   
-  return getMasterDataById(type, id);
+  return getMasterDataById(type, id, safeUserId);
 };
 
-const deleteMasterDataRecord = async (type, id) => {
+const deleteMasterDataRecord = async (type, id, userId) => {
+  const safeUserId = userId || null;
+  if (!safeUserId) {
+    throw createHttpError(401, 'ERR_UNAUTHORIZED', 'Authentication required');
+  }
   const result = await query(
-    'DELETE FROM master_data WHERE type = ? AND id = ?',
-    [type, id]
+    'DELETE FROM master_data WHERE type = ? AND id = ? AND (created_by = ? OR updated_by = ?)',
+    [type, id, safeUserId, safeUserId]
   );
   return result.affectedRows > 0;
 };
 
-const searchMasterData = async (queryString) => {
+const searchMasterData = async (queryString, userId) => {
+  const safeUserId = userId || null;
+  if (!safeUserId) {
+    throw createHttpError(401, 'ERR_UNAUTHORIZED', 'Authentication required');
+  }
   const searchPattern = `%${queryString}%`;
   const records = await query(
-    `SELECT id, type, \`values\`, created_at, updated_at 
+    `SELECT id, type, company_id AS companyId, status, \`values\`, created_at, updated_at 
      FROM master_data 
-     WHERE JSON_SEARCH(\`values\`, 'all', ?) IS NOT NULL 
+     WHERE (created_by = ? OR updated_by = ?)
+       AND JSON_SEARCH(\`values\`, 'all', ?) IS NOT NULL 
      ORDER BY created_at DESC 
      LIMIT 100`,
-    [searchPattern]
+    [safeUserId, safeUserId, searchPattern]
   );
-  return records.map(record => ({
-    id: record.id,
-    type: record.type,
-    values: typeof record.values === 'string' ? JSON.parse(record.values) : record.values,
-    created_at: record.created_at,
-    updated_at: record.updated_at,
-  }));
+  return records.map(normalizeMasterDataRecord);
 };
 
 /**
  * Get the latest/master record for a type (useful for single-record types like company-profile)
  * Returns the most recently created or updated record
  */
-const getLatestMasterDataByType = async (type, userId = null) => {
-  let sql = 'SELECT id, type, `values`, created_by, updated_by, created_at, updated_at FROM master_data WHERE type = ?';
+const getLatestMasterDataByType = async (type, userId = null, companyId = null, status = null) => {
+  let sql = 'SELECT id, type, company_id AS companyId, status, `values`, created_by, updated_by, created_at, updated_at FROM master_data WHERE type = ?';
   const params = [type];
   
   // Optionally filter by user
@@ -205,21 +328,22 @@ const getLatestMasterDataByType = async (type, userId = null) => {
     sql += ' AND (created_by = ? OR updated_by = ?)';
     params.push(userId, userId);
   }
+
+  // Optionally filter by company (for non-company types)
+  if (companyId && type !== 'company-profile') {
+    sql += ' AND company_id = ?';
+    params.push(companyId);
+  }
+
+  if (status) {
+    sql += ' AND status = ?';
+    params.push(normalizeStatus(status));
+  }
   
   sql += ' ORDER BY updated_at DESC, created_at DESC LIMIT 1';
   
   const [record] = await query(sql, params);
-  if (!record) return null;
-  
-  return {
-    id: record.id,
-    type: record.type,
-    values: typeof record.values === 'string' ? JSON.parse(record.values) : record.values,
-    created_by: record.created_by,
-    updated_by: record.updated_by,
-    created_at: record.created_at,
-    updated_at: record.updated_at,
-  };
+  return normalizeMasterDataRecord(record);
 };
 
 /**
@@ -227,9 +351,16 @@ const getLatestMasterDataByType = async (type, userId = null) => {
  * For single-record types (like company-profile), updates existing or creates new
  * For multi-record types, always creates new unless id is provided
  */
-const upsertMasterDataRecord = async (type, { values, logoPreviews, id }, userId) => {
+const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyId, status }, userId) => {
   const safeValues = values || {};
   const safeLogoPreviews = logoPreviews || {};
+  const safeUserId = userId || null;
+  if (!safeUserId) {
+    throw createHttpError(401, 'ERR_UNAUTHORIZED', 'Authentication required');
+  }
+
+  const needsCompany = type && type !== 'company-profile';
+  const validatedCompanyId = needsCompany ? await assertCompanyAccess(companyId, safeUserId) : null;
   
   // Clean up undefined values
   const cleanValues = Object.entries(safeValues).reduce((acc, [key, value]) => {
@@ -246,7 +377,7 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id }, userId
   };
   
   const valuesJson = JSON.stringify(combinedData);
-  const safeUserId = userId || null;
+  const nextStatus = normalizeStatus(status);
   
   // Single-record types: update existing or create new
   // Note: company-profile is NOT in this list - it always creates new records to allow multiple master data entries
@@ -254,8 +385,8 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id }, userId
   const isSingleRecordType = singleRecordTypes.includes(type);
   
   if (isSingleRecordType) {
-    // Check if record exists for this user
-    const existing = await getLatestMasterDataByType(type, userId);
+    // Single per company: update existing record for this company, else create new
+    const existing = await getLatestMasterDataByType(type, safeUserId, validatedCompanyId, nextStatus);
     
     if (existing) {
       // Update existing record
@@ -263,52 +394,58 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id }, userId
       const updatedJson = JSON.stringify(updatedValues);
       
       await query(
-        'UPDATE master_data SET `values` = ?, updated_by = ?, updated_at = NOW() WHERE id = ?',
-        [updatedJson, safeUserId, existing.id]
+        'UPDATE master_data SET `values` = ?, status = ?, updated_by = ?, updated_at = NOW() WHERE id = ? AND (created_by = ? OR updated_by = ?)',
+        [updatedJson, nextStatus, safeUserId, existing.id, safeUserId, safeUserId]
       );
       
-      return getMasterDataById(type, existing.id);
+      return getMasterDataById(type, existing.id, safeUserId);
     }
   }
   
   // If id provided, try to update
   if (id) {
-    const existing = await getMasterDataById(type, id);
+    const existing = await getMasterDataById(type, id, safeUserId);
     if (existing) {
+      if (needsCompany && existing.companyId && validatedCompanyId !== existing.companyId) {
+        throw createHttpError(400, 'ERR_COMPANY_MISMATCH', 'Record cannot be moved to a different company');
+      }
       const updatedValues = { ...existing.values, ...combinedData };
       const updatedJson = JSON.stringify(updatedValues);
       
       await query(
-        'UPDATE master_data SET `values` = ?, updated_by = ?, updated_at = NOW() WHERE id = ?',
-        [updatedJson, safeUserId, id]
+        'UPDATE master_data SET `values` = ?, status = ?, updated_by = ?, updated_at = NOW() WHERE id = ? AND (created_by = ? OR updated_by = ?)',
+        [updatedJson, nextStatus, safeUserId, id, safeUserId, safeUserId]
       );
       
-      return getMasterDataById(type, id);
+      return getMasterDataById(type, id, safeUserId);
     }
   }
   
   // Create new record
   const newId = id || uuidv4();
   await query(
-    'INSERT INTO master_data (id, type, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?)',
-    [newId, type, valuesJson, safeUserId, safeUserId]
+    'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [newId, type, validatedCompanyId, nextStatus, valuesJson, safeUserId, safeUserId]
   );
   
-  return getMasterDataById(type, newId);
+  return getMasterDataById(type, newId, safeUserId);
 };
 
 /**
  * Get aggregated master data for a specific company profile
  * Groups all steps (customer, consignee, payer, etc.) under one company
  */
-const getAggregatedMasterDataByCompany = async (companyId, userId) => {
+const getAggregatedMasterDataByCompany = async (companyId, userId, { status = 'published' } = {}) => {
   if (!companyId || !userId) {
     return null;
   }
   
   // Get the company profile
-  const companyRecord = await getMasterDataById('company-profile', companyId);
-  if (!companyRecord || companyRecord.created_by !== userId) {
+  const companyRecord = await getMasterDataById('company-profile', companyId, userId);
+  if (!companyRecord) {
+    return null;
+  }
+  if (status && normalizeStatus(status) !== normalizeStatus(companyRecord.status)) {
     return null;
   }
   
@@ -339,18 +476,10 @@ const getAggregatedMasterDataByCompany = async (companyId, userId) => {
   
   let latestUpdated = new Date(companyRecord.updated_at || companyRecord.created_at);
   
-  // For now, fetch all records of other types for this user
-  // In the future, we can link them to company via a company_id field
   for (const type of types.slice(1)) { // Skip company-profile, already done
     try {
-      const records = await getMasterDataByType(type);
-      // Get the latest record for this user (for now, not filtered by company)
-      const userRecords = records
-        .filter(r => r.created_by === userId)
-        .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
-      
-      if (userRecords.length > 0) {
-        const latest = userRecords[0];
+      const latest = await getLatestMasterDataByType(type, userId, companyId, status);
+      if (latest) {
         const latestValues = latest.values || {};
         const latestLogoPreviews = latestValues.logoPreviews || {};
         const { logoPreviews: lp, ...cleanValues } = latestValues;
@@ -389,6 +518,7 @@ const getAggregatedMasterDataByCompany = async (companyId, userId) => {
     id: companyId,
     companyId,
     userId,
+    status: normalizeStatus(status),
     primaryName,
     primaryLogo,
     completionPercentage,
@@ -411,9 +541,8 @@ const getAllAggregatedMasterData = async (userId) => {
   }
   
   try {
-    // Get all company profiles for this user
-    const companyRecords = await getMasterDataByType('company-profile');
-    const userCompanies = companyRecords.filter(r => r.created_by === userId);
+    // Get all company profiles for this user (published + draft)
+    const userCompanies = await getMasterDataByType('company-profile', userId);
     
     if (userCompanies.length === 0) {
       return [];
@@ -421,7 +550,7 @@ const getAllAggregatedMasterData = async (userId) => {
     
     // Get aggregated data for each company
     const aggregatedSets = await Promise.all(
-      userCompanies.map(company => getAggregatedMasterDataByCompany(company.id, userId))
+      userCompanies.map(company => getAggregatedMasterDataByCompany(company.id, userId, { status: company.status }))
     );
     
     // Filter out null results and sort by last updated (newest first)
@@ -432,6 +561,144 @@ const getAllAggregatedMasterData = async (userId) => {
     console.error('[MasterDataService] Error getting all aggregated master data:', error);
     return [];
   }
+};
+
+const getLatestDraftCompanyProfile = async (userId) => {
+  const [record] = await query(
+    `SELECT id, type, company_id AS companyId, status, \`values\`, created_by, updated_by, created_at, updated_at
+     FROM master_data
+     WHERE type = 'company-profile'
+       AND status = 'draft'
+       AND (created_by = ? OR updated_by = ?)
+     ORDER BY updated_at DESC, created_at DESC
+     LIMIT 1`,
+    [userId, userId],
+  );
+  return normalizeMasterDataRecord(record);
+};
+
+const getDraftCompanyProfileForPublished = async (publishedCompanyId, userId) => {
+  const [record] = await query(
+    `SELECT id, type, company_id AS companyId, status, \`values\`, created_by, updated_by, created_at, updated_at
+     FROM master_data
+     WHERE type = 'company-profile'
+       AND status = 'draft'
+       AND company_id = ?
+       AND (created_by = ? OR updated_by = ?)
+     ORDER BY updated_at DESC, created_at DESC
+     LIMIT 1`,
+    [publishedCompanyId, userId, userId],
+  );
+  return normalizeMasterDataRecord(record);
+};
+
+const createDraftFromPublished = async (publishedCompanyId, userId) => {
+  const safeUserId = userId || null;
+  if (!safeUserId) {
+    throw createHttpError(401, 'ERR_UNAUTHORIZED', 'Authentication required');
+  }
+
+  const existingDraft = await getDraftCompanyProfileForPublished(publishedCompanyId, safeUserId);
+  if (existingDraft) {
+    return existingDraft;
+  }
+
+  const [publishedCompany] = await query(
+    `SELECT id, type, company_id AS companyId, status, \`values\`, created_by, updated_by, created_at, updated_at
+     FROM master_data
+     WHERE id = ?
+       AND type = 'company-profile'
+       AND status = 'published'
+       AND (created_by = ? OR updated_by = ?)
+     LIMIT 1`,
+    [publishedCompanyId, safeUserId, safeUserId],
+  );
+
+  const normalizedPublished = normalizeMasterDataRecord(publishedCompany);
+  if (!normalizedPublished) {
+    throw createHttpError(404, 'NOT_FOUND', 'Published company profile not found');
+  }
+
+  const draftCompanyId = uuidv4();
+  const draftValuesJson = JSON.stringify(normalizedPublished.values || {});
+
+  await query(
+    'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [draftCompanyId, 'company-profile', normalizedPublished.id, 'draft', draftValuesJson, safeUserId, safeUserId]
+  );
+
+  const types = [
+    'customer-profile',
+    'consignee-profile',
+    'payer-profile',
+    'employee-profile',
+    'payment-terms',
+  ];
+
+  for (const type of types) {
+    const latest = await getLatestMasterDataByType(type, safeUserId, normalizedPublished.id, 'published');
+    if (!latest) continue;
+
+    const draftId = uuidv4();
+    const valuesJson = JSON.stringify(latest.values || {});
+    await query(
+      'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [draftId, type, draftCompanyId, 'draft', valuesJson, safeUserId, safeUserId]
+    );
+  }
+
+  return getMasterDataById('company-profile', draftCompanyId, safeUserId);
+};
+
+const getDraftAggregatedMasterData = async (draftCompanyId, userId) => {
+  return getAggregatedMasterDataByCompany(draftCompanyId, userId, { status: 'draft' });
+};
+
+const publishDraftSet = async (draftCompanyId, userId) => {
+  const safeUserId = userId || null;
+  if (!safeUserId) {
+    throw createHttpError(401, 'ERR_UNAUTHORIZED', 'Authentication required');
+  }
+
+  const draftCompany = await getMasterDataById('company-profile', draftCompanyId, safeUserId);
+  if (!draftCompany || draftCompany.status !== 'draft') {
+    throw createHttpError(404, 'NOT_FOUND', 'Draft company profile not found');
+  }
+
+  const publishedCompanyId = draftCompany.companyId || null;
+
+  // Archive existing published set when editing a published company
+  if (publishedCompanyId) {
+    await query(
+      `UPDATE master_data
+       SET status = 'archived', updated_by = ?, updated_at = NOW()
+       WHERE (id = ? OR company_id = ?)
+         AND status = 'published'
+         AND (created_by = ? OR updated_by = ?)`,
+      [safeUserId, publishedCompanyId, publishedCompanyId, safeUserId, safeUserId]
+    );
+  }
+
+  // Publish all draft records for this draft company id (company profile + linked steps)
+  await query(
+    `UPDATE master_data
+     SET status = 'published', company_id = NULL, updated_by = ?, updated_at = NOW()
+     WHERE id = ?
+       AND status = 'draft'
+       AND (created_by = ? OR updated_by = ?)`,
+    [safeUserId, draftCompanyId, safeUserId, safeUserId]
+  );
+
+  await query(
+    `UPDATE master_data
+     SET status = 'published', updated_by = ?, updated_at = NOW()
+     WHERE company_id = ?
+       AND status = 'draft'
+       AND (created_by = ? OR updated_by = ?)`,
+    [safeUserId, draftCompanyId, safeUserId, safeUserId]
+  );
+
+  return getAggregatedMasterDataByCompany(draftCompanyId, safeUserId, { status: 'published' });
 };
 
 module.exports = {
@@ -451,5 +718,10 @@ module.exports = {
   searchMasterData,
   getAggregatedMasterData: getAllAggregatedMasterData, // Changed to return array of all sets
   getAggregatedMasterDataByCompany, // Get single company's aggregated data
+  getLatestDraftCompanyProfile,
+  getDraftCompanyProfileForPublished,
+  createDraftFromPublished,
+  getDraftAggregatedMasterData,
+  publishDraftSet,
 };
 

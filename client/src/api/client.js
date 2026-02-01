@@ -49,17 +49,7 @@ client.interceptors.response.use(
     return response
   },
   (error) => {
-    // Handle JSON parsing errors
-    if (error.code === 'ERR_BAD_RESPONSE' || error.message?.includes('JSON')) {
-      console.error('[API Client] JSON parsing error:', error)
-      return Promise.reject({
-        message: 'Invalid response from server. Please try again.',
-        code: 'ERR_INVALID_JSON',
-        isJsonError: true,
-      })
-    }
-    
-    // Handle network errors
+    // Handle network errors first (no response = can't use server message)
     if (error.code === 'ERR_NETWORK' || !error.response) {
       // Only log detailed errors in development or when authenticated
       const isAuthenticated = !!localStorage.getItem('token')

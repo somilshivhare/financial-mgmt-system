@@ -36,11 +36,13 @@ import Reports from './pages/Reports'
 import AppLayout from './layouts/AppLayout'
 import { MasterDataProvider } from './contexts/MasterDataContext'
 import { AIAssistantProvider } from './contexts/AIAssistantContext'
+import { ToastProvider } from './contexts/ToastContext'
 import ScrollToTop from './components/ScrollToTop'
 import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import PublicRoute from './components/PublicRoute'
 import NotFoundRoute from './components/NotFoundRoute'
+import { flushPendingSaves } from './utils/formPersistenceStorage'
 import './App.css'
 
 function App() {
@@ -58,6 +60,12 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    const onBeforeUnload = () => flushPendingSaves()
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [])
+
   const handleLogin = (userData) => {
     setUser(userData)
     localStorage.setItem('user', JSON.stringify(userData))
@@ -72,8 +80,9 @@ function App() {
   return (
     <ErrorBoundary>
       <MasterDataProvider>
-        <Router>
-          <AIAssistantProvider>
+        <ToastProvider>
+          <Router>
+            <AIAssistantProvider>
             <ScrollToTop />
             <Routes>
               {/* Public marketing site (shown when logged out) */}
@@ -137,6 +146,7 @@ function App() {
                 <Route path="/master-data" element={<ErrorBoundary><MasterData /></ErrorBoundary>} />
                 <Route path="/master-data/new" element={<ErrorBoundary><MasterDataIndex /></ErrorBoundary>} />
                 <Route path="/master-data/new/:type" element={<ErrorBoundary><MasterDataForm /></ErrorBoundary>} />
+                <Route path="/master-data/new/:type/:id" element={<ErrorBoundary><MasterDataForm /></ErrorBoundary>} />
                 <Route path="/master-data/review" element={<ErrorBoundary><MasterDataReview /></ErrorBoundary>} />
                 <Route path="/master-data/view/:companyId?" element={<ErrorBoundary><MasterDataView /></ErrorBoundary>} />
                 <Route path="/po-entry" element={<ErrorBoundary><POEntryIndex /></ErrorBoundary>} />
@@ -145,6 +155,8 @@ function App() {
                 <Route path="/po-entry/view/:id" element={<ErrorBoundary><POEntry /></ErrorBoundary>} />
                 <Route path="/invoices" element={<ErrorBoundary><InvoiceIndex /></ErrorBoundary>} />
                 <Route path="/invoices/new" element={<ErrorBoundary><InvoiceEntry /></ErrorBoundary>} />
+                <Route path="/invoices/edit/:id" element={<ErrorBoundary><InvoiceEntry /></ErrorBoundary>} />
+                <Route path="/invoices/view/:id" element={<ErrorBoundary><InvoiceEntry /></ErrorBoundary>} />
                 <Route path="/payments" element={<ErrorBoundary><PaymentIndex /></ErrorBoundary>} />
                 <Route path="/payments/new" element={<ErrorBoundary><PaymentEntry /></ErrorBoundary>} />
                 <Route path="/collection" element={<ErrorBoundary><CollectionPlan /></ErrorBoundary>} />
@@ -168,8 +180,9 @@ function App() {
                 } 
               />
             </Routes>
-          </AIAssistantProvider>
-        </Router>
+            </AIAssistantProvider>
+          </Router>
+        </ToastProvider>
       </MasterDataProvider>
     </ErrorBoundary>
   )

@@ -142,14 +142,66 @@ const createPO = async (payload, userId) =>
     return po;
   });
 
+/**
+ * Get PO by id. When draft_data exists, parses it and attaches formData + boqItems
+ * so the client can use this for edit without a separate draft call.
+ */
 const getPO = async (poId) => {
   const [po] = await query('SELECT * FROM purchase_orders WHERE id = ?', [poId]);
-  return po || null;
+  if (!po) return null;
+
+  if (po.draft_data) {
+    try {
+      const raw = po.draft_data;
+      const str = typeof raw === 'string' ? raw : (raw && typeof raw.toString === 'function' ? raw.toString() : '');
+      const parsed = str ? JSON.parse(str) : null;
+      if (parsed && typeof parsed.formData === 'object') {
+        po.formData = parsed.formData;
+        po.boqItems = Array.isArray(parsed.boqItems) ? parsed.boqItems : [];
+      }
+    } catch (err) {
+      // ignore parse error
+    }
+  }
+
+  if (!po.boqItems || po.boqItems.length === 0) {
+    const lines = await query('SELECT * FROM purchase_order_lines WHERE po_id = ? ORDER BY line_number', [po.id]);
+    po.boqItems = (lines || []).map((line, index) => ({
+      id: index + 1,
+      materialDescription: line.description || '',
+      quantity: line.quantity || '',
+      uom: '',
+      unitPrice: line.unit_price || '',
+      unitCost: '',
+      freight: '',
+      gst: '',
+      totalCost: line.subtotal || '',
+    }));
+  }
+
+  return po;
 };
 
+/** Return list of PO numbers for dropdowns (id + po_number). Only approved/closed POs so invoice creation uses valid POs. */
+const getPONumbers = async () => {
+  const rows = await query(
+    "SELECT id, po_number FROM purchase_orders WHERE status IN ('approved', 'closed') ORDER BY po_number ASC"
+  );
+  return rows || [];
+};
+
+/**
+ * Get PO by po_number. Returns same shape as getPO (with formData/boqItems).
+ * When multiple POs share the same po_number, prefers approved/closed so invoice flow gets the valid PO.
+ */
 const getPOByNumber = async (poNumber) => {
-  const [po] = await query('SELECT * FROM purchase_orders WHERE po_number = ?', [poNumber]);
-  return po || null;
+  const rows = await query(
+    "SELECT * FROM purchase_orders WHERE po_number = ? ORDER BY FIELD(status, 'approved', 'closed') DESC, updated_at DESC LIMIT 1",
+    [poNumber]
+  );
+  const row = rows && rows[0];
+  if (!row) return null;
+  return getPO(row.id);
 };
 
 const getLatestDraftPO = async (userId) => {
@@ -203,11 +255,16 @@ const upsertPODraft = async (formData, userId, poId = null) => {
   // Check if we need to add draft_data column (for migration compatibility)
   // For now, we'll use a separate approach - store in a JSON column if it exists
   
-  // Resolve existing PO only by id or by poNumber (do not reuse "latest draft" so each new submit creates a new row)
+  // Resolve existing PO: by URL poId, then by body id (so Submit updates same row after Save Draft), then by poNumber
+  // Single lifecycle: draft → submitted; never create a second row when client sends an existing id
   let existingPO = null;
   if (poId) {
     existingPO = await getPO(poId);
-  } else if (formData.poNumber) {
+  }
+  if (!existingPO && formData.id) {
+    existingPO = await getPO(formData.id);
+  }
+  if (!existingPO && formData.poNumber) {
     existingPO = await getPOByNumber(formData.poNumber);
   }
   
@@ -241,6 +298,15 @@ const upsertPODraft = async (formData, userId, poId = null) => {
     boqItems: boqItems,
     savedAt: new Date().toISOString(),
   });
+
+  // Compute total for list display: formData.poValue or sum(boqItems.totalCost)
+  let totalFromDraft = parseFloat(cleanFormData.poValue) || 0;
+  if (!Number.isFinite(totalFromDraft) || totalFromDraft <= 0) {
+    totalFromDraft = (boqItems || []).reduce(
+      (sum, it) => sum + (parseFloat(it.totalCost) || 0),
+      0
+    );
+  }
   
   if (existingPO) {
     // If this PO was previously saved with XXXX, upgrade it to the real sequential number
@@ -256,15 +322,13 @@ const upsertPODraft = async (formData, userId, poId = null) => {
       );
     }
 
-    // Update existing PO (draft_data + optional status)
-    // Check if draft_data column exists, if not, we'll need to add it via migration
-    // For now, try to update with draft_data
+    // Update existing PO (draft_data + total_amount + optional status)
     try {
       await query(
         `UPDATE purchase_orders 
-         SET draft_data = ?, status = COALESCE(?, status), updated_by = ?, updated_at = NOW() 
+         SET draft_data = ?, total_amount = COALESCE(NULLIF(?, 0), total_amount), status = COALESCE(?, status), updated_by = ?, updated_at = NOW() 
          WHERE id = ?`,
-        [draftDataJson, requestedStatus, userId, existingPO.id]
+        [draftDataJson, totalFromDraft, requestedStatus, userId, existingPO.id]
       );
     } catch (err) {
       // If draft_data column doesn't exist, create a migration entry
@@ -341,11 +405,11 @@ const upsertPODraft = async (formData, userId, poId = null) => {
       ]
     );
     
-    // Try to add draft_data
+    // Try to add draft_data and total_amount for list display
     try {
       await query(
-        `UPDATE purchase_orders SET draft_data = ? WHERE id = ?`,
-        [draftDataJson, newPoId]
+        `UPDATE purchase_orders SET draft_data = ?, total_amount = ? WHERE id = ?`,
+        [draftDataJson, totalFromDraft || 0, newPoId]
       );
     } catch (err) {
       // Column doesn't exist yet, that's okay
@@ -453,6 +517,7 @@ module.exports = {
   createPO, 
   updateStatus, 
   getPO, 
+  getPONumbers, 
   getPOByNumber, 
   getLatestDraftPO,
   upsertPODraft,

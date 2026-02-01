@@ -57,17 +57,24 @@
 .mom-toggle {
   border: none;
   background: transparent;
-  padding: 8px 12px;
+  padding: 8px 16px;
   border-radius: var(--radius-md);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-text-secondary);
   cursor: pointer;
   min-height: 36px;
+  transition: all var(--transition-base);
+}
+
+.mom-toggle:hover:not(.is-active) {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
 }
 
 .mom-toggle.is-active {
-  background: rgba(212, 175, 55, 0.14);
-  color: #7c5e0b;
+  background: var(--color-primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
 }
 
 /* Calendar card */
@@ -147,9 +154,13 @@
 }
 
 .mom-day.is-selected {
-  background: rgba(212, 175, 55, 0.10);
-  border-color: rgba(212, 175, 55, 0.30);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.10);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.2);
+}
+
+.mom-day.is-selected .mom-day-num {
+  color: white;
 }
 
 .mom-day.is-muted {
@@ -195,9 +206,15 @@
 }
 
 .mom-week-row.is-selected {
-  background: rgba(212, 175, 55, 0.10);
-  border-color: rgba(212, 175, 55, 0.30);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.10);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.2);
+}
+
+.mom-week-row.is-selected .mom-week-dow,
+.mom-week-row.is-selected .mom-week-dom,
+.mom-week-row.is-selected .mom-week-meta {
+  color: white;
 }
 
 .mom-week-date {
@@ -296,7 +313,7 @@
 }
 
 .mom-list-item.is-active {
-  background: rgba(212, 175, 55, 0.08);
+  background: rgba(15, 76, 129, 0.08);
 }
 
 .mom-list-item-top {
@@ -550,7 +567,7 @@
 .mom-textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
 .mom-input.is-error,
@@ -559,11 +576,7 @@
 }
 
 .mom-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 36px;
+  padding-right: 36px !important;
 }
 
 .mom-error {
@@ -718,14 +731,15 @@
 
 .mom-btn-primary {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
-  color: #111827;
+  color: white;
   border-color: rgba(212, 175, 55, 0.35);
-  box-shadow: 0 8px 18px rgba(212, 175, 55, 0.18);
+  box-shadow: 0 8px 18px rgba(15, 76, 129, 0.2);
 }
 
 .mom-btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(212, 175, 55, 0.22);
+  box-shadow: 0 12px 24px rgba(15, 76, 129, 0.25);
+  color: white;
 }
 
 .mom-btn-secondary {
@@ -924,7 +938,7 @@
 .mom-entry-textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
 .mom-entry-input.is-error,
@@ -1039,7 +1053,7 @@
 .mom-entry-action-select:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.1);
+  box-shadow: 0 0 0 2px rgba(15, 76, 129, 0.15);
 }
 
 .mom-entry-action-remove {
@@ -1133,7 +1147,7 @@
 
 .mom-entry-button-primary {
   background: var(--color-primary);
-  color: #1e293b;
+  color: #fff;
   border-color: var(--color-primary);
   box-shadow: var(--shadow-sm);
   font-weight: 700;
@@ -1142,8 +1156,8 @@
 .mom-entry-button-primary:hover:not(:disabled) {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
-  color: #1e293b;
+  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.25);
+  color: #fff;
 }
 
 @media (max-width: 767px) {

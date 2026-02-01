@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
   CheckCircle2,
@@ -7,275 +7,13 @@ import {
   Plus,
   X,
 } from 'lucide-react'
+import DatePicker from '../components/DatePicker'
 import { COUNTRIES, INDIA_STATES } from '../utils/indiaStates'
-import { saveMasterDataRecord, upsertMasterDataRecord, getLatestMasterDataByType, getMasterDataById, isStepLocked } from '../api/masterData'
-import { useFormPersistence } from '../hooks/useFormPersistence'
+import { saveMasterDataRecord, updateMasterDataRecord, upsertMasterDataRecord, getMasterDataById, getMasterDataByType, getLatestMasterDataByType } from '../api/masterData'
 import '../styles/MasterData.css'
+import { FORM_DEFS, FORM_STEPS } from '../utils/masterDataDefs'
 
-const FORM_DEFS = {
-  'company-profile': {
-    title: 'Company Profile',
-    description: 'Create or update your organization master details.',
-    groups: [
-      {
-        title: 'Company Information',
-        fields: [
-          { key: 'logo', label: 'Logo', type: 'file', accept: 'image/*' },
-          { key: 'companyName', label: 'Company Name / Legal Entity Name', type: 'text', required: true },
-        ],
-      },
-      {
-        title: 'Corporate Office Address',
-        fields: [
-          { key: 'corporateOfficeAddress', label: 'Corporate Office Address', type: 'textarea' },
-          { key: 'corporateDistrict', label: 'District', type: 'text' },
-          { key: 'corporateState', label: 'State', type: 'state' },
-          { key: 'corporateCountry', label: 'Country', type: 'country' },
-          { key: 'corporatePinCode', label: 'Pin Code', type: 'text' },
-        ],
-      },
-      {
-        title: 'Correspondence Address',
-        fields: [
-          { key: 'correspondenceAddress', label: 'Correspondence Address', type: 'textarea' },
-          { key: 'correspondenceDistrict', label: 'District', type: 'text' },
-          { key: 'correspondenceState', label: 'State', type: 'state' },
-          { key: 'correspondenceCountry', label: 'Country', type: 'country' },
-          { key: 'correspondencePinCode', label: 'Pin Code', type: 'text' },
-        ],
-      },
-      {
-        title: 'Other Office / Plant Details',
-        allowMultiple: true,
-        fields: [
-          { key: 'officeType', label: 'Other Office / Plant Details', type: 'select', options: ['Plant Address', 'Site Office', 'Marketing Office'] },
-          { key: 'otherOfficeAddress', label: 'Address', type: 'textarea' },
-          { key: 'otherOfficeGST', label: 'GST No', type: 'text' },
-          { key: 'otherOfficeDistrict', label: 'District', type: 'text' },
-          { key: 'otherOfficeState', label: 'State', type: 'state' },
-          { key: 'otherOfficeCountry', label: 'Country', type: 'country' },
-          { key: 'otherOfficePinCode', label: 'Pin Code', type: 'text' },
-        ],
-      },
-      {
-        title: 'Contact Information',
-        fields: [
-          { key: 'contactPersonName', label: 'Contact Person Name', type: 'text' },
-          { key: 'contactNumber', label: 'Contact Number', type: 'tel' },
-          { key: 'emailId', label: 'Email ID', type: 'email' },
-        ],
-      },
-    ],
-  },
-  'customer-profile': {
-    title: 'Customer Profile',
-    description: 'Maintain customer master for invoicing and follow-ups.',
-    groups: [
-      {
-        title: 'Customer Information',
-        fields: [
-          { key: 'logo', label: 'Logo', type: 'file', accept: 'image/*' },
-          { key: 'customerName', label: 'Customer Name', type: 'text', required: true },
-          { key: 'legalEntityName', label: 'Legal Entity Name', type: 'text' },
-        ],
-      },
-      {
-        title: 'Corporate Office Address',
-        allowMultiple: true,
-        fields: [
-          { key: 'corporateOfficeAddress', label: 'Corporate Office Address', type: 'textarea' },
-        ],
-      },
-      {
-        title: 'Correspondence Address',
-        allowMultiple: true,
-        fields: [
-          { key: 'correspondenceAddress', label: 'Correspondence Address', type: 'textarea' },
-          { key: 'district', label: 'District', type: 'text' },
-          { key: 'state', label: 'State', type: 'state' },
-          { key: 'country', label: 'Country', type: 'country' },
-          { key: 'pinCode', label: 'Pin Code', type: 'text' },
-        ],
-      },
-      {
-        title: 'Business Details',
-        fields: [
-          { key: 'segment', label: 'Segment', type: 'select', options: ['Domestic', 'Export'] },
-          { key: 'gstNo', label: 'GST No', type: 'text' },
-        ],
-      },
-      {
-        title: 'Contact Information',
-        fields: [
-          { key: 'poIssuingAuthority', label: 'PO Issuing Authority / Contact Person Name', type: 'text' },
-          { key: 'designation', label: 'Designation', type: 'text' },
-          { key: 'contactPersonContactNo', label: 'Contact Person Contact No', type: 'tel' },
-          { key: 'emailId', label: 'Email ID', type: 'email' },
-        ],
-      },
-    ],
-  },
-  'consignee-profile': {
-    title: 'Consignee Profile',
-    description: 'Ship-to location master for delivery and compliance.',
-    groups: [
-      {
-        title: 'Consignee Information',
-        allowMultiple: true,
-        fields: [
-          { key: 'logo', label: 'Logo', type: 'file', accept: 'image/*' },
-          { key: 'consigneeName', label: 'Consignee Name', type: 'text', required: true },
-        ],
-      },
-      {
-        title: 'Consignee Address',
-        allowMultiple: true,
-        fields: [
-          { key: 'consigneeAddress', label: 'Consignee Address', type: 'textarea' },
-        ],
-      },
-      {
-        title: 'Customer Details',
-        allowMultiple: true,
-        fields: [
-          { key: 'customerName', label: 'Customer Name', type: 'text' },
-          { key: 'legalEntityName', label: 'Legal Entity Name', type: 'text' },
-        ],
-      },
-      {
-        title: 'Location Details',
-        allowMultiple: true,
-        fields: [
-          { key: 'city', label: 'City', type: 'text' },
-          { key: 'state', label: 'State', type: 'state' },
-          { key: 'country', label: 'Country', type: 'country' },
-          { key: 'consigneeGSTNo', label: 'Consignee GST No', type: 'text' },
-        ],
-      },
-      {
-        title: 'Contact Information',
-        allowMultiple: true,
-        fields: [
-          { key: 'contactPersonName', label: 'Contact Person Name', type: 'text' },
-          { key: 'designation', label: 'Designation', type: 'text' },
-          { key: 'contactPersonContactNo', label: 'Contact Person Contact No', type: 'tel' },
-          { key: 'emailId', label: 'Email ID', type: 'email' },
-        ],
-      },
-    ],
-  },
-  'payer-profile': {
-    title: 'Payer Profile',
-    description: 'Bill-to party master for payments and credit control.',
-    groups: [
-      {
-        title: 'Payer Information',
-        allowMultiple: true,
-        fields: [
-          { key: 'logo', label: 'Logo', type: 'file', accept: 'image/*' },
-          { key: 'payerName', label: 'Payer Name', type: 'text', required: true },
-        ],
-      },
-      {
-        title: 'Payer Address',
-        allowMultiple: true,
-        fields: [
-          { key: 'payerAddress', label: 'Payer Address', type: 'textarea' },
-        ],
-      },
-      {
-        title: 'Customer Details',
-        allowMultiple: true,
-        fields: [
-          { key: 'customerName', label: 'Customer Name', type: 'text' },
-          { key: 'legalEntityName', label: 'Legal Entity Name', type: 'text' },
-        ],
-      },
-      {
-        title: 'Location Details',
-        allowMultiple: true,
-        fields: [
-          { key: 'city', label: 'City', type: 'text' },
-          { key: 'state', label: 'State', type: 'state' },
-          { key: 'country', label: 'Country', type: 'country' },
-          { key: 'payerGSTNo', label: 'Payer GST No', type: 'text' },
-        ],
-      },
-      {
-        title: 'Contact Information',
-        allowMultiple: true,
-        fields: [
-          { key: 'contactPersonName', label: 'Contact Person Name', type: 'text' },
-          { key: 'designation', label: 'Designation', type: 'text' },
-          { key: 'contactPersonContactNo', label: 'Contact Person Contact No', type: 'tel' },
-          { key: 'emailId', label: 'Email ID', type: 'email' },
-        ],
-      },
-    ],
-  },
-  'employee-profile': {
-    title: 'Employee Profile',
-    description: 'Employee master for sales operations and approvals.',
-    groups: [
-      {
-        title: 'Role & Identity',
-        allowMultiple: true,
-        fields: [
-          { key: 'role', label: 'Role', type: 'select', options: ['Sales Manager', 'Sales Head', 'Business Head', 'Collection Incharge', 'Sales Agent', 'Collection Agent', 'Project Manager', 'Project Head', 'Transporter'] },
-          { key: 'photo', label: 'Photo', type: 'file', accept: 'image/*' },
-          { key: 'nameOfEmployee', label: 'Name of Employee', type: 'text', required: true },
-          { key: 'designation', label: 'Designation', type: 'text' },
-          { key: 'transporterName', label: 'Transporter Name', type: 'text' },
-        ],
-      },
-      {
-        title: 'Contact Information',
-        allowMultiple: true,
-        fields: [
-          { key: 'contactNo', label: 'Contact No', type: 'tel' },
-          { key: 'emailId', label: 'Email ID', type: 'email' },
-        ],
-      },
-      {
-        title: 'Employment Details',
-        allowMultiple: true,
-        fields: [
-          { key: 'department', label: 'Department', type: 'text' },
-          { key: 'jobRole', label: 'Job Role', type: 'text' },
-        ],
-      },
-    ],
-  },
-  'payment-terms': {
-    title: 'Payment Terms',
-    description: 'Define payment terms used across invoices and contracts.',
-    groups: [
-      {
-        title: 'Payment Structure',
-        fields: [
-          { key: 'basic', label: 'Basic', type: 'number' },
-          { key: 'freight', label: 'Freight', type: 'number' },
-          { key: 'taxes', label: 'Taxes', type: 'number' },
-        ],
-      },
-      {
-        title: 'Due Dates',
-        fields: [
-          { key: 'firstDue', label: '1st Due', type: 'number' },
-          { key: 'secondDue', label: '2nd Due', type: 'number' },
-          { key: 'thirdDue', label: '3rd Due', type: 'number' },
-          { key: 'finalDue', label: 'Final Due', type: 'number' },
-        ],
-      },
-      {
-        title: 'Description',
-        fields: [
-          { key: 'paymentTermsDescription', label: 'Payment Terms Description', type: 'textarea' },
-        ],
-      },
-    ],
-  },
-}
+ 
 
 /**
  * MasterDataForm Component
@@ -291,9 +29,46 @@ const FORM_DEFS = {
  */
 function MasterDataForm() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { type, id } = useParams() // Get ID if editing existing record (null when creating new)
+  const isEditMode = !!id
   const [isLocked, setIsLocked] = useState(false)
   const [checkingLock, setCheckingLock] = useState(true)
+
+  const wizardParams = useMemo(() => {
+    try {
+      const params = new URLSearchParams(location.search)
+      return {
+        isWizardFlow: params.get('flow') === 'wizard',
+        draftId: params.get('draftId') || '',
+      }
+    } catch {
+      return { isWizardFlow: false, draftId: '' }
+    }
+  }, [location.search])
+
+  const isWizardFlow = wizardParams.isWizardFlow
+
+  const initialCompanyIdFromQuery = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search).get('companyId') || ''
+    } catch {
+      return ''
+    }
+  }, [location.search])
+
+  const [draftCompanyId, setDraftCompanyId] = useState(wizardParams.draftId)
+  const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyIdFromQuery)
+  const [companyOptions, setCompanyOptions] = useState([])
+  const [companyOptionsLoading, setCompanyOptionsLoading] = useState(false)
+
+  useEffect(() => {
+    setDraftCompanyId(wizardParams.draftId)
+  }, [wizardParams.draftId])
+
+  useEffect(() => {
+    setDraftRecordId('')
+  }, [type, draftCompanyId])
 
   // Check if step is locked (has been saved)
   // Only lock when editing a specific record (id present) - allow multiple new records
@@ -313,6 +88,60 @@ function MasterDataForm() {
     
     checkLockStatus()
   }, [type, id, navigate])
+
+  // Load company profiles so non-company modules can be linked to a specific company
+  useEffect(() => {
+    let cancelled = false
+
+    const loadCompanies = async () => {
+      if (!type || type === 'company-profile') return
+      if (isWizardFlow && draftCompanyId) {
+        try {
+          setCompanyOptionsLoading(true)
+          const record = await getMasterDataById('company-profile', draftCompanyId)
+          if (!cancelled && record?.data) {
+            setCompanyOptions([record.data])
+            setSelectedCompanyId(draftCompanyId)
+          } else if (!cancelled && record?.id) {
+            setCompanyOptions([record])
+            setSelectedCompanyId(draftCompanyId)
+          }
+        } catch (error) {
+          console.error('[MasterDataForm] Failed to load draft company profile:', error)
+          if (!cancelled) setCompanyOptions([])
+        } finally {
+          if (!cancelled) setCompanyOptionsLoading(false)
+        }
+        return
+      }
+      setCompanyOptionsLoading(true)
+      try {
+        const companies = await getMasterDataByType('company-profile', { status: 'published' })
+        if (!cancelled) setCompanyOptions(Array.isArray(companies) ? companies : [])
+      } catch (error) {
+        console.error('[MasterDataForm] Failed to load company profiles:', error)
+        if (!cancelled) setCompanyOptions([])
+      } finally {
+        if (!cancelled) setCompanyOptionsLoading(false)
+      }
+    }
+
+    loadCompanies()
+    return () => {
+      cancelled = true
+    }
+  }, [type, isWizardFlow, draftCompanyId])
+
+  // When creating a new record, keep selectedCompanyId in sync with ?companyId=...
+  useEffect(() => {
+    if (!type || type === 'company-profile') return
+    if (id) return // edit mode: derive from record
+    if (isWizardFlow && draftCompanyId) {
+      setSelectedCompanyId(draftCompanyId)
+      return
+    }
+    setSelectedCompanyId(initialCompanyIdFromQuery || '')
+  }, [type, id, initialCompanyIdFromQuery, isWizardFlow, draftCompanyId])
 
   // Validate type exists - prevent crashes
   if (!type || !FORM_DEFS[type]) {
@@ -334,16 +163,18 @@ function MasterDataForm() {
 
   const def = FORM_DEFS[type]
   const [status, setStatus] = useState({ kind: 'idle', message: '' })
+  const [values, setValues] = useState({})
   const [multipleEntries, setMultipleEntries] = useState({})
   const [logoPreviews, setLogoPreviews] = useState({})
   const [showSaveOptions, setShowSaveOptions] = useState(false)
   const [savingInProgress, setSavingInProgress] = useState(false)
+  const [draftRecordId, setDraftRecordId] = useState('')
   
   // Special state for array-based forms: array of complete objects
-  const [consignees, setConsignees] = useState([{ id: 0, values: {}, logoPreviews: {} }])
-  const [payers, setPayers] = useState([{ id: 0, values: {}, logoPreviews: {} }])
-  const [employees, setEmployees] = useState([{ id: 0, values: {}, logoPreviews: {} }])
-  const [paymentTerms, setPaymentTerms] = useState([{ id: 0, values: {} }])
+  const [consignees, setConsignees] = useState([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
+  const [payers, setPayers] = useState([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
+  const [employees, setEmployees] = useState([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
+  const [paymentTerms, setPaymentTerms] = useState([{ id: 0, recordId: null, values: {} }])
 
   const title = def?.title || 'Master Data'
   const description = def?.description || 'Fill the form to continue.'
@@ -353,100 +184,130 @@ function MasterDataForm() {
   const isEmployeeProfile = type === 'employee-profile'
   const isPaymentTerms = type === 'payment-terms'
   const isArrayBasedForm = isConsigneeProfile || isPayerProfile || isEmployeeProfile || isPaymentTerms
-  
-  // Single-record types that should use persistence (customer-profile only - company-profile allows multiple entries)
-  // IMPORTANT: Only enable persistence when editing an existing record (id present)
-  // For new records, NEVER use persistence to ensure complete isolation
-  const singleRecordTypes = ['customer-profile']
-  const usePersistence = singleRecordTypes.includes(type) && !isArrayBasedForm && !!id // Only when editing (id present)
-  
-  // Memoize loadFn to prevent infinite loops - with error handling
-  const loadFnRef = useRef(null)
-  const loadFn = useCallback(async () => {
-    try {
-      // Only load data if explicitly editing (ID present in URL)
-      // For new profiles, always return null to start fresh
-      if (!id) {
-        // Creating new - don't load any existing data
-        return null
-      }
-      
-      // Editing existing record - fetch by ID
-      const response = await getMasterDataById(type, id)
-      if (response?.data) {
-        // Handle different response structures
-        const record = response.data.data || response.data
-        if (record?.values) {
-          const data = record.values
-          // Extract logoPreviews if present
-          if (data.logoPreviews) {
-            setLogoPreviews(data.logoPreviews)
-          }
-          // Return values without logoPreviews (already extracted)
-          const { logoPreviews: _, ...values } = data
-          return values
-        } else if (record && typeof record === 'object') {
-          return record
-        }
-      }
-      return null
-    } catch (error) {
-      console.error(`[MasterDataForm] Failed to load ${type}${id ? ` (ID: ${id})` : ''}:`, error)
-      // Return null on error - don't crash the component
-      return null
+
+  const parseApiRecord = useCallback((apiResponse) => {
+    if (!apiResponse) return null
+    if (apiResponse.data && typeof apiResponse.data === 'object') return apiResponse.data
+    return apiResponse
+  }, [])
+
+  const applyRecordToFormState = useCallback((record) => {
+    if (!record || !def) return
+
+    const recordCompanyId = record.companyId || record.company_id || null
+    if (recordCompanyId && type !== 'company-profile') {
+      setSelectedCompanyId(recordCompanyId)
     }
-  }, [type, id])
-  
-  // Use ref for logoPreviews to avoid recreating saveFn
+
+    const stored = record.values || {}
+    const storedLogoPreviews = stored.logoPreviews || {}
+    const { logoPreviews: _lp, ...rawValues } = stored
+
+    const normalizeAllowMultiple = (rawVals, rawLogos) => {
+      const nextValues = { ...(rawVals || {}) }
+      const nextLogoPreviews = { ...(rawLogos || {}) }
+      const nextMultipleEntries = {}
+
+      // Index any suffixed keys once: foo_0, foo_1, ...
+      const suffixIndexByBase = {}
+      const addIndex = (base, idx) => {
+        if (!suffixIndexByBase[base]) suffixIndexByBase[base] = new Set()
+        suffixIndexByBase[base].add(idx)
+      }
+
+      Object.keys(nextValues).forEach((k) => {
+        const m = k.match(/^(.*)_(\d+)$/)
+        if (m) addIndex(m[1], Number(m[2]))
+      })
+      Object.keys(nextLogoPreviews).forEach((k) => {
+        const m = k.match(/^(.*)_(\d+)$/)
+        if (m) addIndex(m[1], Number(m[2]))
+      })
+
+      def.groups.forEach((group, groupIndex) => {
+        if (!group.allowMultiple) return
+
+        const indices = new Set()
+
+        group.fields.forEach((f) => {
+          const basesToCheck = [f.key, `${f.key}Other`]
+          basesToCheck.forEach((base) => {
+            const found = suffixIndexByBase[base]
+            if (found) found.forEach((idx) => indices.add(idx))
+          })
+        })
+
+        // If no suffixed keys exist, but base keys exist, treat it as entry 0.
+        if (indices.size === 0) {
+          const hasAnyBase = group.fields.some((f) => (
+            nextValues[f.key] !== undefined ||
+            nextValues[`${f.key}Other`] !== undefined ||
+            nextLogoPreviews[f.key] !== undefined
+          ))
+          if (hasAnyBase) indices.add(0)
+        }
+
+        const sorted = Array.from(indices).sort((a, b) => a - b)
+        nextMultipleEntries[groupIndex] = sorted.length > 0 ? sorted : [0]
+
+        // Ensure allowMultiple fields exist as suffixed keys (so UI renders them)
+        nextMultipleEntries[groupIndex].forEach((idx) => {
+          group.fields.forEach((f) => {
+            const suffixedKey = `${f.key}_${idx}`
+            const baseKey = f.key
+            if (nextValues[suffixedKey] === undefined && idx === 0 && nextValues[baseKey] !== undefined) {
+              nextValues[suffixedKey] = nextValues[baseKey]
+              delete nextValues[baseKey]
+            }
+
+            const suffixedOtherKey = `${f.key}Other_${idx}`
+            const baseOtherKey = `${f.key}Other`
+            if (nextValues[suffixedOtherKey] === undefined && idx === 0 && nextValues[baseOtherKey] !== undefined) {
+              nextValues[suffixedOtherKey] = nextValues[baseOtherKey]
+              delete nextValues[baseOtherKey]
+            }
+
+            if (nextLogoPreviews[suffixedKey] === undefined && idx === 0 && nextLogoPreviews[baseKey] !== undefined) {
+              nextLogoPreviews[suffixedKey] = nextLogoPreviews[baseKey]
+              delete nextLogoPreviews[baseKey]
+            }
+          })
+        })
+      })
+
+      return { nextValues, nextLogoPreviews, nextMultipleEntries }
+    }
+
+    if (isArrayBasedForm) {
+      const item = (type === 'payment-terms')
+        ? { id: 0, values: rawValues }
+        : { id: 0, values: rawValues, logoPreviews: storedLogoPreviews }
+
+      if (isConsigneeProfile) setConsignees([item])
+      else if (isPayerProfile) setPayers([item])
+      else if (isEmployeeProfile) setEmployees([item])
+      else if (isPaymentTerms) setPaymentTerms([item])
+
+      setValues({})
+      setLogoPreviews({})
+      setMultipleEntries({})
+      setStatus({ kind: 'idle', message: '' })
+      return
+    }
+
+    const { nextValues, nextLogoPreviews, nextMultipleEntries } = normalizeAllowMultiple(rawValues, storedLogoPreviews)
+    setValues(nextValues)
+    setLogoPreviews(nextLogoPreviews)
+    setMultipleEntries(nextMultipleEntries)
+    setStatus({ kind: 'idle', message: '' })
+  }, [def, isArrayBasedForm, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, type])
+
+  // Use ref for logoPreviews to avoid stale closures
   const logoPreviewsRef = useRef(logoPreviews)
   useEffect(() => {
     logoPreviewsRef.current = logoPreviews
   }, [logoPreviews])
-  
-  // Memoize saveFn to prevent infinite loops - use ref for logoPreviews - with error handling
-  const saveFn = useCallback(async (formValues, entityId) => {
-    try {
-      const cleanValues = { ...formValues }
-      // Remove File objects before saving
-      Object.keys(cleanValues).forEach(key => {
-        if (cleanValues[key] instanceof File) {
-          delete cleanValues[key]
-        }
-      })
-      
-      const result = await upsertMasterDataRecord(type, {
-        values: cleanValues,
-        logoPreviews: logoPreviewsRef.current, // Use ref instead of direct value
-        id: entityId,
-      })
-      return result
-    } catch (error) {
-      console.error(`[MasterDataForm] Failed to save ${type}:`, error)
-      // Re-throw to let the hook handle it
-      throw error
-    }
-  }, [type]) // Only type as dependency - logoPreviews accessed via ref
-  
-  // Form persistence hook for single-record types
-  // Only enable persistence when editing (id present) or when explicitly needed
-  // For new profiles, disable persistence to ensure fresh start
-  const {
-    values,
-    setValues,
-    loading: persistenceLoading,
-    saving: persistenceSaving,
-    error: persistenceError,
-    save: persistenceSave,
-    load: persistenceLoad,
-  } = useFormPersistence({
-    saveFn: usePersistence ? saveFn : null,
-    loadFn: usePersistence && id ? loadFn : null, // Only load if ID is present (editing)
-    entityType: type,
-    defaultValues: {},
-    enableAutoSave: usePersistence && id, // Only auto-save when editing, not when creating new
-    autoSaveDelay: 2000,
-  })
-  
+
   // Track previous type/id to detect navigation to new record
   const prevTypeRef = useRef(type)
   const prevIdRef = useRef(id)
@@ -471,12 +332,14 @@ function MasterDataForm() {
     prevTypeRef.current = type
     prevIdRef.current = id
     
+    const isDraftResume = isWizardFlow && draftCompanyId
+
     // Always reset when creating new (no ID) - don't wait for anything
     // Reset triggers:
     // - On initial mount with no ID (new record)
     // - When type changes and no ID (navigating between form types for new records)
     // - When ID changes from present to absent (switching from edit to create)
-    if (isNewRecord && (typeChanged || idChanged || !prevTypeRef.current)) {
+    if (isNewRecord && !isDraftResume && (typeChanged || idChanged || !prevTypeRef.current)) {
       // Immediately reset all form state when creating new
       // This ensures a completely fresh start every time "New Master Data" is clicked
       setValues({})
@@ -488,16 +351,16 @@ function MasterDataForm() {
       
       // Reset array-based form states to initial empty state
       if (isConsigneeProfile) {
-        setConsignees([{ id: 0, values: {}, logoPreviews: {} }])
+        setConsignees([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
       } else if (isPayerProfile) {
-        setPayers([{ id: 0, values: {}, logoPreviews: {} }])
+        setPayers([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
       } else if (isEmployeeProfile) {
-        setEmployees([{ id: 0, values: {}, logoPreviews: {} }])
+        setEmployees([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
       } else if (isPaymentTerms) {
-        setPaymentTerms([{ id: 0, values: {} }])
+        setPaymentTerms([{ id: 0, recordId: null, values: {} }])
       }
     }
-  }, [id, type, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, setValues])
+  }, [id, type, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, setValues, isWizardFlow, draftCompanyId])
   
   /**
    * CLEANUP: Reset form state when component unmounts
@@ -520,20 +383,6 @@ function MasterDataForm() {
       }
     }
   }, [id, setValues])
-  
-  // Show loading state from persistence
-  useEffect(() => {
-    if (persistenceLoading && usePersistence) {
-      setStatus({ kind: 'idle', message: 'Loading saved data...' })
-    }
-  }, [persistenceLoading, usePersistence])
-  
-  // Show errors from persistence
-  useEffect(() => {
-    if (persistenceError && usePersistence) {
-      setStatus({ kind: 'error', message: persistenceError })
-    }
-  }, [persistenceError, usePersistence])
 
   // Initialize multiple entries for groups that allow it (skip for array-based forms)
   // CRITICAL: Only initialize when creating new (no ID) to ensure fresh start
@@ -547,14 +396,122 @@ function MasterDataForm() {
     })
     setMultipleEntries(initialEntries)
   }, [def, isArrayBasedForm, id])
+
+  /**
+   * EDIT MODE PREFILL
+   *
+   * When an ID is present, we load that exact record and normalize it into the current UI model:
+   * - Extract `logoPreviews` from stored values
+   * - For allowMultiple groups, rebuild `multipleEntries` indices and ensure suffixed keys exist
+   * - For array-based forms, load a single item into the array list (editing one record)
+   */
+  useEffect(() => {
+    if (!id || !def) return
+
+    let cancelled = false
+
+    const loadForEdit = async () => {
+      try {
+        setStatus({ kind: 'idle', message: 'Loading record for editing...' })
+        setShowSaveOptions(false)
+        setSavingInProgress(false)
+
+        const resp = await getMasterDataById(type, id)
+        const record = parseApiRecord(resp)
+        if (!record) return
+        if (cancelled) return
+        applyRecordToFormState(record)
+      } catch (error) {
+        console.error(`[MasterDataForm] Failed to load ${type} (ID: ${id}) for edit:`, error)
+        if (!cancelled) setStatus({ kind: 'error', message: 'Failed to load record for editing.' })
+      }
+    }
+
+    loadForEdit()
+
+    return () => {
+      cancelled = true
+    }
+  }, [id, def, type, applyRecordToFormState, parseApiRecord])
+
+  /**
+   * DRAFT PREFILL (Wizard flow)
+   * Load saved draft data for the current step when resuming a wizard flow.
+   */
+  useEffect(() => {
+    if (!isWizardFlow || !def || id) return
+
+    let cancelled = false
+
+    const loadDraft = async () => {
+      try {
+        if (!type) return
+        if (type !== 'company-profile' && !draftCompanyId) return
+
+        setStatus({ kind: 'idle', message: 'Loading draft data...' })
+        setShowSaveOptions(false)
+        setSavingInProgress(false)
+
+        if (type === 'company-profile') {
+          if (!draftCompanyId) return
+          const resp = await getMasterDataById(type, draftCompanyId)
+          const record = parseApiRecord(resp)
+          if (!record || record.status !== 'draft') return
+          if (cancelled) return
+          setDraftRecordId(record.id)
+          applyRecordToFormState(record)
+          return
+        }
+
+        if (isArrayBasedForm) {
+          const records = await getMasterDataByType(type, { companyId: draftCompanyId, status: 'draft' })
+          if (cancelled) return
+
+          if (records.length > 0) {
+            const items = records.map((record, index) => {
+              const stored = record.values || {}
+              const storedLogoPreviews = stored.logoPreviews || {}
+              const { logoPreviews: _lp, ...rawValues } = stored
+              if (type === 'payment-terms') {
+                return { id: index, recordId: record.id, values: rawValues }
+              }
+              return { id: index, recordId: record.id, values: rawValues, logoPreviews: storedLogoPreviews }
+            })
+
+            if (isConsigneeProfile) setConsignees(items)
+            else if (isPayerProfile) setPayers(items)
+            else if (isEmployeeProfile) setEmployees(items)
+            else if (isPaymentTerms) setPaymentTerms(items)
+          }
+          setStatus({ kind: 'idle', message: '' })
+          return
+        }
+
+        const latest = await getLatestMasterDataByType(type, { companyId: draftCompanyId, status: 'draft' })
+        if (!latest) return
+        if (cancelled) return
+        setDraftRecordId(latest.id)
+        applyRecordToFormState(latest)
+      } catch (error) {
+        console.error('[MasterDataForm] Failed to load draft data:', error)
+        if (!cancelled) setStatus({ kind: 'error', message: 'Failed to load draft data.' })
+      }
+    }
+
+    loadDraft()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isWizardFlow, def, id, type, draftCompanyId, isArrayBasedForm, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, applyRecordToFormState, parseApiRecord])
   
   // Generic handler factory for array-based forms
   const createArrayHandlers = (items, setItems, formType, itemName) => {
     const handleAdd = () => {
       const newId = Math.max(...items.map(item => item.id), -1) + 1
       const newItem = formType === 'payment-terms' 
-        ? { id: newId, values: {} }
-        : { id: newId, values: {}, logoPreviews: {} }
+        ? { id: newId, recordId: null, values: {} }
+        : { id: newId, recordId: null, values: {}, logoPreviews: {} }
       setItems(prev => [...prev, newItem])
       
       // Scroll to new item after a brief delay
@@ -666,6 +623,22 @@ function MasterDataForm() {
       )
     })
   }, [def, values, multipleEntries, isArrayBasedForm, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, consignees, payers, employees, paymentTerms])
+
+  const wizardStepIndex = useMemo(() => {
+    return FORM_STEPS.findIndex((step) => step.key === type)
+  }, [type])
+
+  const wizardNextStep = useMemo(() => {
+    if (wizardStepIndex < 0) return null
+    return FORM_STEPS[wizardStepIndex + 1] || null
+  }, [wizardStepIndex])
+
+  const buildWizardStepUrl = useCallback((stepKey, nextDraftId) => {
+    if (stepKey === 'review-submit') {
+      return `/master-data/review?draftId=${nextDraftId}&flow=wizard`
+    }
+    return `/master-data/new/${stepKey}?draftId=${nextDraftId}&flow=wizard`
+  }, [])
 
   const onChange = (key, next, entryIndex = null) => {
     const finalKey = entryIndex !== null ? `${key}_${entryIndex}` : key
@@ -886,6 +859,17 @@ function MasterDataForm() {
                           />
                         )}
                       </>
+                    ) : f.type === 'date' || f.type === 'datetime' ? (
+                      <DatePicker
+                        id={fieldId}
+                        name={f.key}
+                        selected={fieldValue}
+                        disabled={isLocked}
+                        required={f.required}
+                        showTimeSelect={f.type === 'datetime'}
+                        onChange={(e) => handleChange(item.id, f.key, e.target.value)}
+                        placeholderText={`Select ${f.label.toLowerCase()}...`}
+                      />
                     ) : (
                       <input
                         id={fieldId}
@@ -973,36 +957,187 @@ function MasterDataForm() {
     })
   }
 
-  const handleSaveAndContinue = async () => {
+  const saveDraftStep = async ({ navigateNext } = {}) => {
     try {
-      if (usePersistence) {
-        // Use persistence save for single-record types
-        await persistenceSave(true)
-        setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
-      } else {
-        // For array-based forms, save directly to database
-        const records = transformToTabularRecords()
-        const cleanValues = (vals) => {
-          const cleaned = { ...vals }
-          Object.keys(cleaned).forEach(key => {
-            if (cleaned[key] instanceof File) {
-              delete cleaned[key]
-            }
-          })
-          return cleaned
-        }
-        
-        const savePromises = records.map(record => 
-          saveMasterDataRecord(type, {
-            values: cleanValues(record.values),
-            logoPreviews: record.logoPreviews,
-          })
-        )
-        
-        await Promise.all(savePromises)
-        window.dispatchEvent(new Event('masterDataUpdated'))
-        setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
+      if (type !== 'company-profile' && !draftCompanyId) {
+        setStatus({ kind: 'error', message: 'Draft company must be created first.' })
+        return null
       }
+
+      setSavingInProgress(true)
+      setStatus({ kind: 'idle', message: 'Saving draft...' })
+
+      const cleanValues = (vals) => {
+        const cleaned = { ...(vals || {}) }
+        Object.keys(cleaned).forEach(key => {
+          if (cleaned[key] instanceof File) {
+            delete cleaned[key]
+          }
+        })
+        return cleaned
+      }
+
+      const cleanLogoPreviews = (previews) => {
+        if (!previews || typeof previews !== 'object') return {}
+        const out = {}
+        Object.entries(previews).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && typeof v !== 'function' && !(v instanceof File)) {
+            out[k] = typeof v === 'object' && v !== null && !Array.isArray(v)
+              ? cleanLogoPreviews(v)
+              : v
+          }
+        })
+        return out
+      }
+
+      let nextDraftId = draftCompanyId
+
+      if (isArrayBasedForm) {
+        let items = []
+        if (isConsigneeProfile) items = consignees
+        else if (isPayerProfile) items = payers
+        else if (isEmployeeProfile) items = employees
+        else if (isPaymentTerms) items = paymentTerms
+
+        const savedItems = await Promise.all(items.map(async (item) => {
+          const payload = {
+            values: cleanValues(item.values || {}),
+            logoPreviews: item.logoPreviews || {},
+            companyId: type === 'company-profile' ? undefined : nextDraftId,
+            status: 'draft',
+          }
+
+          if (item.recordId) {
+            await updateMasterDataRecord(type, item.recordId, payload)
+            return item
+          }
+
+          const resp = await saveMasterDataRecord(type, payload)
+          const savedRecord = parseApiRecord(resp)
+          return { ...item, recordId: savedRecord?.id || item.recordId }
+        }))
+
+        if (isConsigneeProfile) setConsignees(savedItems)
+        else if (isPayerProfile) setPayers(savedItems)
+        else if (isEmployeeProfile) setEmployees(savedItems)
+        else if (isPaymentTerms) setPaymentTerms(savedItems)
+
+        window.dispatchEvent(new Event('masterDataUpdated'))
+        setStatus({ kind: 'success', message: 'Draft saved successfully.' })
+      } else {
+        const payload = {
+          values: cleanValues(values) || {},
+          logoPreviews: cleanLogoPreviews(logoPreviewsRef.current),
+          companyId: type === 'company-profile' ? undefined : nextDraftId,
+          status: 'draft',
+        }
+
+        if (type === 'company-profile') {
+          if (draftRecordId) {
+            await updateMasterDataRecord(type, draftRecordId, payload)
+          } else {
+            const resp = await saveMasterDataRecord(type, payload)
+            const savedRecord = parseApiRecord(resp)
+            if (savedRecord?.id) {
+              nextDraftId = savedRecord.id
+              setDraftCompanyId(savedRecord.id)
+              setDraftRecordId(savedRecord.id)
+            }
+          }
+        } else if (draftRecordId) {
+          await updateMasterDataRecord(type, draftRecordId, payload)
+        } else {
+          const resp = await saveMasterDataRecord(type, payload)
+          const savedRecord = parseApiRecord(resp)
+          if (savedRecord?.id) {
+            setDraftRecordId(savedRecord.id)
+          }
+        }
+
+        window.dispatchEvent(new Event('masterDataUpdated'))
+        setStatus({ kind: 'success', message: 'Draft saved successfully.' })
+      }
+
+      setSavingInProgress(false)
+
+      if (navigateNext && wizardNextStep && nextDraftId) {
+        navigate(buildWizardStepUrl(wizardNextStep.key, nextDraftId))
+      }
+
+      return nextDraftId
+    } catch (error) {
+      console.error('[MasterDataForm] Failed to save draft:', error)
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to save draft. Please try again.'
+      setStatus({ kind: 'error', message })
+      setSavingInProgress(false)
+      return null
+    }
+  }
+
+  const handleSaveAndContinue = async () => {
+    if (isWizardFlow) {
+      await saveDraftStep({ navigateNext: true })
+      return
+    }
+    try {
+      if (type !== 'company-profile' && !selectedCompanyId) {
+        setStatus({ kind: 'error', message: 'Please select a company to link this record.' })
+        return
+      }
+
+      const cleanValues = (vals) => {
+        const cleaned = { ...vals }
+        Object.keys(cleaned).forEach(key => {
+          if (cleaned[key] instanceof File) {
+            delete cleaned[key]
+          }
+        })
+        return cleaned
+      }
+
+      // Edit mode: update this exact record
+      if (isEditMode) {
+        if (isArrayBasedForm) {
+          const item = isConsigneeProfile ? consignees[0]
+            : isPayerProfile ? payers[0]
+            : isEmployeeProfile ? employees[0]
+            : isPaymentTerms ? paymentTerms[0]
+            : null
+
+          await updateMasterDataRecord(type, id, {
+            values: cleanValues(item?.values || {}),
+            logoPreviews: item?.logoPreviews || {},
+            companyId: type === 'company-profile' ? undefined : selectedCompanyId,
+          })
+        } else {
+          await updateMasterDataRecord(type, id, {
+            values: cleanValues(values),
+            logoPreviews: logoPreviewsRef.current,
+            companyId: type === 'company-profile' ? undefined : selectedCompanyId,
+          })
+        }
+
+        window.dispatchEvent(new Event('masterDataUpdated'))
+        setStatus({ kind: 'success', message: 'Form updated! You can continue with other forms.' })
+        return
+      }
+
+      // Create mode: keep existing behavior (may create multiple records)
+      const records = transformToTabularRecords()
+      const savePromises = records.map(record => 
+        saveMasterDataRecord(type, {
+          values: cleanValues(record.values),
+          logoPreviews: record.logoPreviews,
+          companyId: type === 'company-profile' ? undefined : selectedCompanyId,
+        })
+      )
+      
+      await Promise.all(savePromises)
+      window.dispatchEvent(new Event('masterDataUpdated'))
+      setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
     } catch (error) {
       console.error('Failed to save:', error)
       setStatus({ kind: 'error', message: 'Failed to save form. Please try again.' })
@@ -1087,13 +1222,13 @@ function MasterDataForm() {
     
     // Reset array-based form states to initial empty state
     if (isConsigneeProfile) {
-      setConsignees([{ id: 0, values: {}, logoPreviews: {} }])
+      setConsignees([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
     } else if (isPayerProfile) {
-      setPayers([{ id: 0, values: {}, logoPreviews: {} }])
+      setPayers([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
     } else if (isEmployeeProfile) {
-      setEmployees([{ id: 0, values: {}, logoPreviews: {} }])
+      setEmployees([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
     } else if (isPaymentTerms) {
-      setPaymentTerms([{ id: 0, values: {} }])
+      setPaymentTerms([{ id: 0, recordId: null, values: {} }])
     }
     
     // Re-initialize multiple entries for groups that allow it (fresh start)
@@ -1128,6 +1263,11 @@ function MasterDataForm() {
   const saveRecord = async () => {
     if (!def) return
 
+    if (type !== 'company-profile' && !selectedCompanyId) {
+      setStatus({ kind: 'error', message: 'Please select a company to link this record.' })
+      return
+    }
+
     if (requiredMissing) {
       setStatus({ kind: 'error', message: 'Please fill all required fields.' })
       return
@@ -1137,6 +1277,45 @@ function MasterDataForm() {
     setStatus({ kind: 'idle', message: 'Saving record...' })
 
     try {
+      // EDIT MODE: update the exact record by (type, id)
+      if (isEditMode) {
+        const cleanValues = (vals) => {
+          const cleaned = { ...vals }
+          Object.keys(cleaned).forEach(key => {
+            if (cleaned[key] instanceof File) {
+              delete cleaned[key]
+            }
+          })
+          return cleaned
+        }
+
+        if (isArrayBasedForm) {
+          const item = isConsigneeProfile ? consignees[0]
+            : isPayerProfile ? payers[0]
+            : isEmployeeProfile ? employees[0]
+            : isPaymentTerms ? paymentTerms[0]
+            : null
+
+          await updateMasterDataRecord(type, id, {
+            values: cleanValues(item?.values || {}),
+            logoPreviews: item?.logoPreviews || {},
+            companyId: type === 'company-profile' ? undefined : selectedCompanyId,
+          })
+        } else {
+          await updateMasterDataRecord(type, id, {
+            values: cleanValues(values),
+            logoPreviews: logoPreviewsRef.current,
+            companyId: type === 'company-profile' ? undefined : selectedCompanyId,
+          })
+        }
+
+        window.dispatchEvent(new Event('masterDataUpdated'))
+        setStatus({ kind: 'success', message: 'Record updated successfully!' })
+        setShowSaveOptions(true)
+        setSavingInProgress(false)
+        return
+      }
+
       // Special handling for company-profile: always create new record (not update)
       if (type === 'company-profile') {
         // Helper function to clean values (remove File objects)
@@ -1200,6 +1379,7 @@ function MasterDataForm() {
           saveMasterDataRecord(type, {
             values: cleanValues(item.values),
             logoPreviews: item.logoPreviews || {},
+            companyId: type === 'company-profile' ? undefined : selectedCompanyId,
           })
         )
         
@@ -1216,28 +1396,7 @@ function MasterDataForm() {
 
       // For single-record types when editing (id present), use persistence system
       // For new records (no id), always create new record to ensure isolation
-      if (usePersistence && id) {
-        // Editing existing record - use persistence save (which handles upsert)
-        const savedResult = await persistenceSave(true)
-        
-        // Re-fetch the saved record to ensure UI is synced with backend
-        if (savedResult?.id || id) {
-          try {
-            await persistenceLoad()
-          } catch (refreshError) {
-            console.warn('[MasterDataForm] Failed to refresh after save:', refreshError)
-            // Continue anyway - save was successful
-          }
-        }
-        
-        // Trigger refresh of Master Data Records page
-        window.dispatchEvent(new Event('masterDataUpdated'))
-        
-        setStatus({ kind: 'success', message: 'Record saved successfully!' })
-        setShowSaveOptions(true)
-        setSavingInProgress(false)
-        return
-      }
+      // NOTE: Editing is handled above via updateMasterDataRecord(type, id)
       
       // For new records (no id), always create new record (never update)
       // This ensures complete isolation - each master data is independent
@@ -1257,6 +1416,7 @@ function MasterDataForm() {
         await saveMasterDataRecord(type, {
           values: cleanValues(values),
           logoPreviews: logoPreviewsRef.current,
+          companyId: type === 'company-profile' ? undefined : selectedCompanyId,
         })
         
         // Trigger refresh of Master Data Records page
@@ -1289,6 +1449,7 @@ function MasterDataForm() {
         saveMasterDataRecord(type, {
           values: cleanValues(record.values),
           logoPreviews: record.logoPreviews,
+          companyId: type === 'company-profile' ? undefined : selectedCompanyId,
         })
       )
       
@@ -1310,6 +1471,15 @@ function MasterDataForm() {
   // Handle Save & Create Another
   const handleSaveAndCreateAnother = () => {
     setShowSaveOptions(false)
+    if (isEditMode) {
+      // In edit mode, "create another" should return to a blank create form.
+      if (type !== 'company-profile' && selectedCompanyId) {
+        navigate(`/master-data/new/${type}?companyId=${selectedCompanyId}`)
+      } else {
+        navigate(`/master-data/new/${type}`)
+      }
+      return
+    }
     resetForm()
   }
 
@@ -1322,6 +1492,10 @@ function MasterDataForm() {
   const onSubmit = async (e) => {
     if (e && e.preventDefault) {
       e.preventDefault()
+    }
+    if (isWizardFlow) {
+      await saveDraftStep({ navigateNext: false })
+      return
     }
     await saveRecord()
   }
@@ -1358,7 +1532,13 @@ function MasterDataForm() {
       {/* Breadcrumb */}
       <button
         type="button"
-        onClick={() => navigate('/master-data/new')}
+        onClick={() => {
+          if (isWizardFlow && draftCompanyId) {
+            navigate(`/master-data/new?draftId=${draftCompanyId}`)
+          } else {
+            navigate('/master-data/new')
+          }
+        }}
         className="md-form-breadcrumb"
       >
         <ArrowLeft className="md-form-breadcrumb-icon" />
@@ -1367,13 +1547,17 @@ function MasterDataForm() {
 
       {/* Page Header */}
       <div className="md-form-header">
-        <div className="md-form-eyebrow">{title}</div>
+        <div className="md-form-eyebrow">
+          {isWizardFlow && wizardStepIndex >= 0 ? `Step ${wizardStepIndex + 1} of 7` : title}
+        </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
           <div style={{ flex: 1 }}>
-            <h1 className="md-form-title">Create {title}</h1>
+            <h1 className="md-form-title">
+              {isWizardFlow ? title : `${isEditMode ? 'Edit' : 'Create'} ${title}`}
+            </h1>
             <p className="md-form-description">{description}</p>
           </div>
-          {isArrayBasedForm && !isLocked && (
+          {isArrayBasedForm && !isLocked && !isEditMode && (
             <button
               type="button"
               className="md-form-button md-form-button-primary"
@@ -1405,6 +1589,58 @@ function MasterDataForm() {
       {/* Form Container */}
       <form className="md-form-container" onSubmit={(e) => { e.preventDefault(); onSubmit(e); }}>
         <div className="md-form-body">
+          {/* Company linkage (required for non-company modules) */}
+          {type !== 'company-profile' && (
+            <div className="md-form-group">
+              <div className="md-form-group-title">Linked Company</div>
+              <div className="md-form-grid">
+                <div className="md-form-field md-form-field-full">
+                  <label className="md-form-label" htmlFor="linkedCompanySelect">
+                    Company <span className="md-form-required">*</span>
+                  </label>
+                  <select
+                    id="linkedCompanySelect"
+                    className="md-form-select"
+                    value={selectedCompanyId}
+                    disabled={isLocked || isEditMode || isWizardFlow || companyOptionsLoading}
+                    onChange={(e) => {
+                      setSelectedCompanyId(e.target.value)
+                      setStatus({ kind: 'idle', message: '' })
+                    }}
+                  >
+                    <option value="">Select company...</option>
+                    {companyOptions.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company?.values?.companyName || 'Unnamed Company'}
+                      </option>
+                    ))}
+                  </select>
+
+                  {!companyOptionsLoading && companyOptions.length === 0 && (
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
+                      No company profiles found. Create a company profile first, then link this module to it.
+                      <div style={{ marginTop: '0.5rem' }}>
+                        <button
+                          type="button"
+                          className="md-form-button md-form-button-secondary"
+                          onClick={() => navigate('/master-data/new/company-profile')}
+                        >
+                          Create Company Profile
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {isEditMode && !selectedCompanyId && (
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#92400e' }}>
+                      This record is missing a company link. Please re-save it after selecting a company (create mode).
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="md-form-group-divider" />
+            </div>
+          )}
           {isArrayBasedForm ? (
             /* Render array-based forms */
             isConsigneeProfile ? consignees.map((consignee, index) => renderConsigneeForm(consignee, index))
@@ -1578,18 +1814,29 @@ function MasterDataForm() {
                                   />
                                 )}
                               </>
-                            ) : (
-                              <input
-                                id={fieldId}
-                                className="md-form-input"
-                                type={f.type}
-                                value={values[fieldKey] || ''}
-                                disabled={isLocked}
-                                readOnly={isLocked}
-                                onChange={(e) => onChange(f.key, e.target.value, group.allowMultiple ? entryIndex : null)}
-                                placeholder={`Enter ${f.label.toLowerCase()}...`}
-                              />
-                            )}
+                    ) : f.type === 'date' || f.type === 'datetime' ? (
+                      <DatePicker
+                        id={fieldId}
+                        name={fieldKey}
+                        selected={values[fieldKey] || ''}
+                        disabled={isLocked}
+                        required={f.required}
+                        showTimeSelect={f.type === 'datetime'}
+                        onChange={(e) => onChange(f.key, e.target.value, group.allowMultiple ? entryIndex : null)}
+                        placeholderText={`Select ${f.label.toLowerCase()}...`}
+                      />
+                    ) : (
+                      <input
+                        id={fieldId}
+                        className="md-form-input"
+                        type={f.type}
+                        value={values[fieldKey] || ''}
+                        disabled={isLocked}
+                        readOnly={isLocked}
+                        onChange={(e) => onChange(f.key, e.target.value, group.allowMultiple ? entryIndex : null)}
+                        placeholder={`Enter ${f.label.toLowerCase()}...`}
+                      />
+                    )}
                           </div>
                         )
                       })}
@@ -1659,9 +1906,9 @@ function MasterDataForm() {
               <button
                 type="submit"
                 className="md-form-button md-form-button-primary"
-                disabled={savingInProgress || requiredMissing}
+                disabled={savingInProgress || (!isWizardFlow && requiredMissing)}
               >
-                {savingInProgress ? 'Saving...' : (isArrayBasedForm ? 'Save' : 'Save')}
+                {savingInProgress ? 'Saving...' : (isWizardFlow ? 'Save Draft' : 'Save')}
               </button>
             </>
           )}
@@ -1683,7 +1930,7 @@ function MasterDataForm() {
           <div className="md-save-options-modal" onClick={(e) => e.stopPropagation()}>
             <div className="md-save-options-header">
               <CheckCircle2 className="md-save-options-icon" style={{ color: '#10b981' }} />
-              <h3 className="md-save-options-title">Record Saved Successfully!</h3>
+              <h3 className="md-save-options-title">{isEditMode ? 'Record Updated Successfully!' : 'Record Saved Successfully!'}</h3>
               <p className="md-save-options-description">
                 What would you like to do next?
               </p>
@@ -1692,11 +1939,17 @@ function MasterDataForm() {
               <button
                 type="button"
                 className="md-form-button md-form-button-primary"
-                onClick={handleSaveAndCreateAnother}
+                onClick={isEditMode ? () => setShowSaveOptions(false) : handleSaveAndCreateAnother}
                 style={{ flex: 1 }}
               >
-                <Plus className="md-form-button-icon" />
-                Save & Create Another
+                {isEditMode ? (
+                  <span>Continue Editing</span>
+                ) : (
+                  <>
+                    <Plus className="md-form-button-icon" />
+                    <span>Save & Create Another</span>
+                  </>
+                )}
               </button>
               <button
                 type="button"
@@ -1704,7 +1957,7 @@ function MasterDataForm() {
                 onClick={handleSaveAndExit}
                 style={{ flex: 1 }}
               >
-                Save & Exit
+                {isEditMode ? 'Back to Records' : 'Save & Exit'}
               </button>
             </div>
           </div>

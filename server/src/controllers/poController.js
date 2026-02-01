@@ -46,6 +46,27 @@ const getPO = async (req, res, next) => {
   }
 };
 
+const getPONumbers = async (req, res, next) => {
+  try {
+    const list = await poService.getPONumbers();
+    res.json(apiSuccess(list));
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getPOByNumber = async (req, res, next) => {
+  try {
+    const po = await poService.getPOByNumber(req.params.poNumber);
+    if (!po) {
+      return res.status(404).json(apiError('PO not found', 'NOT_FOUND'));
+    }
+    res.json(apiSuccess(po));
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getPODraft = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -82,5 +103,5 @@ const upsertPODraft = async (req, res, next) => {
   }
 };
 
-module.exports = { listPOs, createPO, updatePOStatus, getPO, getPODraft, upsertPODraft, deletePO };
+module.exports = { listPOs, createPO, updatePOStatus, getPO, getPODraft, upsertPODraft, deletePO, getPONumbers, getPOByNumber };
 

@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Filter, Eye, Edit, Trash2, X, RefreshCw } from 'lucide-react'
+import DatePicker from '../components/DatePicker'
+import { ConfirmDialog, useConfirmDialog } from '../components/ConfirmDialog'
+import { useToast } from '../contexts/ToastContext'
 import * as poEntryService from '../services/poEntryService'
 import '../styles/POEntry.css'
 
@@ -39,12 +42,36 @@ function formatStatusLabel(status) {
   return 'Draft'
 }
 
+// PO value: prefer draft_data (form + BOQ) so list matches edit form; fallback to DB total_amount
+function getPOValue(po) {
+  try {
+    const draft = typeof po.draft_data === 'string' ? JSON.parse(po.draft_data) : po.draft_data
+    if (draft) {
+      const form = draft.formData || {}
+      const fromForm = form.poValue ?? form.boqTotals?.totalPOValue
+      const numFromForm = parseFloat(fromForm)
+      if (Number.isFinite(numFromForm) && numFromForm >= 0) return numFromForm
+      const items = draft.boqItems || []
+      if (Array.isArray(items) && items.length > 0) {
+        const sum = items.reduce((acc, it) => acc + (parseFloat(it.totalCost) || 0), 0)
+        if (Number.isFinite(sum) && sum >= 0) return sum
+      }
+    }
+  } catch (_) {}
+  const fromRow = po.total_amount ?? po.totalAmount ?? po.po_value ?? po.poValue
+  const numFromRow = parseFloat(fromRow)
+  return Number.isFinite(numFromRow) && numFromRow >= 0 ? numFromRow : 0
+}
+
 function POEntryIndex() {
   const navigate = useNavigate()
+  const { confirm, dialogProps } = useConfirmDialog()
+  const { showToast } = useToast()
   const [poEntries, setPOEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  // Default to "Submitted" so list shows only submitted POs; user can change to All/Draft to see drafts
+  const [statusFilter, setStatusFilter] = useState('approved')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -134,15 +161,20 @@ function POEntryIndex() {
   }, [poEntries, searchQuery, statusFilter, dateFrom, dateTo])
 
   const handleDelete = async (poId) => {
-    if (window.confirm('Are you sure you want to delete this PO Entry?')) {
-      try {
-        await poEntryService.deletePOEntry(poId)
-        alert('PO Entry deleted successfully')
-        loadPOEntries()
-      } catch (error) {
-        console.error('Failed to delete PO entry:', error)
-        alert('Failed to delete PO entry. Please try again.')
-      }
+    const confirmed = await confirm({
+      title: 'Delete PO entry?',
+      message: 'This purchase order will be permanently removed.',
+      confirmText: 'Delete PO',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+    try {
+      await poEntryService.deletePOEntry(poId)
+      showToast('PO Entry deleted successfully', 'success')
+      loadPOEntries()
+    } catch (error) {
+      console.error('Failed to delete PO entry:', error)
+      showToast('Failed to delete PO entry. Please try again.', 'error')
     }
   }
 
@@ -235,21 +267,19 @@ function POEntryIndex() {
 
           <div className="po-entry-index-filter-group">
             <label className="po-entry-index-filter-label">Date From</label>
-            <input
-              type="date"
-              value={dateFrom ?? ''}
-              onChange={(e) => setDateFrom(e.target.value ?? '')}
-              className="po-entry-index-filter-input"
+            <DatePicker
+              selected={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              placeholderText="From Date"
             />
           </div>
 
           <div className="po-entry-index-filter-group">
             <label className="po-entry-index-filter-label">Date To</label>
-            <input
-              type="date"
-              value={dateTo ?? ''}
-              onChange={(e) => setDateTo(e.target.value ?? '')}
-              className="po-entry-index-filter-input"
+            <DatePicker
+              selected={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              placeholderText="To Date"
             />
           </div>
 
@@ -296,7 +326,7 @@ function POEntryIndex() {
                     <td className="po-entry-index-project-desc">
                       {(() => { const desc = getPOField(po, 'projectDescription') || po.projectDescription; return desc ? (desc.length > 50 ? `${desc.substring(0, 50)}...` : desc) : 'N/A'; })()}
                     </td>
-                    <td>₹{parseFloat(po.total_amount ?? po.po_value ?? po.poValue ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td>₹{getPOValue(po).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td>
                       <span className={`po-entry-index-status-badge po-entry-index-status-badge-${(po.status || 'draft').toLowerCase()}`}>
                         {formatStatusLabel(po.status)}
@@ -354,6 +384,7 @@ function POEntryIndex() {
           </div>
         )}
       </div>
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

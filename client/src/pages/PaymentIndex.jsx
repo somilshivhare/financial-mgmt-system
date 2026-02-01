@@ -1,11 +1,15 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Eye, Edit, Trash2, TrendingUp, Calendar, Search, Filter, X } from 'lucide-react'
+import DatePicker from '../components/DatePicker'
+import { ConfirmDialog, useConfirmDialog } from '../components/ConfirmDialog'
+import { useToast } from '../contexts/ToastContext'
 import * as paymentService from '../services/paymentService'
 import '../styles/PaymentEntry.css'
 
 function PaymentIndex() {
   const navigate = useNavigate()
+  const { confirm, dialogProps } = useConfirmDialog()
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -101,16 +105,21 @@ function PaymentIndex() {
     return filtered
   }, [payments, searchQuery, statusFilter, paymentTypeFilter, dateFrom, dateTo])
   
-  const handleDelete = (paymentId) => {
-    if (window.confirm('Are you sure you want to delete this payment? This will reverse invoice updates.')) {
-      try {
-        paymentService.deletePayment(paymentId)
-        alert('Payment deleted successfully')
-        loadPayments()
-      } catch (error) {
-        console.error('Failed to delete payment:', error)
-        alert('Failed to delete payment. Please try again.')
-      }
+  const handleDelete = async (paymentId) => {
+    const confirmed = await confirm({
+      title: 'Delete payment?',
+      message: 'This will remove the payment and reverse linked invoice updates.',
+      confirmText: 'Delete payment',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+    try {
+      await paymentService.deletePayment(paymentId)
+      showToast('Payment deleted successfully', 'success')
+      loadPayments()
+    } catch (error) {
+      console.error('Failed to delete payment:', error)
+      showToast('Failed to delete payment. Please try again.', 'error')
     }
   }
   
@@ -204,21 +213,19 @@ function PaymentIndex() {
 
           <div className="payment-index-filter-group">
             <label className="payment-index-filter-label">Date From</label>
-            <input
-              type="date"
-              value={dateFrom}
+            <DatePicker
+              selected={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="payment-index-filter-input"
+              placeholderText="From Date"
             />
           </div>
 
           <div className="payment-index-filter-group">
             <label className="payment-index-filter-label">Date To</label>
-            <input
-              type="date"
-              value={dateTo}
+            <DatePicker
+              selected={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="payment-index-filter-input"
+              placeholderText="To Date"
             />
           </div>
 
@@ -365,6 +372,7 @@ function PaymentIndex() {
           </div>
         )}
       </div>
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

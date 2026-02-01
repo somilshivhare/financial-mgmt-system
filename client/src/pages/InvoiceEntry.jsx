@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, Calculator } from 'lucide-react'
+import { ArrowLeft, Save, Calculator, RotateCcw } from 'lucide-react'
+import DatePicker from '../components/DatePicker'
 import { useMasterData } from '../contexts/MasterDataContext'
+import { useToast } from '../contexts/ToastContext'
+import { usePersistedFormState } from '../hooks/usePersistedFormState'
 import * as poEntryService from '../services/poEntryService'
 import * as invoiceService from '../services/invoiceService'
 import * as paymentApi from '../api/payment'
@@ -26,12 +29,142 @@ const REGIONS = ['North', 'East', 'West', 'South', 'Central']
 const MATERIAL_DESCRIPTION_TYPES = ['Goods', 'Services', 'Both', 'Other']
 const UNITS = ['Nos', 'MT', 'KG', 'LTR', 'MTR', 'SQM', 'CUM', 'Other']
 
+const INITIAL_INVOICE_FORM_DATA = {
+  keyID: '',
+  poId: '', // PO UUID from selected Key ID; sent on submit so backend can validate from single source
+  gstTaxInvoiceNo: '',
+  gstTaxInvoiceDate: '',
+  internalInvoiceNo: '',
+  invoiceType: 'REG',
+  businessUnit: 'MAIN',
+  customerName: '',
+  customerId: '',
+  segment: '',
+  region: '',
+  zone: '',
+  salesOrderNo: '',
+  accountManagerName: '',
+  accountManagerId: '',
+  poNoReference: '',
+  poDate: '',
+  materialDescriptionType: '',
+  stateOfSupply: '',
+  qty: '',
+  unit: '',
+  currency: 'INR',
+  basicRate: '',
+  basicValue: '',
+  freightInvoiceNo: '',
+  freightRate: '',
+  freightValue: '',
+  sgstRate: '',
+  cgstRate: '',
+  igstRate: '',
+  ugstRate: '',
+  sgstOutput: '',
+  cgstOutput: '',
+  igstOutput: '',
+  ugstOutput: '',
+  totalGST: '',
+  tcs: '',
+  subtotal: '',
+  totalInvoiceValue: '',
+  consigneeId: '',
+  consigneeNameAddress: '',
+  consigneeCity: '',
+  payerId: '',
+  payerNameAddress: '',
+  payerCity: '',
+  lorryReceiptNo: '',
+  lorryReceiptDate: '',
+  transporterName: '',
+  transporterId: '',
+  deliveryChallanNo: '',
+  deliveryChallanDate: '',
+  materialInspectionRequestDate: '',
+  inspectionOfferDate: '',
+  materialInspectionDate: '',
+  deliveryInstructionDate: '',
+  deliveryInspectionCIPReceivedDate: '',
+  miccReceiptDate: '',
+  lastDateOfDispatch: '',
+  invoiceReadyDate: '',
+  courierDocumentNo: '',
+  courierDocumentDate: '',
+  courierCompanyName: '',
+  billSentToPersonName: '',
+  billSentDate: '',
+  lastDateOfMaterialReceipt: '',
+  invoiceReceiptDate: '',
+  invoiceReceiptPersonName: '',
+  invoiceReceiptPersonId: '',
+  materialVerificationDate: '',
+  jvrDate: '',
+  srnDate: '',
+  mrcDate: '',
+  invoiceSubmissionAtSiteDate: '',
+  invoiceForwardedToHODate: '',
+  invoiceForwardedForPaymentDate: '',
+  paymentTermsId: '',
+  paymentTerms: '',
+  paymentTextId: '',
+  paymentText: '',
+  firstDueDate: '',
+  firstDueAmount: '',
+  paymentReceivedAmount1stDue: '',
+  receiptDate1stDue: '',
+  firstDueBalance: '',
+  notDue1stDue: '',
+  overDue1stDue: '',
+  noOfDaysOfPaymentReceipt1stDue: '',
+  secondDueDate: '',
+  secondDueAmount: '',
+  paymentReceivedAmount2ndDue: '',
+  receiptDate2ndDue: '',
+  secondDueBalance: '',
+  notDue2ndDue: '',
+  overDue2ndDue: '',
+  noOfDaysOfPaymentReceipt2ndDue: '',
+  thirdDueDate: '',
+  thirdDueAmount: '',
+  paymentReceivedAmount3rdDue: '',
+  receiptDate3rdDue: '',
+  thirdDueBalance: '',
+  notDue3rdDue: '',
+  overDue3rdDue: '',
+  noOfDaysOfPaymentReceipt3rdDue: '',
+  totalBalance: '',
+  notDueTotal: '',
+  overDueTotal: '',
+  itTDS2Percent: '',
+  itTDS1Percent194Q: '',
+  lcessBoq1Percent: '',
+  tds2PercentCGSTSGST: '',
+  tdsOnCGST1Percent: '',
+  tdsOnSGST1Percent: '',
+  excessSupplyQty: '',
+  interestOnAdvance: '',
+  anyHold: '',
+  penaltyLDDeduction: '',
+  bankCharges: '',
+  lcDiscrepancyCharge: '',
+  provisionForBadDebts: '',
+  badDebts: '',
+  invoiceTypeOther: '',
+  businessUnitOther: '',
+  materialDescriptionTypeOther: '',
+  unitOther: '',
+}
+
 function InvoiceEntry() {
   const navigate = useNavigate()
   const { id } = useParams() // Get ID if editing existing invoice
+  const isViewMode = window.location.pathname.includes('/view/')
   const { getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees } = useMasterData()
+  const { showToast } = useToast()
   
   const [poEntries, setPOEntries] = useState([])
+  const [poNumbersLoading, setPONumbersLoading] = useState(true)
   const [customers, setCustomers] = useState([])
   const [paymentTerms, setPaymentTerms] = useState([])
   const [consignees, setConsignees] = useState([])
@@ -39,170 +172,15 @@ function InvoiceEntry() {
   const [employees, setEmployees] = useState([])
   const [paymentData, setPaymentData] = useState(null) // Payment Advice data
   
-  // Comprehensive form data with ALL fields as per Excel specification
-  const [formData, setFormData] = useState({
-    // ========== INVOICE IDENTIFICATION ==========
-    keyID: '', // PO Number - MANDATORY, Primary Linkage
-    gstTaxInvoiceNo: '', // Manual Entry
-    gstTaxInvoiceDate: '', // Manual Entry
-    internalInvoiceNo: '', // Auto-generated
-    invoiceType: 'REG', // Dropdown
-    businessUnit: 'MAIN', // Dropdown
-    
-    // ========== CUSTOMER & PO DETAILS (Auto-filled from PO/Master Data) ==========
-    customerName: '', // Default (read-only)
-    customerId: '', // Default (read-only)
-    segment: '', // Default (read-only)
-    region: '', // Default (read-only)
-    zone: '', // Default (read-only)
-    salesOrderNo: '', // Manual Entry
-    accountManagerName: '', // Default (read-only)
-    accountManagerId: '', // Default (read-only)
-    poNoReference: '', // Default (read-only) - same as keyID
-    poDate: '', // Default (read-only)
-    
-    // ========== MATERIAL & SUPPLY DETAILS ==========
-    materialDescriptionType: '', // Dropdown
-    stateOfSupply: '', // Default (read-only)
-    qty: '', // Manual Entry
-    unit: '', // Dropdown
-    currency: 'INR', // Default (read-only)
-    
-    // ========== VALUE CALCULATIONS ==========
-    basicRate: '', // Manual Entry
-    basicValue: '', // Calculated: Basic Rate × Qty
-    freightInvoiceNo: '', // Manual Entry
-    freightRate: '', // Manual Entry
-    freightValue: '', // Calculated: Freight Rate × Qty
-    // GST Rates (Manual Entry)
-    sgstRate: '', // Manual Entry
-    cgstRate: '', // Manual Entry
-    igstRate: '', // Manual Entry
-    ugstRate: '', // Manual Entry
-    // GST Output Values (Calculated)
-    sgstOutput: '', // Calculated
-    cgstOutput: '', // Calculated
-    igstOutput: '', // Calculated
-    ugstOutput: '', // Calculated
-    totalGST: '', // Calculated: Sum of all GST
-    tcs: '', // Manual Entry
-    subtotal: '', // Calculated: Basic Value + Freight Value
-    totalInvoiceValue: '', // Calculated: Subtotal + Total GST
-    
-    // ========== CONSIGNEE & PAYER DETAILS ==========
-    consigneeId: '', // Selected from dropdown or manual entry
-    consigneeNameAddress: '', // Manual Entry (can be selected from dropdown or typed)
-    consigneeCity: '', // Manual Entry
-    payerId: '', // Selected from dropdown or manual entry
-    payerNameAddress: '', // Manual Entry (can be selected from dropdown or typed)
-    payerCity: '', // Manual Entry
-    
-    // ========== LOGISTICS & TRANSPORT ==========
-    lorryReceiptNo: '', // Manual Entry
-    lorryReceiptDate: '', // Manual Entry
-    transporterName: '', // Dropdown from Employees (role: Transporter)
-    transporterId: '', // Selected transporter ID
-    deliveryChallanNo: '', // Manual Entry
-    deliveryChallanDate: '', // Manual Entry
-    
-    // ========== MATERIAL INSPECTION DATES ==========
-    materialInspectionRequestDate: '', // Manual Entry
-    inspectionOfferDate: '', // Manual Entry
-    materialInspectionDate: '', // Manual Entry
-    deliveryInstructionDate: '', // Manual Entry
-    deliveryInspectionCIPReceivedDate: '', // Manual Entry
-    miccReceiptDate: '', // Manual Entry
-    lastDateOfDispatch: '', // Manual Entry
-    invoiceReadyDate: '', // Manual Entry
-    
-    // ========== COURIER DETAILS ==========
-    courierDocumentNo: '', // Manual Entry
-    courierDocumentDate: '', // Manual Entry
-    courierCompanyName: '', // Manual Entry
-    billSentToPersonName: '', // Manual Entry
-    billSentDate: '', // Manual Entry
-    
-    // ========== MATERIAL RECEIPT DATES ==========
-    lastDateOfMaterialReceipt: '', // Manual Entry
-    invoiceReceiptDate: '', // Manual Entry
-    invoiceReceiptPersonName: '', // Dropdown from Employees
-    invoiceReceiptPersonId: '', // Selected person ID
-    materialVerificationDate: '', // Manual Entry
-    
-    // ========== PROCESSING DATES ==========
-    jvrDate: '', // Manual Entry
-    srnDate: '', // Manual Entry
-    mrcDate: '', // Manual Entry
-    invoiceSubmissionAtSiteDate: '', // Manual Entry
-    invoiceForwardedToHODate: '', // Manual Entry
-    invoiceForwardedForPaymentDate: '', // Manual Entry
-    
-    // ========== PAYMENT TERMS ==========
-    paymentTermsId: '', // Dropdown from Payment Terms Master Data
-    paymentTerms: '', // Auto-filled from selected payment terms
-    paymentTextId: '', // Dropdown from Payment Terms Master Data (for description)
-    paymentText: '', // Auto-filled from selected payment terms description
-    
-    // ========== 1ST DUE PAYMENT TRACKING (Read-only from Payment Advice) ==========
-    firstDueDate: '', // Calculated
-    firstDueAmount: '', // Calculated
-    paymentReceivedAmount1stDue: '', // Read-only from Payment Advice
-    receiptDate1stDue: '', // Read-only from Payment Advice
-    firstDueBalance: '', // Calculated: 1st Due Amount - Payment Received Amount
-    notDue1stDue: '', // Calculated
-    overDue1stDue: '', // Calculated
-    noOfDaysOfPaymentReceipt1stDue: '', // Calculated
-    
-    // ========== 2ND DUE PAYMENT TRACKING (Read-only from Payment Advice) ==========
-    secondDueDate: '', // Calculated
-    secondDueAmount: '', // Calculated
-    paymentReceivedAmount2ndDue: '', // Read-only from Payment Advice
-    receiptDate2ndDue: '', // Read-only from Payment Advice
-    secondDueBalance: '', // Calculated
-    notDue2ndDue: '', // Calculated
-    overDue2ndDue: '', // Calculated
-    noOfDaysOfPaymentReceipt2ndDue: '', // Calculated
-    
-    // ========== 3RD DUE PAYMENT TRACKING (Read-only from Payment Advice) ==========
-    thirdDueDate: '', // Calculated
-    thirdDueAmount: '', // Calculated
-    paymentReceivedAmount3rdDue: '', // Read-only from Payment Advice
-    receiptDate3rdDue: '', // Read-only from Payment Advice
-    thirdDueBalance: '', // Calculated
-    notDue3rdDue: '', // Calculated
-    overDue3rdDue: '', // Calculated
-    noOfDaysOfPaymentReceipt3rdDue: '', // Calculated
-    
-    // ========== CONSOLIDATED TOTALS ==========
-    totalBalance: '', // Calculated: Sum of all balances
-    notDueTotal: '', // Calculated: Sum of not-due amounts
-    overDueTotal: '', // Calculated: Sum of overdue amounts
-    
-    // ========== TDS FIELDS (Read-only from Payment Advice) ==========
-    itTDS2Percent: '', // Read-only from Payment Advice
-    itTDS1Percent194Q: '', // Read-only from Payment Advice
-    lcessBoq1Percent: '', // Read-only from Payment Advice
-    tds2PercentCGSTSGST: '', // Read-only from Payment Advice
-    tdsOnCGST1Percent: '', // Read-only from Payment Advice
-    tdsOnSGST1Percent: '', // Read-only from Payment Advice
-    
-    // ========== DEDUCTIONS & ADJUSTMENTS (Read-only from Payment Advice) ==========
-    excessSupplyQty: '', // Read-only from Payment Advice
-    interestOnAdvance: '', // Read-only from Payment Advice
-    anyHold: '', // Read-only from Payment Advice
-    penaltyLDDeduction: '', // Read-only from Payment Advice
-    bankCharges: '', // Read-only from Payment Advice
-    lcDiscrepancyCharge: '', // Read-only from Payment Advice
-    provisionForBadDebts: '', // Manual Entry
-    badDebts: '', // Manual Entry
-    
-    // "Other" fields for dropdowns
-    invoiceTypeOther: '',
-    businessUnitOther: '',
-    materialDescriptionTypeOther: '',
-    unitOther: '',
+  const { values, setValues: setFormData, clearLocalDraft, persistNow, reset: resetForm } = usePersistedFormState({
+    pathKey: 'invoice-entry',
+    defaultValues: INITIAL_INVOICE_FORM_DATA,
+    entityId: id || null,
   })
-  
+  const formData = values && typeof values === 'object' && !Array.isArray(values)
+    ? values
+    : INITIAL_INVOICE_FORM_DATA
+
   // Load master data and PO entries
   useEffect(() => {
     setCustomers(getCustomers())
@@ -211,57 +189,68 @@ function InvoiceEntry() {
     setPayers(getPayers())
     setEmployees(getEmployees())
     
-    // Load PO Entries
+    // Load PO numbers for Key ID dropdown
     ;(async () => {
+      setPONumbersLoading(true)
       try {
         const allPOs = await poEntryService.getAllPONumbers()
-        setPOEntries(allPOs)
+        setPOEntries(Array.isArray(allPOs) ? allPOs : [])
       } catch (e) {
         console.error('Failed to load PO numbers:', e)
         setPOEntries([])
+      } finally {
+        setPONumbersLoading(false)
       }
     })()
   }, [getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees])
   
-  // Load payment data from Payment Advice
+  // Load payment data from Payment Advice (payments linked to invoice for this PO)
   const loadPaymentData = async (poNumber) => {
     try {
-      // Get invoices for this PO
       const invoices = await invoiceService.getInvoicesByPONumber(poNumber)
-      if (invoices && invoices.length > 0) {
-        const invoice = invoices[0] // Use first invoice for now
-        if (invoice.id) {
-          const payments = await paymentApi.getPaymentsByInvoice(invoice.id)
-          if (payments && payments.data) {
-            // Aggregate payment data
-            const paymentData = payments.data.reduce((acc, payment) => {
-              // Sum up payment amounts by due stage
-              // This is simplified - in real system, you'd track which due stage each payment applies to
-              acc.firstReceivedAmount = (parseFloat(acc.firstReceivedAmount || 0) + parseFloat(payment.amount || 0)).toFixed(2)
-              acc.tds = (parseFloat(acc.tds || 0) + parseFloat(payment.tds || 0)).toFixed(2)
-              acc.bankCharges = (parseFloat(acc.bankCharges || 0) + parseFloat(payment.bank_charges || 0)).toFixed(2)
-              acc.penalty = (parseFloat(acc.penalty || 0) + parseFloat(payment.penalty || 0)).toFixed(2)
-              acc.otherDeductions = (parseFloat(acc.otherDeductions || 0) + parseFloat(payment.other_deductions || 0)).toFixed(2)
-              return acc
-            }, {})
-            
-            setPaymentData(paymentData)
-            
-            // Update form data with payment information
-            setFormData((prev) => ({
-              ...prev,
-              paymentReceivedAmount1stDue: paymentData.firstReceivedAmount || '',
-              receiptDate1stDue: paymentData.receiptDate || '',
-              itTDS2Percent: paymentData.tds || '',
-              bankCharges: paymentData.bankCharges || '',
-              penaltyLDDeduction: paymentData.penalty || '',
-            }))
-          }
-        }
+      if (!invoices || invoices.length === 0) return
+      const invoice = invoices[0]
+      if (!invoice?.id) return
+
+      const response = await paymentApi.getPaymentsByInvoice(invoice.id)
+      const list = Array.isArray(response?.data) ? response.data : (response?.data?.data ?? response?.data ?? [])
+      const payments = Array.isArray(list) ? list : []
+
+      if (payments.length === 0) return
+
+      const agg = payments.reduce(
+        (acc, p) => {
+          acc.amount = (parseFloat(acc.amount || 0) + parseFloat(p.amount || 0)).toFixed(2)
+          acc.tds = (parseFloat(acc.tds || 0) + parseFloat(p.tds || 0)).toFixed(2)
+          acc.bank_charges = (parseFloat(acc.bank_charges || 0) + parseFloat(p.bank_charges || 0)).toFixed(2)
+          acc.penalty = (parseFloat(acc.penalty || 0) + parseFloat(p.penalty || 0)).toFixed(2)
+          acc.other_deductions = (parseFloat(acc.other_deductions || 0) + parseFloat(p.other_deductions || 0)).toFixed(2)
+          const paidAt = p.paid_at ?? p.paidAt
+          if (paidAt && (!acc.receiptDate || new Date(paidAt) > new Date(acc.receiptDate))) acc.receiptDate = paidAt
+          return acc
+        },
+        { receiptDate: null }
+      )
+
+      const formatPayDate = (val) => {
+        if (!val) return ''
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) return val.slice(0, 10)
+        const d = new Date(val)
+        return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
       }
+
+      setPaymentData(agg)
+      setFormData((prev) => ({
+        ...prev,
+        paymentReceivedAmount1stDue: agg.amount || prev.paymentReceivedAmount1stDue,
+        receiptDate1stDue: formatPayDate(agg.receiptDate) || prev.receiptDate1stDue,
+        itTDS2Percent: agg.tds ?? prev.itTDS2Percent,
+        bankCharges: agg.bank_charges ?? prev.bankCharges,
+        penaltyLDDeduction: agg.penalty ?? prev.penaltyLDDeduction,
+        interestOnAdvance: agg.other_deductions ?? prev.interestOnAdvance,
+      }))
     } catch (error) {
       console.error('Failed to load payment data:', error)
-      // Don't show error - payment data may not exist yet
     }
   }
   
@@ -279,8 +268,9 @@ function InvoiceEntry() {
             setFormData(prev => ({
               ...prev,
               keyID: invoice.key_id || invoice.keyID || invoice.po_number || '',
+              poId: invoice.po_id || invoice.poId || '',
               gstTaxInvoiceNo: invoice.gst_tax_invoice_no || invoice.gstTaxInvoiceNo || '',
-              gstTaxInvoiceDate: invoice.gst_tax_invoice_date || invoice.gstTaxInvoiceDate || '',
+              gstTaxInvoiceDate: formatDateForInput(invoice.gst_tax_invoice_date || invoice.gstTaxInvoiceDate || ''),
               internalInvoiceNo: invoice.internal_invoice_no || invoice.internalInvoiceNo || invoice.invoice_number || '',
               invoiceType: invoice.invoice_type || invoice.invoiceType || 'REG',
               businessUnit: invoice.business_unit || invoice.businessUnit || 'MAIN',
@@ -293,7 +283,7 @@ function InvoiceEntry() {
               accountManagerName: invoice.account_manager_name || invoice.accountManagerName || '',
               accountManagerId: invoice.account_manager_id || invoice.accountManagerId || '',
               poNoReference: invoice.po_no_reference || invoice.poNoReference || invoice.po_number || '',
-              poDate: invoice.po_date || invoice.poDate || '',
+              poDate: formatDateForInput(invoice.po_date || invoice.poDate || ''),
               materialDescriptionType: invoice.material_description_type || invoice.materialDescriptionType || '',
               stateOfSupply: invoice.state_of_supply || invoice.stateOfSupply || '',
               qty: invoice.qty || invoice.quantity || '',
@@ -323,16 +313,21 @@ function InvoiceEntry() {
               payerNameAddress: invoice.payer_name_address || invoice.payerNameAddress || '',
               payerCity: invoice.payer_city || invoice.payerCity || '',
               lorryReceiptNo: invoice.lorry_receipt_no || invoice.lorryReceiptNo || '',
-              lorryReceiptDate: invoice.lorry_receipt_date || invoice.lorryReceiptDate || '',
+              lorryReceiptDate: formatDateForInput(invoice.lorry_receipt_date || invoice.lorryReceiptDate || ''),
               transporterId: invoice.transporter_id || invoice.transporterId || '',
               transporterName: invoice.transporter_name || invoice.transporterName || '',
               deliveryChallanNo: invoice.delivery_challan_no || invoice.deliveryChallanNo || '',
-              deliveryChallanDate: invoice.delivery_challan_date || invoice.deliveryChallanDate || '',
+              deliveryChallanDate: formatDateForInput(invoice.delivery_challan_date || invoice.deliveryChallanDate || ''),
               paymentTermsId: invoice.payment_terms_id || invoice.paymentTermsId || '',
               paymentTerms: invoice.payment_terms || invoice.paymentTerms || '',
               paymentTextId: invoice.payment_text_id || invoice.paymentTextId || '',
               paymentText: invoice.payment_text || invoice.paymentText || '',
-              // Load payment data if available
+              firstDueDate: formatDateForInput(invoice.first_due_date || invoice.firstDueDate || ''),
+              secondDueDate: formatDateForInput(invoice.second_due_date || invoice.secondDueDate || ''),
+              thirdDueDate: formatDateForInput(invoice.third_due_date || invoice.thirdDueDate || ''),
+              receiptDate1stDue: formatDateForInput(invoice.first_receipt_date || invoice.receiptDate1stDue || ''),
+              receiptDate2ndDue: formatDateForInput(invoice.second_receipt_date || invoice.receiptDate2ndDue || ''),
+              receiptDate3rdDue: formatDateForInput(invoice.third_receipt_date || invoice.receiptDate3rdDue || ''),
             }))
             
             // Load payment data for this invoice
@@ -348,25 +343,46 @@ function InvoiceEntry() {
     }
   }, [id, getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees])
   
-  // Auto-generate Internal Invoice No
+  // Auto-generate Internal Invoice No (real number from backend or fallback – never leave XXXX)
   useEffect(() => {
-    if (!formData.internalInvoiceNo && formData.invoiceType && formData.businessUnit) {
-      const generatedID = invoiceService.generateInvoiceID(
-        formData.invoiceType,
-        formData.businessUnit
-      )
-      setFormData((prev) => ({ ...prev, internalInvoiceNo: generatedID }))
+    const type = formData.invoiceType || 'REG'
+    const bu = formData.businessUnit || 'MAIN'
+    const current = (formData.internalInvoiceNo || '').trim()
+    const hasPlaceholder = /XXXX/i.test(current)
+    if ((!current || hasPlaceholder) && type && bu) {
+      let cancelled = false
+      invoiceService.fetchNextInvoiceNumber(type, bu).then((nextNumber) => {
+        if (!cancelled && nextNumber) setFormData((prev) => ({ ...prev, internalInvoiceNo: nextNumber }))
+      })
+      return () => { cancelled = true }
     }
-  }, [formData.invoiceType, formData.businessUnit])
+  }, [formData.invoiceType, formData.businessUnit, formData.internalInvoiceNo])
   
-  // Handle PO Number (Key ID) selection - Auto-populate all linked fields
+  // Format date to YYYY-MM-DD for inputs (from ISO string or Date)
+  const formatDateForInput = (val) => {
+    if (val === undefined || val === null) return ''
+    const str = typeof val === 'string' ? val.trim() : String(val)
+    if (str && /^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10)
+    const d = new Date(val)
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
+  }
+
+  // Normalize BOQ unit to invoice dropdown value (e.g. "Metric Ton" -> "MT")
+  const normalizeUnit = (u) => {
+    if (!u || typeof u !== 'string') return ''
+    const s = String(u).trim().toUpperCase()
+    const map = { 'METRIC TON': 'MT', 'M.T.': 'MT', 'MTON': 'MT', 'NUMBERS': 'Nos', 'NO.': 'Nos', 'NOS': 'Nos', 'LITRE': 'LTR', 'LITRES': 'LTR', 'METER': 'MTR', 'METRE': 'MTR', 'SQ M': 'SQM', 'SQ.M': 'SQM', 'CUBIC M': 'CUM' }
+    return map[s] || (UNITS.includes(s) ? s : (UNITS.includes(u) ? u : u))
+  }
+
+  // Handle PO Number (Key ID) selection - Auto-populate all linked fields from PO + Master Data
   const handleKeyIDChange = async (e) => {
     const poNumber = e.target.value
     if (!poNumber) {
-      // Clear all auto-filled fields
       setFormData((prev) => ({
         ...prev,
         keyID: '',
+        poId: '',
         poNoReference: '',
         poDate: '',
         customerName: '',
@@ -382,10 +398,10 @@ function InvoiceEntry() {
         paymentTerms: '',
         paymentTextId: '',
         paymentText: '',
-        transporterId: '',
-        transporterName: '',
-        invoiceReceiptPersonId: '',
-        invoiceReceiptPersonName: '',
+        materialDescriptionType: '',
+        qty: '',
+        unit: '',
+        basicRate: '',
         consigneeId: '',
         consigneeNameAddress: '',
         consigneeCity: '',
@@ -395,67 +411,109 @@ function InvoiceEntry() {
       }))
       return
     }
-    
+
     try {
-      const poEntry = await poEntryService.getPOEntryByPONumber(poNumber)
-      if (!poEntry) {
-        alert(`PO Number ${poNumber} not found. Please create PO Entry first.`)
+      const raw = await poEntryService.getPOEntryByPONumber(poNumber)
+      if (!raw) {
+        showToast(`PO Number ${poNumber} not found. Please create PO Entry first.`, 'error')
         return
       }
-      
-      // Fetch customer details from Master Data
+      const fd = raw.formData || {}
+      const poEntry = {
+        customerId: fd.customerId ?? raw.customer_id,
+        poNumber: fd.poNumber ?? raw.po_number ?? poNumber,
+        poDate: formatDateForInput(fd.poDate ?? raw.issue_date ?? ''),
+        customerName: fd.customerName ?? raw.customer_name ?? '',
+        segment: fd.segment ?? raw.segment ?? '',
+        region: fd.region ?? raw.region ?? '',
+        zone: fd.zone ?? raw.zone ?? '',
+        businessUnit: fd.businessUnit ?? raw.business_unit ?? '',
+        salesOrderNo: fd.projectDescription ?? raw.project_description ?? raw.sales_order_no ?? '',
+        accountManagerId: fd.accountManagerId ?? raw.account_manager_id ?? fd.salesManagerId ?? fd.projectManagerId ?? '',
+        customerState: fd.customerState ?? raw.customer_state ?? '',
+        poDeliveryState: fd.poDeliveryState ?? raw.po_delivery_state ?? '',
+        poCurrency: fd.poCurrency ?? raw.currency ?? 'INR',
+        paymentTermsId: fd.paymentTermsId ?? raw.payment_terms_id ?? '',
+        poPaymentTerms: fd.poPaymentTerms ?? raw.payment_terms ?? '',
+      }
+
       const customer = customers.find((c) => c.id === poEntry.customerId)
       const terms = paymentTerms.find((t) => t.id === poEntry.paymentTermsId)
-      
-      // Auto-populate all fields from PO Entry and Master Data
+      const accountManager = employees.find((e) => e.id === poEntry.accountManagerId)
+      const customerName = customer?.name ?? customer?.values?.customerName ?? customer?.customerName ?? poEntry.customerName ?? ''
+      const accountManagerName = accountManager?.values?.nameOfEmployee ?? accountManager?.name ?? ''
+      const paymentTermsDesc = terms?.values?.paymentTermsDescription ?? terms?.values?.termName ?? poEntry.poPaymentTerms ?? ''
+      // Fallback segment/region/zone from customer Master Data when not on PO
+      const segment = poEntry.segment || customer?.segment || customer?.values?.segment || customer?.fullRecord?.values?.segment || ''
+      const region = poEntry.region || customer?.values?.region || customer?.fullRecord?.values?.region || ''
+      const zone = poEntry.zone || customer?.values?.zone || customer?.fullRecord?.values?.zone || ''
+
+      const firstBoq = Array.isArray(raw.boqItems) && raw.boqItems.length > 0 ? raw.boqItems[0] : null
+      const materialDescRaw = firstBoq?.materialDescription ?? firstBoq?.description ?? ''
+      const materialDesc = MATERIAL_DESCRIPTION_TYPES.includes(materialDescRaw) ? materialDescRaw : (materialDescRaw && MATERIAL_DESCRIPTION_TYPES.includes(materialDescRaw.trim()) ? materialDescRaw.trim() : '')
+      const boqQty = firstBoq?.quantity ?? firstBoq?.qty ?? ''
+      const boqUnitRaw = firstBoq?.uom ?? firstBoq?.unit ?? ''
+      const boqUnit = normalizeUnit(boqUnitRaw) || (UNITS.includes(boqUnitRaw) ? boqUnitRaw : boqUnitRaw)
+      const boqRate = firstBoq?.unitPrice ?? firstBoq?.basicRate ?? ''
+      const poDateValue = poEntry.poDate || formatDateForInput(raw.issue_date) || formatDateForInput(raw.poDate) || ''
+
       const updated = {
         ...formData,
         keyID: poNumber,
+        poId: raw.id || '',
         poNoReference: poEntry.poNumber || poNumber,
-        poDate: poEntry.poDate || '',
-        customerName: customer?.name || poEntry.customerName || '',
+        poDate: poDateValue,
+        customerName: customerName,
         customerId: poEntry.customerId || '',
-        segment: poEntry.segment || '',
-        region: poEntry.region || '',
-        zone: poEntry.zone || '',
+        segment,
+        region,
+        zone,
+        businessUnit: poEntry.businessUnit || formData.businessUnit,
+        salesOrderNo: poEntry.salesOrderNo || formData.salesOrderNo,
         accountManagerId: poEntry.accountManagerId || '',
-        accountManagerName: employees.find((e) => e.id === poEntry.accountManagerId)?.name || '',
+        accountManagerName: accountManagerName,
         stateOfSupply: poEntry.customerState || poEntry.poDeliveryState || '',
         currency: poEntry.poCurrency || 'INR',
         paymentTermsId: poEntry.paymentTermsId || '',
-        paymentTerms: terms?.values?.paymentTermsDescription || poEntry.poPaymentTerms || '',
-        paymentTextId: poEntry.paymentTermsId || '', // Use same payment terms for payment text
-        paymentText: terms?.values?.paymentTermsDescription || poEntry.poPaymentTerms || '',
+        paymentTerms: paymentTermsDesc,
+        paymentTextId: poEntry.paymentTermsId || '',
+        paymentText: paymentTermsDesc,
+        materialDescriptionType: materialDesc || formData.materialDescriptionType,
+        qty: boqQty !== '' ? String(boqQty) : formData.qty,
+        unit: (boqUnit && (UNITS.includes(boqUnit) || boqUnit === 'Other')) ? boqUnit : (formData.unit || boqUnit || ''),
+        basicRate: boqRate !== '' ? String(boqRate) : formData.basicRate,
       }
-      
-      // Optionally set consignee and payer details from customer master data (but allow manual override)
+
       if (customer) {
-        if (customer.consigneeId && !formData.consigneeId && !formData.consigneeNameAddress) {
-          const consignee = consignees.find((c) => c.id === customer.consigneeId)
+        const consigneeId = customer.consigneeId ?? customer.values?.consigneeId ?? customer.fullRecord?.values?.consigneeId
+        const payerId = customer.payerId ?? customer.values?.payerId ?? customer.fullRecord?.values?.payerId
+        if (consigneeId && !formData.consigneeId && !formData.consigneeNameAddress) {
+          const consignee = consignees.find((c) => c.id === consigneeId)
           if (consignee) {
-            updated.consigneeId = customer.consigneeId
-            updated.consigneeNameAddress = consignee.values?.consigneeAddress || consignee.name || ''
-            updated.consigneeCity = consignee.values?.city || ''
+            const addr = consignee.address ?? consignee.values?.consigneeAddress ?? consignee.fullRecord?.values?.consigneeAddress ?? consignee.fullRecord?.values?.address ?? ''
+            const namePart = consignee.name ?? consignee.values?.consigneeName ?? ''
+            updated.consigneeId = consigneeId
+            updated.consigneeNameAddress = [namePart, addr].filter(Boolean).join('\n') || addr || namePart
+            updated.consigneeCity = consignee.fullRecord?.values?.city ?? consignee.values?.city ?? ''
           }
         }
-        
-        if (customer.payerId && !formData.payerId && !formData.payerNameAddress) {
-          const payer = payers.find((p) => p.id === customer.payerId)
+        if (payerId && !formData.payerId && !formData.payerNameAddress) {
+          const payer = payers.find((p) => p.id === payerId)
           if (payer) {
-            updated.payerId = customer.payerId
-            updated.payerNameAddress = payer.values?.payerAddress || payer.name || ''
-            updated.payerCity = payer.values?.city || ''
+            const addr = payer.address ?? payer.values?.payerAddress ?? payer.fullRecord?.values?.payerAddress ?? payer.fullRecord?.values?.address ?? ''
+            const namePart = payer.name ?? payer.values?.payerName ?? ''
+            updated.payerId = payerId
+            updated.payerNameAddress = [namePart, addr].filter(Boolean).join('\n') || addr || namePart
+            updated.payerCity = payer.fullRecord?.values?.city ?? payer.values?.city ?? ''
           }
         }
       }
-      
+
       setFormData(updated)
-      
-      // Load payment data for this invoice if it exists
       loadPaymentData(poNumber)
     } catch (error) {
       console.error('Failed to load PO entry:', error)
-      alert('Failed to load PO entry. Please try again.')
+      showToast('Failed to load PO entry. Please try again.', 'error')
     }
   }
   
@@ -578,6 +636,11 @@ function InvoiceEntry() {
   
   const handleChange = (e) => {
     const { name, value } = e.target
+    // Key ID change must fetch PO and auto-fill Customer & PO details
+    if (name === 'keyID') {
+      handleKeyIDChange(e)
+      return
+    }
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
@@ -736,40 +799,50 @@ function InvoiceEntry() {
   
   const handleSaveDraft = () => {
     try {
-      const draft = {
-        ...formData,
-        ...displayData,
-        savedAt: new Date().toISOString(),
-        draft: true,
-      }
-      localStorage.setItem('invoiceEntryDraft', JSON.stringify(draft))
-      alert('Draft saved successfully!')
+      persistNow()
+      showToast('Draft saved successfully!', 'success')
     } catch (error) {
       console.error('Failed to save draft:', error)
-      alert('Failed to save draft. Please try again.')
+      showToast('Failed to save draft. Please try again.', 'error')
     }
   }
-  
+
+  const handleReset = () => {
+    if (typeof resetForm === 'function') {
+      resetForm()
+    } else {
+      setFormData({ ...INITIAL_INVOICE_FORM_DATA })
+      if (!id && typeof clearLocalDraft === 'function') clearLocalDraft()
+    }
+    showToast('Form reset', 'success')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
     // Validate required fields
     if (!formData.keyID) {
-      alert('Key ID (PO Number) is mandatory. Please select a PO Number.')
+      showToast('Key ID (PO Number) is mandatory. Please select a PO Number.', 'error')
+      return
+    }
+
+    if (!formData.customerId) {
+      showToast('No customer linked to the selected Key ID (PO). Please re-select a Key ID that has a customer, or create the PO with a customer first.', 'error')
       return
     }
     
     if (!formData.gstTaxInvoiceNo || !formData.gstTaxInvoiceDate) {
-      alert('GST Tax Invoice No and Date are required.')
+      showToast('GST Tax Invoice No and Date are required.', 'error')
       return
     }
     
-    // Save invoice with all computed values
+    // Save invoice with all computed values. Send poId when available so backend validates from single source.
     try {
       const invoiceData = {
         ...formData,
         ...displayData,
         key_id: formData.keyID, // Store Key ID for reporting
+        poId: formData.poId || undefined, // Preferred: backend uses this for PO lookup when present
         invoice_number: formData.internalInvoiceNo,
         issue_date: formData.gstTaxInvoiceDate,
       }
@@ -812,17 +885,25 @@ function InvoiceEntry() {
         }
       }
       
-      alert(`Invoice ${savedInvoice?.invoice_number || savedInvoice?.internalInvoiceNo || formData.internalInvoiceNo || ''} saved successfully!`)
-      navigate('/invoices')
+      showToast(`Invoice ${savedInvoice?.invoice_number || savedInvoice?.internalInvoiceNo || formData.internalInvoiceNo || ''} saved successfully!`, 'success')
+      if (typeof clearLocalDraft === 'function') clearLocalDraft()
+      navigate('/invoices', { state: { fromCreate: true }, replace: false })
     } catch (error) {
       console.error('Failed to save invoice:', error)
-      alert('Failed to save invoice. Please try again.')
+      const msg = error?.response?.data?.message || error?.message || 'Failed to save invoice. Please try again.'
+      const code = error?.response?.data?.code || ''
+      const isDuplicate = code === 'ERR_DUPLICATE' || /already exists/i.test(String(msg))
+      showToast(msg, 'error')
+      if (isDuplicate) {
+        window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: {} }))
+        navigate('/invoices')
+      }
     }
   }
   
   // Render field based on type
   const renderField = (fieldName, label, type = FIELD_TYPES.MANUAL, options = [], placeholder = '', required = false) => {
-    const isReadOnly = type === FIELD_TYPES.DEFAULT || type === FIELD_TYPES.CALCULATED
+    const isReadOnly = type === FIELD_TYPES.DEFAULT || type === FIELD_TYPES.CALCULATED || isViewMode
     const isCalculated = type === FIELD_TYPES.CALCULATED
     const value = displayData[fieldName] || formData[fieldName] || ''
     
@@ -863,13 +944,35 @@ function InvoiceEntry() {
       )
     }
     
+    if (fieldName.includes('Date')) {
+      return (
+        <div className="invoice-entry-field" key={fieldName}>
+          <label htmlFor={fieldName} className="invoice-entry-label">
+            {label} {required && <span className="invoice-entry-required">*</span>}
+          </label>
+          <DatePicker
+            id={fieldName}
+            name={fieldName}
+            selected={value}
+            onChange={handleChange}
+            disabled={isReadOnly}
+            required={required && !isReadOnly}
+            placeholderText={placeholder || `Select ${label.toLowerCase()}...`}
+            className={isCalculated ? 'invoice-entry-input-calculated' : ''}
+          />
+          {isCalculated && <small className="invoice-entry-hint">System Calculated</small>}
+          {isReadOnly && !isCalculated && !isViewMode && <small className="invoice-entry-hint">Auto-filled from PO/Master Data</small>}
+        </div>
+      )
+    }
+
     return (
       <div className="invoice-entry-field" key={fieldName}>
         <label htmlFor={fieldName} className="invoice-entry-label">
           {label} {required && <span className="invoice-entry-required">*</span>}
         </label>
         <input
-          type={fieldName.includes('Date') ? 'date' : fieldName.includes('Amount') || fieldName.includes('Value') || fieldName.includes('Rate') || fieldName.includes('Qty') || fieldName.includes('Percent') ? 'number' : 'text'}
+          type={fieldName.includes('Amount') || fieldName.includes('Value') || fieldName.includes('Rate') || fieldName.includes('Qty') || fieldName.includes('Percent') ? 'number' : 'text'}
           id={fieldName}
           name={fieldName}
           value={value}
@@ -882,7 +985,7 @@ function InvoiceEntry() {
           step={fieldName.includes('Rate') || fieldName.includes('Percent') ? '0.01' : fieldName.includes('Qty') ? '0.01' : '0.01'}
         />
         {isCalculated && <small className="invoice-entry-hint">System Calculated</small>}
-        {isReadOnly && !isCalculated && <small className="invoice-entry-hint">Auto-filled from PO/Master Data</small>}
+        {isReadOnly && !isCalculated && !isViewMode && <small className="invoice-entry-hint">Auto-filled from PO/Master Data</small>}
       </div>
     )
   }
@@ -911,6 +1014,15 @@ function InvoiceEntry() {
         <div className="invoice-entry-header-actions">
           <button
             type="button"
+            onClick={handleReset}
+            className="invoice-entry-action-button invoice-entry-action-button-secondary"
+            title="Clear form and start over"
+          >
+            <RotateCcw className="invoice-entry-action-icon" size={18} />
+            <span>Reset</span>
+          </button>
+          <button
+            type="button"
             onClick={handleSaveDraft}
             className="invoice-entry-action-button invoice-entry-action-button-secondary"
           >
@@ -926,8 +1038,9 @@ function InvoiceEntry() {
         <div className="invoice-entry-section">
           <h2 className="invoice-entry-section-title">Key ID & Invoice Identification</h2>
           <div className="invoice-entry-form-grid">
-            {renderField('keyID', 'Key ID (PO Number)', FIELD_TYPES.DROPDOWN, 
-              poEntries.map(po => po.poNumber), '', true)}
+            {renderField('keyID', 'Key ID (PO Number)', FIELD_TYPES.DROPDOWN,
+              poNumbersLoading ? [] : (poEntries || []).map((po) => po?.poNumber ?? '').filter(Boolean),
+              '', true)}
             {renderField('gstTaxInvoiceNo', 'GST Tax Invoice No', FIELD_TYPES.MANUAL, [], '', true)}
             {renderField('gstTaxInvoiceDate', 'GST Tax Invoice Date', FIELD_TYPES.MANUAL, [], '', true)}
             {renderField('internalInvoiceNo', 'Internal Invoice No', FIELD_TYPES.CALCULATED)}
@@ -942,12 +1055,12 @@ function InvoiceEntry() {
           <div className="invoice-entry-form-grid">
             {renderField('customerName', 'Customer Name', FIELD_TYPES.DEFAULT)}
             {renderField('segment', 'Segment', FIELD_TYPES.DEFAULT)}
-            {renderField('region', 'Region', FIELD_TYPES.DEFAULT)}
-            {renderField('zone', 'Zone', FIELD_TYPES.DEFAULT)}
+            {renderField('region', 'Region', FIELD_TYPES.MANUAL)}
+            {renderField('zone', 'Zone', FIELD_TYPES.DROPDOWN, ZONES)}
             {renderField('salesOrderNo', 'Sales Order No', FIELD_TYPES.MANUAL)}
-            {renderField('accountManagerName', 'Account Manager Name', FIELD_TYPES.DEFAULT)}
+            {renderField('accountManagerName', 'Account Manager Name', FIELD_TYPES.MANUAL)}
             {renderField('poNoReference', 'PO No / Reference', FIELD_TYPES.DEFAULT)}
-            {renderField('poDate', 'PO Date', FIELD_TYPES.DEFAULT)}
+            {renderField('poDate', 'PO Date', FIELD_TYPES.MANUAL)}
           </div>
         </div>
 
@@ -956,7 +1069,7 @@ function InvoiceEntry() {
           <h2 className="invoice-entry-section-title">Material & Supply Details</h2>
           <div className="invoice-entry-form-grid">
             {renderField('materialDescriptionType', 'Material Description Type', FIELD_TYPES.DROPDOWN, MATERIAL_DESCRIPTION_TYPES)}
-            {renderField('stateOfSupply', 'State of Supply', FIELD_TYPES.DEFAULT)}
+            {renderField('stateOfSupply', 'State of Supply', FIELD_TYPES.MANUAL)}
             {renderField('qty', 'Qty', FIELD_TYPES.MANUAL, [], '0.00')}
             {renderField('unit', 'Unit', FIELD_TYPES.DROPDOWN, UNITS)}
             {renderField('currency', 'Currency', FIELD_TYPES.DEFAULT)}
@@ -1005,6 +1118,7 @@ function InvoiceEntry() {
                 value={formData.consigneeId}
                 onChange={handleConsigneeChange}
                 className="invoice-entry-select"
+                disabled={isViewMode}
               >
                 <option value="">Select from Master Data or enter manually</option>
                 {consignees.map((consignee) => {
@@ -1037,6 +1151,8 @@ function InvoiceEntry() {
                 className="invoice-entry-textarea"
                 rows="3"
                 placeholder="Enter consignee name and address manually or select from dropdown above"
+                readOnly={isViewMode}
+                disabled={isViewMode}
               />
             </div>
             
@@ -1053,6 +1169,8 @@ function InvoiceEntry() {
                 onChange={handleChange}
                 className="invoice-entry-input"
                 placeholder="Enter city"
+                readOnly={isViewMode}
+                disabled={isViewMode}
               />
             </div>
             
@@ -1067,6 +1185,7 @@ function InvoiceEntry() {
                 value={formData.payerId}
                 onChange={handlePayerChange}
                 className="invoice-entry-select"
+                disabled={isViewMode}
               >
                 <option value="">Select from Master Data or enter manually</option>
                 {payers.map((payer) => {
@@ -1099,6 +1218,8 @@ function InvoiceEntry() {
                 className="invoice-entry-textarea"
                 rows="3"
                 placeholder="Enter payer name and address manually or select from dropdown above"
+                readOnly={isViewMode}
+                disabled={isViewMode}
               />
             </div>
             
@@ -1115,6 +1236,8 @@ function InvoiceEntry() {
                 onChange={handleChange}
                 className="invoice-entry-input"
                 placeholder="Enter city"
+                readOnly={isViewMode}
+                disabled={isViewMode}
               />
             </div>
           </div>
@@ -1136,6 +1259,7 @@ function InvoiceEntry() {
                 value={formData.transporterId}
                 onChange={handleTransporterChange}
                 className="invoice-entry-select"
+                disabled={isViewMode}
               >
                 <option value="">Select Transporter from Master Data</option>
                 {employees
@@ -1161,6 +1285,8 @@ function InvoiceEntry() {
                 className="invoice-entry-input"
                 placeholder="Or enter transporter name manually"
                 style={{ marginTop: '8px' }}
+                readOnly={isViewMode}
+                disabled={isViewMode}
               />
               {employees.filter((emp) => {
                 const role = (emp.values?.role || emp.role || '').toLowerCase()
@@ -1219,6 +1345,7 @@ function InvoiceEntry() {
                 value={formData.invoiceReceiptPersonId}
                 onChange={handleInvoiceReceiptPersonChange}
                 className="invoice-entry-select"
+                disabled={isViewMode}
               >
                 <option value="">Select Person from Master Data</option>
                 {employees.map((emp) => {
@@ -1240,6 +1367,8 @@ function InvoiceEntry() {
                 className="invoice-entry-input"
                 placeholder="Or enter person name manually"
                 style={{ marginTop: '8px' }}
+                readOnly={isViewMode}
+                disabled={isViewMode}
               />
               {employees.length === 0 && (
                 <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
@@ -1278,6 +1407,7 @@ function InvoiceEntry() {
                 value={formData.paymentTermsId}
                 onChange={handlePaymentTermsChange}
                 className="invoice-entry-select"
+                disabled={isViewMode}
               >
                 <option value="">Select Payment Terms from Master Data</option>
                 {paymentTerms.map((terms) => {
@@ -1322,6 +1452,7 @@ function InvoiceEntry() {
                 value={formData.paymentTextId}
                 onChange={handlePaymentTextChange}
                 className="invoice-entry-select"
+                disabled={isViewMode}
               >
                 <option value="">Select Payment Text from Master Data</option>
                 {paymentTerms.map((terms) => {
@@ -1364,8 +1495,8 @@ function InvoiceEntry() {
           <div className="invoice-entry-form-grid">
             {renderField('firstDueDate', '1st Due Date', FIELD_TYPES.CALCULATED)}
             {renderField('firstDueAmount', '1st Due Amount', FIELD_TYPES.CALCULATED)}
-            {renderField('paymentReceivedAmount1stDue', 'Payment Received Amount (1st Due)', FIELD_TYPES.DEFAULT)}
-            {renderField('receiptDate1stDue', 'Receipt Date (1st Due)', FIELD_TYPES.DEFAULT)}
+            {renderField('paymentReceivedAmount1stDue', 'Payment Received Amount (1st Due)', FIELD_TYPES.MANUAL)}
+            {renderField('receiptDate1stDue', 'Receipt Date (1st Due)', FIELD_TYPES.MANUAL)}
             {renderField('firstDueBalance', '1st Due Balance', FIELD_TYPES.CALCULATED)}
             {renderField('notDue1stDue', 'Not Due (1st Due)', FIELD_TYPES.CALCULATED)}
             {renderField('overDue1stDue', 'Over Due (1st Due)', FIELD_TYPES.CALCULATED)}
@@ -1379,8 +1510,8 @@ function InvoiceEntry() {
           <div className="invoice-entry-form-grid">
             {renderField('secondDueDate', '2nd Due Date', FIELD_TYPES.CALCULATED)}
             {renderField('secondDueAmount', '2nd Due Amount', FIELD_TYPES.CALCULATED)}
-            {renderField('paymentReceivedAmount2ndDue', 'Payment Received Amount (2nd Due)', FIELD_TYPES.DEFAULT)}
-            {renderField('receiptDate2ndDue', 'Receipt Date (2nd Due)', FIELD_TYPES.DEFAULT)}
+            {renderField('paymentReceivedAmount2ndDue', 'Payment Received Amount (2nd Due)', FIELD_TYPES.MANUAL)}
+            {renderField('receiptDate2ndDue', 'Receipt Date (2nd Due)', FIELD_TYPES.MANUAL)}
             {renderField('secondDueBalance', '2nd Due Balance', FIELD_TYPES.CALCULATED)}
             {renderField('notDue2ndDue', 'Not Due (2nd Due)', FIELD_TYPES.CALCULATED)}
             {renderField('overDue2ndDue', 'Over Due (2nd Due)', FIELD_TYPES.CALCULATED)}
@@ -1394,8 +1525,8 @@ function InvoiceEntry() {
           <div className="invoice-entry-form-grid">
             {renderField('thirdDueDate', '3rd Due Date', FIELD_TYPES.CALCULATED)}
             {renderField('thirdDueAmount', '3rd Due Amount', FIELD_TYPES.CALCULATED)}
-            {renderField('paymentReceivedAmount3rdDue', 'Payment Received Amount (3rd Due)', FIELD_TYPES.DEFAULT)}
-            {renderField('receiptDate3rdDue', 'Receipt Date (3rd Due)', FIELD_TYPES.DEFAULT)}
+            {renderField('paymentReceivedAmount3rdDue', 'Payment Received Amount (3rd Due)', FIELD_TYPES.MANUAL)}
+            {renderField('receiptDate3rdDue', 'Receipt Date (3rd Due)', FIELD_TYPES.MANUAL)}
             {renderField('thirdDueBalance', '3rd Due Balance', FIELD_TYPES.CALCULATED)}
             {renderField('notDue3rdDue', 'Not Due (3rd Due)', FIELD_TYPES.CALCULATED)}
             {renderField('overDue3rdDue', 'Over Due (3rd Due)', FIELD_TYPES.CALCULATED)}
@@ -1417,12 +1548,12 @@ function InvoiceEntry() {
         <div className="invoice-entry-section">
           <h2 className="invoice-entry-section-title">TDS Fields (From Payment Advice)</h2>
           <div className="invoice-entry-form-grid">
-            {renderField('itTDS2Percent', 'IT TDS @2%', FIELD_TYPES.DEFAULT)}
-            {renderField('itTDS1Percent194Q', 'IT TDS @1% (194Q)', FIELD_TYPES.DEFAULT)}
-            {renderField('lcessBoq1Percent', 'LCess / BOQ @1%', FIELD_TYPES.DEFAULT)}
-            {renderField('tds2PercentCGSTSGST', 'TDS @2% (CGST/SGST)', FIELD_TYPES.DEFAULT)}
-            {renderField('tdsOnCGST1Percent', 'TDS on CGST @1%', FIELD_TYPES.DEFAULT)}
-            {renderField('tdsOnSGST1Percent', 'TDS on SGST @1%', FIELD_TYPES.DEFAULT)}
+            {renderField('itTDS2Percent', 'IT TDS @2%', FIELD_TYPES.MANUAL)}
+            {renderField('itTDS1Percent194Q', 'IT TDS @1% (194Q)', FIELD_TYPES.MANUAL)}
+            {renderField('lcessBoq1Percent', 'LCess / BOQ @1%', FIELD_TYPES.MANUAL)}
+            {renderField('tds2PercentCGSTSGST', 'TDS @2% (CGST/SGST)', FIELD_TYPES.MANUAL)}
+            {renderField('tdsOnCGST1Percent', 'TDS on CGST @1%', FIELD_TYPES.MANUAL)}
+            {renderField('tdsOnSGST1Percent', 'TDS on SGST @1%', FIELD_TYPES.MANUAL)}
           </div>
         </div>
 
@@ -1430,12 +1561,12 @@ function InvoiceEntry() {
         <div className="invoice-entry-section">
           <h2 className="invoice-entry-section-title">Deductions & Adjustments (From Payment Advice)</h2>
           <div className="invoice-entry-form-grid">
-            {renderField('excessSupplyQty', 'Excess Supply Qty', FIELD_TYPES.DEFAULT)}
-            {renderField('interestOnAdvance', 'Interest on Advance', FIELD_TYPES.DEFAULT)}
-            {renderField('anyHold', 'Any Hold', FIELD_TYPES.DEFAULT)}
-            {renderField('penaltyLDDeduction', 'Penalty / LD Deduction', FIELD_TYPES.DEFAULT)}
-            {renderField('bankCharges', 'Bank Charges', FIELD_TYPES.DEFAULT)}
-            {renderField('lcDiscrepancyCharge', 'LC Discrepancy Charge', FIELD_TYPES.DEFAULT)}
+            {renderField('excessSupplyQty', 'Excess Supply Qty', FIELD_TYPES.MANUAL)}
+            {renderField('interestOnAdvance', 'Interest on Advance', FIELD_TYPES.MANUAL)}
+            {renderField('anyHold', 'Any Hold', FIELD_TYPES.MANUAL)}
+            {renderField('penaltyLDDeduction', 'Penalty / LD Deduction', FIELD_TYPES.MANUAL)}
+            {renderField('bankCharges', 'Bank Charges', FIELD_TYPES.MANUAL)}
+            {renderField('lcDiscrepancyCharge', 'LC Discrepancy Charge', FIELD_TYPES.MANUAL)}
             {renderField('provisionForBadDebts', 'Provision for Bad Debts', FIELD_TYPES.MANUAL, [], '0.00')}
             {renderField('badDebts', 'Bad Debts', FIELD_TYPES.MANUAL, [], '0.00')}
           </div>
@@ -1448,14 +1579,25 @@ function InvoiceEntry() {
             onClick={() => navigate('/invoices')}
             className="invoice-entry-button invoice-entry-button-secondary"
           >
-            Cancel
+            {isViewMode ? 'Close' : 'Cancel'}
           </button>
-          <button
-            type="submit"
-            className="invoice-entry-button invoice-entry-button-primary"
-          >
-            Submit Invoice
-          </button>
+          {!isViewMode && (
+            <>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="invoice-entry-button invoice-entry-button-secondary"
+              >
+                Reset
+              </button>
+              <button
+                type="submit"
+                className="invoice-entry-button invoice-entry-button-primary"
+              >
+                {id ? 'Update Invoice' : 'Submit Invoice'}
+              </button>
+            </>
+          )}
         </div>
       </form>
     </div>

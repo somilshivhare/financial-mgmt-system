@@ -1,30 +1,44 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
+import { buildDraftKey, getDraft, mergeWithDefaults, scheduleDraftSave, clearDraft as clearStorageDraft, cancelScheduledSave } from '../utils/formPersistenceStorage'
 
 /**
  * Universal Form Persistence Hook
- * Provides consistent save/load functionality for all forms
- * 
+ * Provides consistent save/load functionality for all forms with optional localStorage
+ * for instant recovery on refresh, tab close, or navigation.
+ *
  * @param {Object} config - Configuration object
  * @param {Function} config.saveFn - Function to save data (returns Promise)
  * @param {Function} config.loadFn - Function to load data (returns Promise)
  * @param {string} config.entityType - Type of entity (e.g., 'company-profile', 'po', 'invoice')
  * @param {string} config.entityId - Optional entity ID for updates
+ * @param {string} config.storagePathKey - Optional route key for localStorage (e.g. 'po-entry', 'invoice-entry'). Enables instant restore and debounced auto-save to localStorage.
  * @param {Object} config.defaultValues - Default form values
  * @param {number} config.autoSaveDelay - Auto-save delay in ms (default: 2000)
- * @param {boolean} config.enableAutoSave - Enable auto-save on field change (default: true)
- * @returns {Object} - { values, setValues, loading, saving, error, save, load, reset }
+ * @param {number} config.localStorageDebounceMs - Debounce for localStorage writes (default: 1500)
+ * @param {boolean|function(values): boolean} config.enableAutoSave - Enable auto-save on field change (default: true). If function, called with current values.
+ * @returns {Object} - { values, setValues, loading, saving, error, save, load, reset, clearLocalDraft }
  */
 export function useFormPersistence({
   saveFn,
   loadFn,
   entityType,
   entityId = null,
+  storagePathKey = null,
   defaultValues = {},
   autoSaveDelay = 2000,
+  localStorageDebounceMs = 1500,
   enableAutoSave = true,
 }) {
-  const [values, setValues] = useState(defaultValues)
+  const params = useParams()
+  const resolvedEntityId = entityId ?? params?.id ?? null
+  const storageKey = storagePathKey ? buildDraftKey(storagePathKey, resolvedEntityId) : null
+
+  const [values, setValues] = useState(() => {
+    if (!storageKey) return defaultValues
+    const stored = getDraft(storageKey)
+    return mergeWithDefaults(defaultValues, stored)
+  })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -38,10 +52,6 @@ export function useFormPersistence({
   const saveFnRef = useRef(saveFn)
   const valuesRef = useRef(values)
   const defaultValuesRef = useRef(defaultValues)
-  const params = useParams()
-  
-  // Get entity ID from params if not provided
-  const resolvedEntityId = entityId || params.id || null
   const lastEntityIdRef = useRef(resolvedEntityId)
   const resolvedEntityIdRef = useRef(resolvedEntityId)
   
@@ -109,13 +119,15 @@ export function useFormPersistence({
 
   // Load data on mount - only once per entityId change
   useEffect(() => {
-    // Skip if already loading
+    // If a previous load was in progress (e.g. Strict Mode unmount), clear it so this mount can load
     if (loadingInProgressRef.current) {
-      return
+      loadingInProgressRef.current = false
+      setLoading(false)
     }
-    
+
     // Skip if we've already loaded for this entityId
     if (hasLoadedRef.current && lastEntityIdRef.current === resolvedEntityId) {
+      setLoading(false)
       return
     }
     
@@ -207,8 +219,10 @@ export function useFormPersistence({
   }, [resolvedEntityId]) // Only reload if entityId changes - defaultValues accessed via ref
 
   // Auto-save on field change (debounced)
+  const autoSaveEnabled = typeof enableAutoSave === 'function' ? enableAutoSave(values) : !!enableAutoSave
+
   useEffect(() => {
-    if (!enableAutoSave || !saveFnRef.current || isInitialLoadRef.current || loading || saving) {
+    if (!autoSaveEnabled || !saveFnRef.current || isInitialLoadRef.current || loading || saving) {
       return
     }
 
@@ -238,7 +252,15 @@ export function useFormPersistence({
         clearTimeout(autoSaveTimerRef.current)
       }
     }
-  }, [values, enableAutoSave, autoSaveDelay, loading, saving, save]) // Include save but it's stable now
+  }, [values, autoSaveEnabled, autoSaveDelay, loading, saving, save]) // Include save but it's stable now
+
+  // Persist values to localStorage (debounced) for instant recovery on refresh/tab close
+  useEffect(() => {
+    if (!storageKey || isInitialLoadRef.current || loading) return
+    if (Object.keys(values).length === 0) return
+    scheduleDraftSave(storageKey, values, localStorageDebounceMs)
+    return () => cancelScheduledSave(storageKey)
+  }, [values, storageKey, localStorageDebounceMs, loading])
 
   // Manual load function
   const load = useCallback(async () => {
@@ -276,12 +298,18 @@ export function useFormPersistence({
     }
   }, [entityType]) // Only entityType as dependency - use refs for others
 
-  // Reset to default values
+  // Reset to default values and clear localStorage draft
   const reset = useCallback(() => {
+    if (storageKey) clearStorageDraft(storageKey)
     setValues(defaultValuesRef.current)
     setError(null)
     setLastSaved(null)
-  }, []) // No dependencies - use ref
+  }, [storageKey])
+
+  // Clear localStorage draft only (call after successful submit so reload doesn't restore old draft)
+  const clearLocalDraft = useCallback(() => {
+    if (storageKey) clearStorageDraft(storageKey)
+  }, [storageKey])
 
   // Update single field
   const updateField = useCallback((field, value) => {
@@ -309,6 +337,7 @@ export function useFormPersistence({
     save,
     load,
     reset,
+    clearLocalDraft,
     updateField,
     updateFields,
   }

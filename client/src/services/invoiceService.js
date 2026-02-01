@@ -5,31 +5,66 @@
 
 import * as invoiceApi from '../api/invoice'
 
-// Generate unique Invoice ID based on business rules
+// Generate unique Invoice ID based on business rules (placeholder when API not used)
 export const generateInvoiceID = (invoiceType = 'REG', businessUnit = 'MAIN', financialYear = null) => {
-  // Get current financial year if not provided (assuming April-March cycle)
   if (!financialYear) {
     const now = new Date()
     const year = now.getFullYear()
     const month = now.getMonth() + 1
     financialYear = month >= 4 ? `${year}-${year + 1}` : `${year - 1}-${year}`
   }
-
-  // Format: INV-{TYPE}-{BU}-{FY}-{SEQUENCE}
-  // Example: INV-REG-MAIN-2024-2025-0001
   const fyShort = financialYear.replace('-', '')
-
-  return `INV-${invoiceType}-${businessUnit}-${fyShort}-XXXX` // Backend will handle sequence
+  return `INV-${invoiceType}-${businessUnit}-${fyShort}-XXXX`
 }
 
-// Get all invoices
+// Fallback: generate a number with digits (no XXXX) when API is unavailable
+function fallbackInvoiceNumber(invoiceType = 'REG', businessUnit = 'MAIN') {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  const fyStart = month >= 4 ? year : year - 1
+  const fyEnd = fyStart + 1
+  const fyShort = `${fyStart}${fyEnd}`
+  const seq = String(Date.now()).slice(-4)
+  return `INV-${invoiceType}-${businessUnit}-${fyShort}-${seq}`
+}
+
+// Fetch next internal invoice number from backend (real sequence, e.g. INV-REG-MAIN-20252026-0001)
+export const fetchNextInvoiceNumber = async (invoiceType = 'REG', businessUnit = 'MAIN') => {
+  try {
+    const next = await invoiceApi.getNextInvoiceNumber({ invoiceType, businessUnit })
+    if (next && typeof next === 'string' && !/XXXX/i.test(next)) return next
+    return fallbackInvoiceNumber(invoiceType, businessUnit)
+  } catch (error) {
+    console.error('Failed to fetch next invoice number:', error)
+    return fallbackInvoiceNumber(invoiceType, businessUnit)
+  }
+}
+
+// Get all invoices (returns array). Handles every API shape so list always shows when data exists.
+function unwrapInvoiceList(response) {
+  if (!response) return [];
+  
+  // If response is directly the array
+  if (Array.isArray(response)) return response;
+  
+  // If response is the standard { success, data: [...] } from invoiceApi.js
+  if (response.data && Array.isArray(response.data)) return response.data;
+  
+  // If response is the raw backend response { success, data: { data: [...] } }
+  const nestedData = response.data?.data || response.data;
+  if (Array.isArray(nestedData)) return nestedData;
+  
+  return [];
+}
+
 export const getAllInvoices = async () => {
   try {
-    const response = await invoiceApi.getAllInvoices()
-    return response.data || []
+    const response = await invoiceApi.getAllInvoices({ page: 1, pageSize: 500 })
+    return unwrapInvoiceList(response)
   } catch (error) {
     console.error('Failed to load invoices:', error)
-    return []
+    throw error
   }
 }
 
@@ -68,9 +103,10 @@ export const saveInvoice = async (invoiceData) => {
     // Trigger update event
     window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { invoice: response.data } }))
 
-    return response.data
+    return response?.data ?? response
   } catch (error) {
     console.error('Failed to save invoice:', error)
+    // Re-throw so caller can read error.response?.data?.message
     throw error
   }
 }
@@ -217,5 +253,18 @@ export const calculateDueStatus = (dueDate, receivedAmount, dueAmount) => {
   }
 
   return { status: 'not-due', overdue: false, notDue: true, daysUntilDue: Math.abs(days) }
+}
+
+// Delete invoice
+export const deleteInvoice = async (id) => {
+  try {
+    const response = await invoiceApi.deleteInvoice(id)
+    // Trigger deleted event
+    window.dispatchEvent(new CustomEvent('invoiceDeleted', { detail: { id } }))
+    return response?.data ?? response
+  } catch (error) {
+    console.error('Failed to delete invoice:', error)
+    throw error
+  }
 }
 

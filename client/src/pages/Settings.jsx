@@ -26,8 +26,8 @@ function safeParse(json) {
 
 const DEFAULT_SETTINGS = {
   general: {
-    companyName: 'NB Aurum',
-    companyEmail: 'finance@nbaurum.com',
+    companyName: 'NB Aurum Solutions',
+    companyEmail: 'finance@nbaurumsolutions.com',
     companyPhone: '+91 00000 00000',
     financialYear: '2024-2025',
     currency: 'INR',

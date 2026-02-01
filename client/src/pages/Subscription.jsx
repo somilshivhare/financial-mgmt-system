@@ -14,6 +14,7 @@ import {
   Shield,
   Loader2
 } from 'lucide-react'
+import { useToast } from '../contexts/ToastContext'
 import { 
   getSubscription, 
   getSubscriptionPlans, 
@@ -51,6 +52,7 @@ const DEFAULT_BILLING_INFO = {
 }
 
 function Subscription() {
+  const { showToast } = useToast()
   const [subscription, setSubscription] = useState(DEFAULT_SUBSCRIPTION)
   const [plans, setPlans] = useState([])
   const [billingInfo, setBillingInfo] = useState(DEFAULT_BILLING_INFO)
@@ -346,7 +348,7 @@ function Subscription() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
     } catch (err) {
-      alert(err.message || 'Failed to download invoice. Please try again.')
+      showToast(err.message || 'Failed to download invoice. Please try again.', 'error')
     } finally {
       setDownloadingInvoice(null)
     }

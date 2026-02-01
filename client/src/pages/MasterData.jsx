@@ -14,11 +14,14 @@ import {
   Circle,
 } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
+import { ConfirmDialog, useConfirmDialog } from '../components/ConfirmDialog'
+import * as masterDataService from '../services/masterDataService'
 import '../styles/MasterData.css'
 
 function MasterData() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { confirm, dialogProps } = useConfirmDialog()
   const { 
     masterData, 
     loadMasterData, 
@@ -29,6 +32,8 @@ function MasterData() {
   } = useMasterData()
   const [query, setQuery] = useState('')
   const [tier, setTier] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all') // all | draft | published
+  const [editLoadingId, setEditLoadingId] = useState(null)
   
   // Refresh data when navigating to this page
   useEffect(() => {
@@ -74,25 +79,59 @@ function MasterData() {
   }
 
   const handleDelete = async (companyId) => {
-    if (window.confirm('Are you sure you want to delete this master data record? This will remove the company profile and all associated data.')) {
-      try {
-        // Delete the company profile (which represents this master data set)
-        await deleteRecord('company-profile', companyId)
-        loadAggregatedMasterData()
-      } catch (error) {
-        console.error('Failed to delete master data:', error)
-      }
+    const confirmed = await confirm({
+      title: 'Delete master data record?',
+      message: 'This will remove the company profile and all associated data.',
+      confirmText: 'Delete record',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+    try {
+      // Delete the company profile (which represents this master data set)
+      await deleteRecord('company-profile', companyId)
+      loadAggregatedMasterData()
+    } catch (error) {
+      console.error('Failed to delete master data:', error)
     }
   }
 
-  // Filter aggregated data list based on search query
+  // Edit opens the wizard through the index flow: index → step selection → form steps with prefilled values.
+  // For draft: resume that draft. For published: create a new draft copy, then open index with that draftId.
+  const handleEdit = async (aggregatedData) => {
+    if (!aggregatedData) return
+    if ((aggregatedData.status || 'published') === 'draft') {
+      navigate(`/master-data/new?draftId=${aggregatedData.companyId}`)
+      return
+    }
+    try {
+      setEditLoadingId(aggregatedData.companyId)
+      const draftCompany = await masterDataService.createDraftFromPublished(aggregatedData.companyId)
+      if (draftCompany?.id) {
+        navigate(`/master-data/new?draftId=${draftCompany.id}`)
+      }
+    } catch (error) {
+      console.error('[MasterData] Failed to start draft edit:', error)
+    } finally {
+      setEditLoadingId(null)
+    }
+  }
+
+  // Filter aggregated data list based on search query and status (draft / published)
   const filteredAggregatedDataList = useMemo(() => {
     if (!aggregatedDataList || aggregatedDataList.length === 0) return []
     
-    if (!query.trim()) return aggregatedDataList
+    let list = aggregatedDataList
+
+    if (statusFilter === 'draft') {
+      list = list.filter(item => (item.status || 'published') === 'draft')
+    } else if (statusFilter === 'published') {
+      list = list.filter(item => (item.status || 'published') === 'published')
+    }
+
+    if (!query.trim()) return list
     
     const lowerQuery = query.toLowerCase()
-    return aggregatedDataList.filter(aggregatedData => {
+    return list.filter(aggregatedData => {
       const searchableText = [
         aggregatedData.primaryName,
         ...Object.values(aggregatedData.stepData || {}).map(step => {
@@ -104,7 +143,7 @@ function MasterData() {
       
       return searchableText.includes(lowerQuery)
     })
-  }, [aggregatedDataList, query])
+  }, [aggregatedDataList, query, statusFilter])
 
   const subtitle = useMemo(() => {
     return 'Browse and manage all recorded master data.'
@@ -210,6 +249,19 @@ function MasterData() {
         <div className="md-select-wrap">
           <select
             className="md-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            title="Filter by draft or published"
+          >
+            <option value="all">All status</option>
+            <option value="draft">Draft only</option>
+            <option value="published">Published only</option>
+          </select>
+          <ChevronDown className="md-select-chevron" />
+        </div>
+        <div className="md-select-wrap">
+          <select
+            className="md-select"
             value={tier}
             onChange={(e) => setTier(e.target.value)}
           >
@@ -246,6 +298,15 @@ function MasterData() {
               <div className="md-record-header">
                 <h3 className="md-record-title">{aggregatedData.primaryName}</h3>
                 <div className="md-record-badges">
+                  {(aggregatedData.status || 'published') === 'draft' ? (
+                    <span className="md-record-badge md-record-badge-draft" title="Unfinished draft – resume to continue">
+                      Draft
+                    </span>
+                  ) : (
+                    <span className="md-record-badge md-record-badge-published" title="Published – edit creates a new draft">
+                      Published
+                    </span>
+                  )}
                   <span className="md-record-badge md-record-badge-completion">
                     {aggregatedData.completionPercentage}% Complete
                   </span>
@@ -296,10 +357,11 @@ function MasterData() {
                 <button
                   type="button"
                   className="md-record-action md-record-action-edit"
-                  onClick={() => navigate('/master-data/new')}
+                  onClick={() => handleEdit(aggregatedData)}
+                  disabled={editLoadingId === aggregatedData.companyId}
                 >
                   <Edit className="md-record-action-icon" />
-                  <span>Edit</span>
+                  <span>{aggregatedData.status === 'draft' ? 'Resume Draft' : 'Edit'}</span>
                 </button>
                 <button
                   type="button"
@@ -334,6 +396,7 @@ function MasterData() {
           </button>
         </div>
       )}
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

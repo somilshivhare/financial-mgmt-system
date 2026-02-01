@@ -304,23 +304,23 @@ function Dashboard() {
     return filtered
   }, [invoiceInsights.recent, searchQuery, statusFilter, customerFilter])
 
-  // Chart colors - using theme colors
+  // Chart colors - NB Aurum Solutions palette (primary blue, accent gold)
   const chartColors = {
-    primary: '#d4af37', // Gold (matches theme)
-    secondary: '#b8941f', // Darker gold
-    success: '#10b981',
-    warning: '#f59e0b',
-    danger: '#ef4444',
-    gray: '#94a3b8',
+    primary: '#0f4c81',
+    secondary: '#b8860b',
+    success: '#0d9488',
+    warning: '#b45309',
+    danger: '#b91c1c',
+    gray: '#64748b',
   }
 
   // Status colors
   const statusColors = {
-    draft: '#6b7280',
-    open: '#3b82f6',
-    paid: '#10b981',
-    overdue: '#ef4444',
-    cancelled: '#9ca3af',
+    draft: '#64748b',
+    open: '#0f4c81',
+    paid: '#0d9488',
+    overdue: '#b91c1c',
+    cancelled: '#94a3b8',
   }
 
   if (loading) {
@@ -459,7 +459,9 @@ function Dashboard() {
         <div className="dashboard-kpi-grid">
           <div className="dashboard-kpi-card">
             <div className="dashboard-kpi-header">
-              <DollarSign className="dashboard-kpi-icon" style={{ color: chartColors.primary }} />
+              <div className="dashboard-kpi-icon-container" style={{ backgroundColor: `${chartColors.primary}15` }}>
+                <DollarSign className="dashboard-kpi-icon" style={{ color: chartColors.primary }} />
+              </div>
               <span className="dashboard-kpi-label">Total Outstanding</span>
             </div>
             <div className="dashboard-kpi-value">{formatCurrency(kpis.totalOutstanding || 0, currency)}</div>
@@ -471,7 +473,9 @@ function Dashboard() {
 
           <div className="dashboard-kpi-card">
             <div className="dashboard-kpi-header">
-              <CheckCircle2 className="dashboard-kpi-icon" style={{ color: chartColors.success }} />
+              <div className="dashboard-kpi-icon-container" style={{ backgroundColor: `${chartColors.success}15` }}>
+                <CheckCircle2 className="dashboard-kpi-icon" style={{ color: chartColors.success }} />
+              </div>
               <span className="dashboard-kpi-label">Total Collected</span>
             </div>
             <div className="dashboard-kpi-value">{formatCurrency(kpis.totalCollected || 0, currency)}</div>
@@ -483,7 +487,9 @@ function Dashboard() {
 
           <div className="dashboard-kpi-card">
             <div className="dashboard-kpi-header">
-              <AlertTriangle className="dashboard-kpi-icon" style={{ color: chartColors.danger }} />
+              <div className="dashboard-kpi-icon-container" style={{ backgroundColor: `${chartColors.danger}15` }}>
+                <AlertTriangle className="dashboard-kpi-icon" style={{ color: chartColors.danger }} />
+              </div>
               <span className="dashboard-kpi-label">Total Overdue</span>
             </div>
             <div className="dashboard-kpi-value">{formatCurrency(kpis.totalOverdue || 0, currency)}</div>
@@ -495,7 +501,9 @@ function Dashboard() {
 
           <div className="dashboard-kpi-card">
             <div className="dashboard-kpi-header">
-              <Target className="dashboard-kpi-icon" style={{ color: chartColors.warning }} />
+              <div className="dashboard-kpi-icon-container" style={{ backgroundColor: `${chartColors.warning}15` }}>
+                <Target className="dashboard-kpi-icon" style={{ color: chartColors.warning }} />
+              </div>
               <span className="dashboard-kpi-label">Collection Target</span>
             </div>
             <div className="dashboard-kpi-value">{kpis.collectionTargetAchieved || 0}%</div>
@@ -507,7 +515,9 @@ function Dashboard() {
 
           <div className="dashboard-kpi-card">
             <div className="dashboard-kpi-header">
-              <Calendar className="dashboard-kpi-icon" style={{ color: chartColors.secondary }} />
+              <div className="dashboard-kpi-icon-container" style={{ backgroundColor: `${chartColors.secondary}15` }}>
+                <Calendar className="dashboard-kpi-icon" style={{ color: chartColors.secondary }} />
+              </div>
               <span className="dashboard-kpi-label">Dues This Month</span>
             </div>
             <div className="dashboard-kpi-value">{formatCurrency(kpis.duesCurrentMonth || 0, currency)}</div>
@@ -519,7 +529,9 @@ function Dashboard() {
 
           <div className="dashboard-kpi-card">
             <div className="dashboard-kpi-header">
-              <Wallet className="dashboard-kpi-icon" style={{ color: chartColors.primary }} />
+              <div className="dashboard-kpi-icon-container" style={{ backgroundColor: `${chartColors.primary}15` }}>
+                <Wallet className="dashboard-kpi-icon" style={{ color: chartColors.primary }} />
+              </div>
               <span className="dashboard-kpi-label">Total Balance</span>
             </div>
             <div className="dashboard-kpi-value">{formatCurrency(kpis.totalBalance || 0, currency)}</div>

@@ -5,6 +5,8 @@ import {
   Loader2, FileText, History, Send, Eye, EyeOff
 } from 'lucide-react'
 import '../styles/Support.css'
+import { useToast } from '../contexts/ToastContext'
+import { usePersistedFormState } from '../hooks/usePersistedFormState'
 import { createTicketJSON, listTickets, getTicket, addReply } from '../api/supportTickets'
 import { getSystemSettings } from '../api/settings'
 import { getApiUrl } from '../config/api'
@@ -61,14 +63,18 @@ function formatDate(dateString) {
 }
 
 export default function ContactSupport() {
+  const { showToast } = useToast()
   const [user, setUser] = useState(null)
   const [userRole, setUserRole] = useState(null)
   const [supportChannels, setSupportChannels] = useState({
-    email: 'support@nbaurum.com',
+    email: 'support@nbaurumsolutions.com',
     phone: '+91 00000 00000',
     businessHours: 'Mon–Fri, 10:00–18:00 (IST)',
   })
-  const [ticket, setTicket] = useState({ category: '', priority: 'Medium', subject: '', description: '' })
+  const { values: ticket, setValues: setTicket, clearLocalDraft } = usePersistedFormState({
+    pathKey: 'contact-support',
+    defaultValues: { category: '', priority: 'Medium', subject: '', description: '' },
+  })
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(null)
@@ -110,7 +116,7 @@ export default function ContactSupport() {
       const settings = await getSystemSettings()
       if (settings?.general) {
         setSupportChannels({
-          email: settings.general.supportEmail || settings.general.companyEmail || 'support@nbaurum.com',
+          email: settings.general.supportEmail || settings.general.companyEmail || 'support@nbaurumsolutions.com',
           phone: settings.general.supportPhone || settings.general.companyPhone || '+91 00000 00000',
           businessHours: settings.general.businessHours || 'Mon–Fri, 10:00–18:00 (IST)',
         })
@@ -143,7 +149,7 @@ export default function ContactSupport() {
       }
     } catch (err) {
       console.error('Failed to load ticket details:', err)
-      alert('Failed to load ticket details. Please try again.')
+      showToast('Failed to load ticket details. Please try again.', 'error')
     } finally {
       setLoadingTicket(false)
     }
@@ -241,6 +247,7 @@ export default function ContactSupport() {
 
       if (data.success) {
         setSubmitted({ id: data.data.ticketNumber, ticketId: data.data.id })
+        if (typeof clearLocalDraft === 'function') clearLocalDraft()
         setTicket({ category: '', priority: 'Medium', subject: '', description: '' })
         setAttachments([])
         if (fileRef.current) fileRef.current.value = ''
@@ -277,7 +284,7 @@ export default function ContactSupport() {
       }
     } catch (err) {
       console.error('Failed to add reply:', err)
-      alert('Failed to add reply. Please try again.')
+      showToast('Failed to add reply. Please try again.', 'error')
     } finally {
       setSubmittingReply(false)
     }
@@ -582,7 +589,7 @@ export default function ContactSupport() {
                 <div>
                   <div className="support-office-label">Registered Address</div>
                   <div className="support-office-value">
-                    NB Aurum Technologies Pvt. Ltd.<br />
+                    NB Aurum Solutions Pvt. Ltd.<br />
                     123 Business Street, Andheri East<br />
                     Mumbai, Maharashtra 400001, India
                   </div>
@@ -595,7 +602,7 @@ export default function ContactSupport() {
                   <div className="support-office-label">GST Details</div>
                   <div className="support-office-value">
                     GSTIN: <span className="support-mono">—</span><br />
-                    Legal Entity: NB Aurum Technologies Pvt. Ltd.
+                    Legal Entity: NB Aurum Solutions Pvt. Ltd.
                   </div>
                   <div className="support-help">Update GSTIN when applicable for tax invoices.</div>
                 </div>

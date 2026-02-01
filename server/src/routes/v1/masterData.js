@@ -20,6 +20,9 @@ const {
   deleteMasterDataRecord,
   searchMasterData,
   getAggregatedMasterData,
+  getDraftMasterData,
+  createDraftFromPublished,
+  publishDraftMasterData,
 } = masterDataController;
 
 const router = express.Router();
@@ -35,6 +38,9 @@ router.put('/products/:id', requireAuth, requireRole('admin', 'operations'), val
 // Generic Master Data endpoints
 // IMPORTANT: More specific routes must come before parameterized routes
 router.get('/aggregated', requireAuth, getAggregatedMasterData);
+router.get('/draft', requireAuth, getDraftMasterData);
+router.post('/draft/from-published', requireAuth, requireRole('admin', 'operations', 'sales'), createDraftFromPublished);
+router.post('/draft/publish', requireAuth, requireRole('admin', 'operations', 'sales'), publishDraftMasterData);
 router.get('/latest', requireAuth, getLatestMasterDataByType);
 router.get('/search', requireAuth, searchMasterData);
 router.get('/', requireAuth, getMasterDataByType);

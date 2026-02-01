@@ -11,12 +11,12 @@ export const getAllMasterData = async () => {
     // Fetch all types in parallel for better performance
     // This makes 6 requests simultaneously instead of sequentially
     const [companies, customers, consignees, payers, employees, paymentTerms] = await Promise.allSettled([
-      masterDataApi.getMasterDataByType('company-profile'),
-      masterDataApi.getMasterDataByType('customer-profile'),
-      masterDataApi.getMasterDataByType('consignee-profile'),
-      masterDataApi.getMasterDataByType('payer-profile'),
-      masterDataApi.getMasterDataByType('employee-profile'),
-      masterDataApi.getMasterDataByType('payment-terms'),
+      masterDataApi.getMasterDataByType('company-profile', { status: 'published' }),
+      masterDataApi.getMasterDataByType('customer-profile', { status: 'published' }),
+      masterDataApi.getMasterDataByType('consignee-profile', { status: 'published' }),
+      masterDataApi.getMasterDataByType('payer-profile', { status: 'published' }),
+      masterDataApi.getMasterDataByType('employee-profile', { status: 'published' }),
+      masterDataApi.getMasterDataByType('payment-terms', { status: 'published' }),
     ])
 
     // Extract values from Promise.allSettled results, handling failures gracefully
@@ -76,9 +76,9 @@ export const getAllMasterData = async () => {
 }
 
 // Get records by type
-export const getMasterDataByType = async (type) => {
+export const getMasterDataByType = async (type, options = {}) => {
   try {
-    const response = await masterDataApi.getMasterDataByType(type)
+    const response = await masterDataApi.getMasterDataByType(type, { status: 'published', ...options })
     return response || []
   } catch (error) {
     console.error(`Failed to fetch ${type}:`, error)
@@ -276,6 +276,36 @@ export const getAggregatedMasterData = async () => {
   } catch (error) {
     console.error('Failed to fetch aggregated master data:', error)
     return []
+  }
+}
+
+export const getDraftMasterData = async (options = {}) => {
+  try {
+    const response = await masterDataApi.getDraftMasterData(options)
+    return response?.data || null
+  } catch (error) {
+    console.error('Failed to fetch draft master data:', error)
+    return null
+  }
+}
+
+export const createDraftFromPublished = async (companyId) => {
+  try {
+    const response = await masterDataApi.createDraftFromPublished(companyId)
+    return response?.data || null
+  } catch (error) {
+    console.error('Failed to create draft from published:', error)
+    throw error
+  }
+}
+
+export const publishDraftMasterData = async (draftCompanyId) => {
+  try {
+    const response = await masterDataApi.publishDraftMasterData(draftCompanyId)
+    return response?.data || null
+  } catch (error) {
+    console.error('Failed to publish draft:', error)
+    throw error
   }
 }
 

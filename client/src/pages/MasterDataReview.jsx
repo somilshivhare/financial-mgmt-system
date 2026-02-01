@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -6,9 +6,8 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import * as masterDataService from '../services/masterDataService'
+import { FORM_DEFS, FORM_TYPES } from '../utils/masterDataDefs'
 import '../styles/MasterData.css'
-
-const FORM_TYPES = ['company-profile', 'customer-profile', 'consignee-profile', 'payer-profile', 'employee-profile', 'payment-terms']
 
 const FORM_TITLES = {
   'company-profile': 'Company Profile',
@@ -24,42 +23,116 @@ function MasterDataReview() {
   const location = useLocation()
   const [allFormData, setAllFormData] = useState({})
   const [loading, setLoading] = useState(true)
+  const [draftCompanyId, setDraftCompanyId] = useState('')
+  const [submitStatus, setSubmitStatus] = useState({ kind: 'idle', message: '' })
+
+  const draftIdFromQuery = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search).get('draftId') || ''
+    } catch {
+      return ''
+    }
+  }, [location.search])
 
   /**
-   * Load all form data from backend (all records for each type)
-   * CRITICAL: This function fetches fresh data from the backend
-   * Ensures Review page always shows the latest master data records
+   * Load draft data from backend (draft records for each type)
+   * Ensures Review page shows the latest draft state
    */
   const loadFormData = useCallback(async () => {
     try {
       setLoading(true)
       // Clear existing data first to ensure fresh start
       setAllFormData({})
-      
+
       const formData = {}
-      
-      // Fetch all records for each form type from backend
+      const draftMeta = draftIdFromQuery
+        ? { companyId: draftIdFromQuery }
+        : await masterDataService.getDraftMasterData()
+
+      const activeDraftCompanyId = draftMeta?.companyId || ''
+      setDraftCompanyId(activeDraftCompanyId)
+
+      if (!activeDraftCompanyId) {
+        setAllFormData({})
+        return
+      }
+
+      const buildMultipleEntries = (values, groups) => {
+        const nextMultipleEntries = {}
+        if (!groups) return nextMultipleEntries
+
+        const suffixIndexByBase = {}
+        const addIndex = (base, idx) => {
+          if (!suffixIndexByBase[base]) suffixIndexByBase[base] = new Set()
+          suffixIndexByBase[base].add(idx)
+        }
+
+        Object.keys(values || {}).forEach((k) => {
+          const m = k.match(/^(.*)_(\d+)$/)
+          if (m) addIndex(m[1], Number(m[2]))
+        })
+
+        groups.forEach((group, groupIndex) => {
+          if (!group.allowMultiple) return
+          const indices = new Set()
+          group.fields.forEach((f) => {
+            const basesToCheck = [f.key, `${f.key}Other`]
+            basesToCheck.forEach((base) => {
+              const found = suffixIndexByBase[base]
+              if (found) found.forEach((idx) => indices.add(idx))
+            })
+          })
+          if (indices.size === 0) {
+            const hasAnyBase = group.fields.some((f) => (
+              values?.[f.key] !== undefined || values?.[`${f.key}Other`] !== undefined
+            ))
+            if (hasAnyBase) indices.add(0)
+          }
+          const sorted = Array.from(indices).sort((a, b) => a - b)
+          nextMultipleEntries[groupIndex] = sorted.length > 0 ? sorted : [0]
+        })
+
+        return nextMultipleEntries
+      }
+
+      // Fetch draft records for each type
       const loadPromises = FORM_TYPES.map(async (type) => {
         try {
-          const records = await masterDataService.getMasterDataByType(type)
-          if (records && records.length > 0) {
-            // Store all records, not just the latest
-            formData[type] = records.map(record => ({
-              id: record.id,
-              type,
-              title: FORM_TITLES[type],
-              values: record.values || {},
-              logoPreviews: record.values?.logoPreviews || record.logoPreviews || {},
-              groups: [], // Groups structure not stored in backend
-              multipleEntries: {},
-              savedAt: record.created_at || record.updated_at || new Date().toISOString(),
-            }))
+          let records = []
+          if (type === 'company-profile') {
+            const recordResp = await masterDataService.getMasterDataById(type, activeDraftCompanyId)
+            const record = recordResp?.data || recordResp
+            records = record ? [record] : []
+          } else {
+            records = await masterDataService.getMasterDataByType(type, {
+              companyId: activeDraftCompanyId,
+              status: 'draft',
+            })
+          }
+          const draftRecords = (records || []).filter(record => (record.status || 'published') === 'draft')
+          if (draftRecords.length > 0) {
+            const def = FORM_DEFS[type]
+            formData[type] = draftRecords.map(record => {
+              const values = record.values || {}
+              const logoPreviews = values.logoPreviews || record.logoPreviews || {}
+              const { logoPreviews: _lp, ...cleanValues } = values
+              return {
+                id: record.id,
+                type,
+                title: FORM_TITLES[type],
+                values: cleanValues,
+                logoPreviews,
+                groups: def?.groups || [],
+                multipleEntries: buildMultipleEntries(cleanValues, def?.groups || []),
+                savedAt: record.created_at || record.updated_at || new Date().toISOString(),
+              }
+            })
           }
         } catch (error) {
           console.error(`Failed to load ${type} from backend:`, error)
         }
       })
-      
+
       await Promise.allSettled(loadPromises)
       setAllFormData(formData)
     } catch (error) {
@@ -67,23 +140,18 @@ function MasterDataReview() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [draftIdFromQuery])
 
   useEffect(() => {
-    // Always reload data when navigating to Review page
-    // This ensures fresh data is displayed, especially after creating new records
     if (location.pathname === '/master-data/review') {
       loadFormData()
     }
   }, [location.pathname, loadFormData])
 
   useEffect(() => {
-    // Initial load
     loadFormData()
-    
-    // Listen for updates when new master data is created/saved
+
     const handleUpdate = () => {
-      // Reload data when master data is updated
       loadFormData()
     }
     
@@ -108,6 +176,49 @@ function MasterDataReview() {
     return Array.isArray(records) && records.length > 0
   })
 
+  const validateDraft = useCallback(() => {
+    const errors = []
+
+    FORM_TYPES.forEach((type) => {
+      const def = FORM_DEFS[type]
+      const records = allFormData[type] || []
+
+      if (!def) return
+
+      if (!records.length) {
+        errors.push(`${FORM_TITLES[type]} is missing.`)
+        return
+      }
+
+      const isArrayType = ['consignee-profile', 'payer-profile', 'employee-profile', 'payment-terms'].includes(type)
+
+      records.forEach((record, recordIndex) => {
+        const values = record.values || {}
+        def.groups.forEach((group, groupIndex) => {
+          const entries = isArrayType
+            ? [null]
+            : (group.allowMultiple ? (record.multipleEntries?.[groupIndex] || [0]) : [0])
+
+          entries.forEach((entryIndex) => {
+            group.fields.forEach((f) => {
+              if (!f.required) return
+              const key = isArrayType
+                ? f.key
+                : (group.allowMultiple ? `${f.key}_${entryIndex}` : f.key)
+              const value = values[key]
+              if (!String(value || '').trim()) {
+                const label = isArrayType ? `Record ${recordIndex + 1}` : 'Record'
+                errors.push(`${FORM_TITLES[type]} ${label}: ${f.label} is required.`)
+              }
+            })
+          })
+        })
+      })
+    })
+
+    return errors
+  }, [allFormData])
+
   const getPrimaryName = (type, values) => {
     if (type === 'company-profile') return values.companyName || 'Company Profile'
     if (type === 'customer-profile') return values.customerName || 'Customer Profile'
@@ -123,7 +234,13 @@ function MasterDataReview() {
       {/* Breadcrumb */}
       <button
         type="button"
-        onClick={() => navigate('/master-data/new')}
+        onClick={() => {
+          if (draftCompanyId) {
+            navigate(`/master-data/new?draftId=${draftCompanyId}`)
+          } else {
+            navigate('/master-data/new')
+          }
+        }}
         className="md-form-breadcrumb"
       >
         <ArrowLeft className="md-form-breadcrumb-icon" />
@@ -135,8 +252,8 @@ function MasterDataReview() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
           <div style={{ flex: 1 }}>
             <div className="md-form-eyebrow">Step 7</div>
-            <h1 className="md-form-title">Review All Master Data</h1>
-            <p className="md-form-description">Review all saved master data records. You can continue creating new records at any time.</p>
+            <h1 className="md-form-title">Review Draft Master Data</h1>
+            <p className="md-form-description">Review the saved draft records before final submission.</p>
           </div>
           <button
             type="button"
@@ -163,7 +280,7 @@ function MasterDataReview() {
             <AlertTriangle className="md-form-review-empty-icon" />
             <h3 className="md-form-review-empty-title">No Master Data Records Yet</h3>
             <p className="md-form-review-empty-description">
-              Create your first master data record to see it displayed here. You can create multiple records of each type.
+              Start the wizard and save draft steps to review here.
             </p>
             <button
               type="button"
@@ -224,8 +341,9 @@ function MasterDataReview() {
                                     <div key={entryIndex} className="md-form-review-entry">
                                       {group.fields.map((f) => {
                                         const fieldKey = group.allowMultiple ? `${f.key}_${entryIndex}` : f.key
-                                        const value = values[fieldKey]
-                                        const preview = logoPreviews?.[fieldKey]
+                                        const value = values[fieldKey] ?? values[f.key]
+                                        const preview = logoPreviews?.[fieldKey] ?? logoPreviews?.[f.key]
+                                        const otherValue = values[`${fieldKey}Other`] ?? values[`${f.key}Other`]
                                         
                                         if (!value && !preview) return null
                                         
@@ -236,7 +354,7 @@ function MasterDataReview() {
                                               {f.type === 'file' && preview ? (
                                                 <img src={preview} alt="Preview" className="md-form-review-image" />
                                               ) : f.type === 'select' && value === 'Other' ? (
-                                                values[`${fieldKey}Other`] || value
+                                                otherValue || value
                                               ) : (
                                                 String(value || '')
                                               )}
@@ -280,6 +398,19 @@ function MasterDataReview() {
               })}
             </div>
 
+            {submitStatus.kind !== 'idle' && (
+              <div className={`md-form-status md-form-status-${submitStatus.kind}`}>
+                <span>{submitStatus.message}</span>
+                {submitStatus.errors && submitStatus.errors.length > 0 && (
+                  <ul style={{ margin: '0.5rem 0 0 1.25rem', padding: 0 }}>
+                    {submitStatus.errors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="md-form-actions">
               <button
@@ -292,14 +423,48 @@ function MasterDataReview() {
               <button
                 type="button"
                 className="md-form-button md-form-button-secondary"
-                onClick={() => navigate('/master-data/new')}
+                onClick={() => {
+                  if (draftCompanyId) {
+                    navigate(`/master-data/new?draftId=${draftCompanyId}`)
+                  } else {
+                    navigate('/master-data/new')
+                  }
+                }}
               >
-                Create New Record
+                Back to Index
               </button>
               <div style={{ flex: 1 }} />
-              <div style={{ padding: '0.75rem 1rem', backgroundColor: '#eff6ff', border: '1px solid #3b82f6', borderRadius: '6px', color: '#1e40af', fontSize: '14px' }}>
-                <strong>Review Mode:</strong> This page shows all saved master data records. You can create new records at any time.
-              </div>
+              <button
+                type="button"
+                className="md-form-button md-form-button-primary"
+                onClick={async () => {
+                  try {
+                    setSubmitStatus({ kind: 'idle', message: '' })
+                    const errors = validateDraft()
+                    if (errors.length) {
+                      setSubmitStatus({
+                        kind: 'error',
+                        message: errors.length === 1 ? errors[0] : `Please fix ${errors.length} issues:`,
+                        errors,
+                      })
+                      return
+                    }
+                    if (!draftCompanyId) {
+                      setSubmitStatus({ kind: 'error', message: 'Draft not found. Please restart the wizard.' })
+                      return
+                    }
+                    await masterDataService.publishDraftMasterData(draftCompanyId)
+                    window.dispatchEvent(new Event('masterDataUpdated'))
+                    setSubmitStatus({ kind: 'success', message: 'Draft published successfully.' })
+                    navigate('/master-data')
+                  } catch (error) {
+                    console.error('[MasterDataReview] Failed to publish draft:', error)
+                    setSubmitStatus({ kind: 'error', message: 'Failed to publish draft. Please try again.' })
+                  }
+                }}
+              >
+                Final Submit
+              </button>
             </div>
           </>
         )}

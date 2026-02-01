@@ -38,6 +38,7 @@ import {
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
+import DatePicker from '../components/DatePicker'
 import * as reportsApi from '../api/reports'
 import { useMasterData } from '../contexts/MasterDataContext'
 import '../styles/Reports.css'
@@ -480,20 +481,18 @@ function Reports() {
             <div className="reports-filter-row">
               <div className="reports-filter-group">
                 <label>Date From</label>
-                <input
-                  type="date"
-                  value={filters.dateFrom}
+                <DatePicker
+                  selected={filters.dateFrom}
                   onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-                  className="reports-filter-input"
+                  placeholderText="From Date"
                 />
               </div>
               <div className="reports-filter-group">
                 <label>Date To</label>
-                <input
-                  type="date"
-                  value={filters.dateTo}
+                <DatePicker
+                  selected={filters.dateTo}
                   onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-                  className="reports-filter-input"
+                  placeholderText="To Date"
                 />
               </div>
               <div className="reports-filter-group">

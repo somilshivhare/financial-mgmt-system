@@ -35,6 +35,40 @@ const errorHandler = (err, _req, res, _next) => {
       { field: err.field || 'unknown' }
     ));
   }
+
+  if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.errno === 1452) {
+    const sqlMsg = (err.sqlMessage || '').toLowerCase();
+    if (sqlMsg.includes('fk_inv_customer') || sqlMsg.includes('customer_id')) {
+      return res.status(400).json(apiError(
+        'The selected customer is invalid or was not found. Please choose a valid Key ID (PO) linked to a customer and try again.',
+        'ERR_CUSTOMER_NOT_FOUND'
+      ));
+    }
+    if (sqlMsg.includes('fk_inv_po')) {
+      return res.status(400).json(apiError(
+        'The selected Purchase Order was not found. Please choose a valid Key ID (PO) and try again.',
+        'ERR_PO_NOT_FOUND'
+      ));
+    }
+    if (sqlMsg.includes('fk_inv_created_by')) {
+      return res.status(401).json(apiError(
+        'User not found. Please log out and log in again.',
+        'ERR_USER_NOT_FOUND'
+      ));
+    }
+    return res.status(400).json(apiError(
+      'A referenced record was not found. Please refresh the page, or log out and log in again.',
+      'ERR_REFERENCE_NOT_FOUND'
+    ));
+  }
+
+  if (err.code === 'ER_BAD_FIELD_ERROR') {
+    return res.status(500).json(apiError(
+      'Database schema is outdated. Please run migrations.',
+      'ERR_DATABASE_SCHEMA',
+      process.env.NODE_ENV === 'development' ? { details: err.message } : null
+    ));
+  }
   
   // Handle MySQL parameter errors
   if (err.code === 'ER_WRONG_ARGUMENTS' || err.message?.includes('mysqld_stmt_execute')) {

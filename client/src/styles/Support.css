@@ -95,8 +95,8 @@
   gap: var(--space-2);
   padding: 10px 12px;
   border-radius: var(--radius-lg);
-  background: rgba(212, 175, 55, 0.10);
-  border: 1px solid rgba(212, 175, 55, 0.25);
+  background: rgba(15, 76, 129, 0.10);
+  border: 1px solid rgba(15, 76, 129, 0.25);
   color: rgba(15, 23, 42, 0.85);
   font-size: var(--font-size-sm);
   font-weight: 700;
@@ -252,7 +252,7 @@
 .support-textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.12);
 }
 
 .support-input.is-readonly {
@@ -437,13 +437,13 @@
 .support-btn-primary {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: #111827;
-  border-color: rgba(212, 175, 55, 0.35);
-  box-shadow: 0 8px 18px rgba(212, 175, 55, 0.18);
+  border-color: rgba(15, 76, 129, 0.35);
+  box-shadow: 0 8px 18px rgba(15, 76, 129, 0.18);
 }
 
 .support-btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(212, 175, 55, 0.22);
+  box-shadow: 0 12px 24px rgba(15, 76, 129, 0.22);
 }
 
 .support-btn-secondary {
@@ -611,12 +611,12 @@
 
 .support-ticket-card:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.1);
+  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.1);
 }
 
 .support-ticket-card--active {
   border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.15);
+  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.15);
 }
 
 .support-ticket-header {
@@ -834,8 +834,8 @@
 }
 
 .support-ticket-reply--internal {
-  background: rgba(212, 175, 55, 0.05);
-  border-color: rgba(212, 175, 55, 0.2);
+  background: rgba(15, 76, 129, 0.05);
+  border-color: rgba(15, 76, 129, 0.2);
 }
 
 .support-ticket-reply-header {
@@ -854,7 +854,7 @@
 .support-ticket-reply-badge {
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  background: rgba(212, 175, 55, 0.15);
+  background: rgba(15, 76, 129, 0.15);
   color: #92400e;
   font-size: var(--font-size-xs);
   font-weight: 700;
@@ -896,7 +896,7 @@
 .support-ticket-reply-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.12);
 }
 
 /* Banner Close Button */

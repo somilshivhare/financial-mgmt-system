@@ -1,0 +1,263 @@
+-- Add core invoice columns from 004 if missing (idempotent)
+-- Use when invoices table was created without these columns (e.g. older schema)
+
+SET @dbname = DATABASE();
+SET @tablename = 'invoices';
+
+-- due_date, currency (core 004)
+SET @col = 'due_date';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DATE NULL')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'currency';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' VARCHAR(8) DEFAULT ''USD''')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+-- Value components (004)
+SET @col = 'basic_rate';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'quantity';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'basic_value';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'freight_rate';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'freight_value';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'sgst_rate';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(6,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'cgst_rate';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(6,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'igst_rate';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(6,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'ugst_rate';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(6,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'sgst_value';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'cgst_value';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'igst_value';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'ugst_value';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'total_gst';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'subtotal';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) NOT NULL DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'total_amount';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) NOT NULL DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'amount_paid';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) NOT NULL DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'balance';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) NOT NULL DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'first_due_date';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DATE NULL')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'first_due_amount';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'first_received_amount';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'first_receipt_date';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DATE NULL')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'second_due_date';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DATE NULL')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'second_due_amount';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'second_received_amount';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'second_receipt_date';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DATE NULL')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'third_due_date';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DATE NULL')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'third_due_amount';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'third_received_amount';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DECIMAL(14,2) DEFAULT 0')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+SET @col = 'third_receipt_date';
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @col) > 0,
+  'SELECT 1',
+  CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @col, ' DATE NULL')
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
