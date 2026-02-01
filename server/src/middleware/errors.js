@@ -111,19 +111,31 @@ const errorHandler = (err, _req, res, _next) => {
   const message = err.message || 'Internal server error';
   const code = err.code || 'ERR_INTERNAL';
   
-  // Don't expose internal error details in production
+  // Don't expose internal error details in production unless it's a known error code
   const isDevelopment = process.env.NODE_ENV === 'development';
-  const errorMessage = isDevelopment ? message : 'An error occurred. Please try again.';
+  const isStaging = process.env.NODE_ENV === 'staging';
+  const isKnownError = [
+    'ERR_VALIDATION',
+    'ERR_DUPLICATE',
+    'ERR_DATABASE_SCHEMA',
+    'ERR_INVALID_BODY',
+    'ERR_MISSING_TYPE',
+    'ERR_UNAUTHORIZED',
+    'ERR_INVALID_COMPANY',
+    'ERR_MISSING_COMPANY',
+    'ERR_REFERENCE_NOT_FOUND',
+  ].includes(code);
+
+  const errorMessage = (isDevelopment || isStaging || isKnownError) ? message : 'An error occurred. Please try again.';
   
-  // Ensure we always return valid JSON, even if there's an error serializing
+  // Ensure we always return valid JSON
   try {
-    // Make sure response hasn't been sent already
     if (res.headersSent) {
-      console.error('[Error Handler] Response already sent, cannot send error response');
+      console.error('[Error Handler] Headers already sent, cannot send error JSON');
       return;
     }
     
-    const errorResponse = apiError(errorMessage, code, isDevelopment ? { stack: err.stack } : null);
+    const errorResponse = apiError(errorMessage, code, (isDevelopment || isStaging) ? { stack: err.stack, details: err.details || null } : null);
     res.status(status).json(errorResponse);
   } catch (jsonError) {
     // Fallback if JSON serialization fails

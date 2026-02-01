@@ -215,17 +215,8 @@ const saveMasterDataRecord = async (type, { values, logoPreviews, companyId, sta
     logoPreviews: cleanLogoPreviews || {},
   };
 
-  let valuesJson;
   try {
-    valuesJson = JSON.stringify(combinedData);
-  } catch (stringifyErr) {
-    console.error('[MasterDataService] JSON stringify error:', stringifyErr);
-    throw createHttpError(400, 'ERR_INVALID_VALUES', 'Invalid form data. Please remove any unsupported content and try again.');
-  }
-
-  const nextStatus = normalizeStatus(status);
-
-  try {
+    const valuesJson = JSON.stringify(combinedData);
     await query(
       'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, type, validatedCompanyId, nextStatus, valuesJson, safeUserId, safeUserId]
@@ -236,10 +227,17 @@ const saveMasterDataRecord = async (type, { values, logoPreviews, companyId, sta
     if (error.errno === 1452 || error.code === 'ER_NO_REFERENCED_ROW_2') {
       throw createHttpError(400, 'ERR_USER_NOT_FOUND', 'User not found. Please log out and log in again.');
     }
+    
+    // Specifically log bad field errors which indicate missing migrations
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      console.error('[MasterDataService] MISSING MIGRATION DETECTED:', error.message);
+      throw createHttpError(500, 'ERR_DATABASE_SCHEMA', `Database schema is outdated. Missing column in master_data table. Original error: ${error.message}`);
+    }
+
     console.error('[MasterDataService] Error saving record:', {
       type,
-      error: error.message,
-      errorCode: error.code,
+      message: error.message,
+      code: error.code,
       errno: error.errno,
       userId: safeUserId,
       valuesKeys: Object.keys(cleanValues),
@@ -402,33 +400,41 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
     }
   }
   
-  // If id provided, try to update
-  if (id) {
-    const existing = await getMasterDataById(type, id, safeUserId);
-    if (existing) {
-      if (needsCompany && existing.companyId && validatedCompanyId !== existing.companyId) {
-        throw createHttpError(400, 'ERR_COMPANY_MISMATCH', 'Record cannot be moved to a different company');
+  try {
+    // If id provided, try to update
+    if (id) {
+      const existing = await getMasterDataById(type, id, safeUserId);
+      if (existing) {
+        if (needsCompany && existing.companyId && validatedCompanyId !== existing.companyId) {
+          throw createHttpError(400, 'ERR_COMPANY_MISMATCH', 'Record cannot be moved to a different company');
+        }
+        const updatedValues = { ...existing.values, ...combinedData };
+        const updatedJson = JSON.stringify(updatedValues);
+        
+        await query(
+          'UPDATE master_data SET `values` = ?, status = ?, updated_by = ?, updated_at = NOW() WHERE id = ? AND (created_by = ? OR updated_by = ?)',
+          [updatedJson, nextStatus, safeUserId, id, safeUserId, safeUserId]
+        );
+        
+        return getMasterDataById(type, id, safeUserId);
       }
-      const updatedValues = { ...existing.values, ...combinedData };
-      const updatedJson = JSON.stringify(updatedValues);
-      
-      await query(
-        'UPDATE master_data SET `values` = ?, status = ?, updated_by = ?, updated_at = NOW() WHERE id = ? AND (created_by = ? OR updated_by = ?)',
-        [updatedJson, nextStatus, safeUserId, id, safeUserId, safeUserId]
-      );
-      
-      return getMasterDataById(type, id, safeUserId);
     }
+    
+    // Create new record
+    const newId = id || uuidv4();
+    await query(
+      'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [newId, type, validatedCompanyId, nextStatus, valuesJson, safeUserId, safeUserId]
+    );
+    
+    return getMasterDataById(type, newId, safeUserId);
+  } catch (error) {
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      console.error('[MasterDataService] MISSING MIGRATION DETECTED in upsert:', error.message);
+      throw createHttpError(500, 'ERR_DATABASE_SCHEMA', `Database schema is outdated. Missing column in master_data table. Original error: ${error.message}`);
+    }
+    throw error;
   }
-  
-  // Create new record
-  const newId = id || uuidv4();
-  await query(
-    'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [newId, type, validatedCompanyId, nextStatus, valuesJson, safeUserId, safeUserId]
-  );
-  
-  return getMasterDataById(type, newId, safeUserId);
 };
 
 /**

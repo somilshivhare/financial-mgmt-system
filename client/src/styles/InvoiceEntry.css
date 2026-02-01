@@ -530,7 +530,7 @@
   height: 44px;
   padding: 0 var(--space-6);
   background: var(--color-primary);
-  color: #1e293b;
+  color: #fff;
   border: 1px solid var(--color-primary);
   border-radius: var(--radius-md);
   font-size: var(--font-size-base);
@@ -551,7 +551,7 @@
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
   box-shadow: 0 4px 12px rgba(15, 76, 129, 0.25);
-  color: #1e293b;
+  color: #fff;
 }
 
 .invoice-entry-index-add-button:focus-visible {
@@ -697,8 +697,8 @@
   min-width: 20px;
   height: 20px;
   padding: 0 var(--space-1);
-  background: #1e293b;
-  color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
   border-radius: 10px;
   font-size: var(--font-size-xs);
   font-weight: 700;
@@ -706,7 +706,7 @@
 }
 
 .invoice-entry-index-filter-button.active .invoice-entry-index-filter-badge {
-  background: #1e293b;
+  background: rgba(255, 255, 255, 0.95);
   color: var(--color-primary);
 }
 

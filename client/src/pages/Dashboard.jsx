@@ -18,7 +18,6 @@ import {
   Users,
   Package,
   Bell,
-  HardDrive,
   BarChart3,
   LineChart,
   PieChart,
@@ -118,7 +117,6 @@ function Dashboard() {
   
   const [dashboardData, setDashboardData] = useState(null)
   const [analyticsData, setAnalyticsData] = useState(null)
-  const [subscriptionUsage, setSubscriptionUsage] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [dateRange, setDateRange] = useState('all')
@@ -173,7 +171,7 @@ function Dashboard() {
       setError(null)
       
       // Use Promise.allSettled to prevent one failure from blocking others
-      const [dashboardResponse, analyticsResponse, subscriptionResponse] = await Promise.allSettled([
+      const [dashboardResponse, analyticsResponse] = await Promise.allSettled([
         dashboardApi.getDashboardData(dateFilters).catch(err => {
           console.error('[Dashboard] Failed to load dashboard data:', err)
           // Return a valid structure even on error
@@ -181,10 +179,6 @@ function Dashboard() {
         }),
         dashboardApi.getDashboardAnalytics(dateFilters).catch(err => {
           console.error('[Dashboard] Failed to load analytics:', err)
-          return { success: false, data: null }
-        }),
-        dashboardApi.getSubscriptionUsage().catch(err => {
-          console.error('[Dashboard] Failed to load subscription:', err)
           return { success: false, data: null }
         }),
       ])
@@ -196,17 +190,13 @@ function Dashboard() {
       const analyticsData = analyticsResponse.status === 'fulfilled'
         ? (analyticsResponse.value?.data || analyticsResponse.value || null)
         : null
-      const subscriptionData = subscriptionResponse.status === 'fulfilled'
-        ? (subscriptionResponse.value?.data || subscriptionResponse.value || null)
-        : null
       
       // Only set data if we got valid responses
       if (dashboardData) setDashboardData(dashboardData)
       if (analyticsData) setAnalyticsData(analyticsData)
-      if (subscriptionData) setSubscriptionUsage(subscriptionData)
       
       // Show error only if all requests failed
-      const allFailed = [dashboardResponse, analyticsResponse, subscriptionResponse]
+      const allFailed = [dashboardResponse, analyticsResponse]
         .every(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value?.data))
       
       if (allFailed && retryCount < maxRetries) {
@@ -880,53 +870,6 @@ function Dashboard() {
           </div>
         </div>
       </div>
-
-      {/* Subscription & Storage Usage */}
-      {subscriptionUsage && (
-        <div className="dashboard-section">
-          <div className="dashboard-card">
-            <div className="dashboard-card-header">
-              <h3 className="dashboard-card-title">Subscription & Storage</h3>
-              <HardDrive className="dashboard-card-icon" />
-            </div>
-            <div className="dashboard-subscription-info">
-              <div className="dashboard-subscription-plan">
-                <div className="dashboard-subscription-plan-name">
-                  {subscriptionUsage.plan?.displayName || subscriptionUsage.plan?.name || 'Trial Plan'}
-                </div>
-                <div className="dashboard-subscription-plan-storage">
-                  Storage: {subscriptionUsage.storage?.usedGb?.toFixed(2) || 0} GB / {subscriptionUsage.storage?.limitGb || 0} GB
-                </div>
-              </div>
-              <div className="dashboard-storage-progress">
-                <div className="dashboard-storage-progress-bar">
-                  <div
-                    className="dashboard-storage-progress-fill"
-                    style={{
-                      width: `${Math.min(subscriptionUsage.storage?.usagePercentage || 0, 100)}%`,
-                      backgroundColor:
-                        subscriptionUsage.storage?.usagePercentage > 90
-                          ? chartColors.danger
-                          : subscriptionUsage.storage?.usagePercentage > 75
-                          ? chartColors.warning
-                          : chartColors.success,
-                    }}
-                  />
-                </div>
-                <div className="dashboard-storage-progress-text">
-                  {subscriptionUsage.storage?.usagePercentage?.toFixed(1) || 0}% used
-                </div>
-              </div>
-              <button
-                onClick={() => navigate('/subscription')}
-                className="dashboard-card-footer-link"
-              >
-                Manage Subscription <ArrowRight className="dashboard-card-link-icon" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -59,10 +59,12 @@ const REPORT_TYPES = [
   { id: 'audit-log', label: 'Audit/Activity Log', icon: FileSearch },
 ]
 
-const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
+// NB Aurum palette - aligned with Dashboard (no subscription/storage UI)
+const CHART_COLORS = ['#0f4c81', '#b8860b', '#0d9488', '#b45309', '#b91c1c', '#64748b']
 
 function Reports() {
-  const { customers } = useMasterData()
+  const { getCustomers } = useMasterData()
+  const customers = getCustomers() || []
   const [selectedReport, setSelectedReport] = useState('sales')
   const [reportData, setReportData] = useState(null)
   const [kpis, setKpis] = useState(null)
@@ -319,7 +321,7 @@ function Reports() {
         body: tableData,
         startY: reportData.summary ? doc.lastAutoTable.finalY + 10 : 35,
         styles: { fontSize: 8 },
-        headStyles: { fillColor: [59, 130, 246] },
+        headStyles: { fillColor: [15, 76, 129] }, // NB Aurum primary
       })
     }
 
@@ -505,7 +507,7 @@ function Reports() {
                   <option value="">All Customers</option>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name}
+                      {c.values?.customerName || c.values?.name || c.name || 'Unnamed Customer'}
                     </option>
                   ))}
                 </select>
@@ -617,9 +619,9 @@ function Reports() {
                   <YAxis />
                   <Tooltip formatter={(value) => formatCurrency(value)} />
                   <Legend />
-                  <Bar dataKey="amount" fill="#3b82f6" name="Amount" />
-                  <Bar dataKey="paid" fill="#10b981" name="Paid" />
-                  <Bar dataKey="balance" fill="#ef4444" name="Balance" />
+                  <Bar dataKey="amount" fill={CHART_COLORS[0]} name="Amount" />
+                  <Bar dataKey="paid" fill={CHART_COLORS[2]} name="Paid" />
+                  <Bar dataKey="balance" fill={CHART_COLORS[4]} name="Balance" />
                 </BarChart>
               </ResponsiveContainer>
             )}

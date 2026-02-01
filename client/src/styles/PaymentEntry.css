@@ -550,7 +550,7 @@
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
   box-shadow: 0 4px 12px rgba(15, 76, 129, 0.25);
-  color: #1e293b;
+  color: #fff;
 }
 
 .payment-index-add-button:focus-visible {

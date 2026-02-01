@@ -26,7 +26,7 @@ function CollectionPlan() {
   const [editingPlan, setEditingPlan] = useState(null)
   
   useEffect(() => {
-    setEmployees(getEmployees())
+    setEmployees(getEmployees() || [])
   }, [getEmployees])
   
   // Load collection plan data when filters change
@@ -99,7 +99,7 @@ function CollectionPlan() {
   const handleFilterChange = (name, value) => {
     setFilterValues((prev) => ({
       ...prev,
-      ...(name === 'month' ? { monthIso: value ? (value.toISOString?.() ?? null) : null } : { [name]: value }),
+      [name]: value,
     }))
   }
   
@@ -138,10 +138,10 @@ function CollectionPlan() {
   }
   
   const handleMonthChange = (e) => {
-    const value = e.target.value
-    setFilters((prev) => ({
+    const value = e?.target?.value
+    setFilterValues((prev) => ({
       ...prev,
-      month: value ? new Date(value + '-01') : null,
+      monthIso: value ? `${value}-01` : null,
     }))
   }
   
@@ -158,10 +158,10 @@ function CollectionPlan() {
       'Collection Incharge',
     ]
     
-    return employees.map((emp) => ({
+    return (employees || []).map((emp) => ({
       id: emp.id,
-      name: emp.name || emp.nameOfEmployee,
-      role: emp.designation || 'Employee',
+      name: emp.values?.nameOfEmployee || emp.values?.name || emp.name || emp.nameOfEmployee || 'Unnamed',
+      role: emp.values?.designation || emp.designation || 'Employee',
     }))
   }, [employees])
   
@@ -239,8 +239,8 @@ function CollectionPlan() {
           </label>
           <DatePicker
             id="monthFilter"
-            selected={filters.month ? filters.month.toISOString().split('T')[0] : ''}
-            onChange={(e) => handleMonthChange(e)}
+            selected={filterValues.monthIso || ''}
+            onChange={handleMonthChange}
             showMonthYearPicker
             placeholderText="Select month"
           />

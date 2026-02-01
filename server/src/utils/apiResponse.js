@@ -1,19 +1,26 @@
 const apiSuccess = (data = null, message = 'ok') => {
   // Ensure data is JSON-serializable
   let serializableData = data;
-  try {
-    // Test if data can be serialized
-    JSON.stringify(data);
-  } catch (error) {
-    console.error('[apiResponse] Data is not JSON-serializable:', error);
-    // Convert to a safe format
-    if (data && typeof data === 'object') {
-      serializableData = { 
-        error: 'Response data contains non-serializable values',
-        type: typeof data,
-      };
-    } else {
-      serializableData = String(data);
+  if (data !== null && data !== undefined) {
+    try {
+      // Test if data can be serialized
+      const stringified = JSON.stringify(data);
+      // If it's a very large response, we might want to know
+      if (stringified.length > 1024 * 1024) {
+        console.warn(`[apiResponse] Large response detected: ${Math.round(stringified.length / 1024)} KB`);
+      }
+    } catch (error) {
+      console.error('[apiResponse] Data is not JSON-serializable:', error);
+      // Convert to a safe format
+      if (data && typeof data === 'object') {
+        serializableData = { 
+          error: 'Response data contains non-serializable values',
+          type: typeof data,
+          keys: Object.keys(data).slice(0, 10)
+        };
+      } else {
+        serializableData = String(data);
+      }
     }
   }
   
@@ -36,7 +43,10 @@ const apiError = (message, code = 'ERR_GENERIC', data = null) => {
       serializableData = data;
     } catch (error) {
       console.error('[apiResponse] Error data is not JSON-serializable:', error);
-      serializableData = { error: 'Error details contain non-serializable values' };
+      serializableData = { 
+        error: 'Error details contain non-serializable values',
+        originalType: typeof data
+      };
     }
   }
   

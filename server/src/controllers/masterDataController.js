@@ -1,4 +1,4 @@
-const { apiSuccess } = require('../utils/apiResponse');
+const { apiSuccess, apiError } = require('../utils/apiResponse');
 const masterDataService = require('../services/masterDataService');
 
 const listCustomers = async (req, res, next) => {
@@ -62,16 +62,16 @@ const getMasterDataByType = async (req, res, next) => {
   try {
     const { type, status } = req.query;
     if (!type) {
-      return res.status(400).json({ success: false, code: 'ERR_MISSING_TYPE', message: 'Type parameter is required' });
+      return res.status(400).json(apiError('Type parameter is required', 'ERR_MISSING_TYPE'));
     }
 
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
 
     const { companyId } = req.query;
     const records = await masterDataService.getMasterDataByType(type, req.user.id, { companyId, status });
-    res.json({ success: true, data: records });
+    res.json(apiSuccess(records));
   } catch (err) {
     next(err);
   }
@@ -81,13 +81,13 @@ const getMasterDataById = async (req, res, next) => {
   try {
     const { type, id } = req.params;
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     const record = await masterDataService.getMasterDataById(type, id, req.user.id);
     if (!record) {
-      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Record not found' });
+      return res.status(404).json(apiError('Record not found', 'NOT_FOUND'));
     }
-    res.json({ success: true, data: record });
+    res.json(apiSuccess(record));
   } catch (err) {
     next(err);
   }
@@ -99,16 +99,16 @@ const saveMasterDataRecord = async (req, res, next) => {
     const { values, logoPreviews, companyId, status } = req.body;
     
     if (!values || typeof values !== 'object') {
-      return res.status(400).json({ success: false, code: 'ERR_INVALID_BODY', message: 'Values object is required' });
+      return res.status(400).json(apiError('Values object is required', 'ERR_INVALID_BODY'));
     }
     
     // Ensure user is authenticated and has an ID
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     
     const record = await masterDataService.saveMasterDataRecord(type, { values, logoPreviews, companyId, status }, req.user.id);
-    res.status(201).json({ success: true, data: record, message: 'Master data record saved successfully' });
+    res.status(201).json(apiSuccess(record, 'Master data record saved successfully'));
   } catch (err) {
     console.error('[MasterData] Save error:', err);
     next(err);
@@ -121,14 +121,14 @@ const updateMasterDataRecord = async (req, res, next) => {
     const { values, logoPreviews, companyId, status } = req.body;
     
     if (!values || typeof values !== 'object') {
-      return res.status(400).json({ success: false, code: 'ERR_INVALID_BODY', message: 'Values object is required' });
+      return res.status(400).json(apiError('Values object is required', 'ERR_INVALID_BODY'));
     }
     
     const record = await masterDataService.updateMasterDataRecord(type, id, { values, logoPreviews, companyId, status }, req.user.id);
     if (!record) {
-      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Record not found' });
+      return res.status(404).json(apiError('Record not found', 'NOT_FOUND'));
     }
-    res.json({ success: true, data: record, message: 'Master data record updated successfully' });
+    res.json(apiSuccess(record, 'Master data record updated successfully'));
   } catch (err) {
     next(err);
   }
@@ -138,13 +138,13 @@ const deleteMasterDataRecord = async (req, res, next) => {
   try {
     const { type, id } = req.params;
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     const deleted = await masterDataService.deleteMasterDataRecord(type, id, req.user.id);
     if (!deleted) {
-      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Record not found' });
+      return res.status(404).json(apiError('Record not found', 'NOT_FOUND'));
     }
-    res.json({ success: true, message: 'Master data record deleted successfully' });
+    res.json(apiSuccess(null, 'Master data record deleted successfully'));
   } catch (err) {
     next(err);
   }
@@ -154,13 +154,13 @@ const searchMasterData = async (req, res, next) => {
   try {
     const { q } = req.query;
     if (!q) {
-      return res.status(400).json({ success: false, code: 'ERR_MISSING_QUERY', message: 'Query parameter is required' });
+      return res.status(400).json(apiError('Query parameter is required', 'ERR_MISSING_QUERY'));
     }
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     const results = await masterDataService.searchMasterData(q, req.user.id);
-    res.json({ success: true, data: results });
+    res.json(apiSuccess(results));
   } catch (err) {
     next(err);
   }
@@ -170,18 +170,18 @@ const getLatestMasterDataByType = async (req, res, next) => {
   try {
     const { type, companyId, status } = req.query;
     if (!type) {
-      return res.status(400).json({ success: false, code: 'ERR_MISSING_TYPE', message: 'Type parameter is required' });
+      return res.status(400).json(apiError('Type parameter is required', 'ERR_MISSING_TYPE'));
     }
     
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     
     const record = await masterDataService.getLatestMasterDataByType(type, req.user.id, companyId || null, status || null);
     if (!record) {
-      return res.json({ success: true, data: null });
+      return res.json(apiSuccess(null));
     }
-    res.json({ success: true, data: record });
+    res.json(apiSuccess(record));
   } catch (err) {
     next(err);
   }
@@ -193,15 +193,15 @@ const upsertMasterDataRecord = async (req, res, next) => {
     const { values, logoPreviews, id, companyId, status } = req.body;
     
     if (!values || typeof values !== 'object') {
-      return res.status(400).json({ success: false, code: 'ERR_INVALID_BODY', message: 'Values object is required' });
+      return res.status(400).json(apiError('Values object is required', 'ERR_INVALID_BODY'));
     }
     
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     
     const record = await masterDataService.upsertMasterDataRecord(type, { values, logoPreviews, id, companyId, status }, req.user.id);
-    res.status(201).json({ success: true, data: record, message: 'Master data record saved successfully' });
+    res.status(201).json(apiSuccess(record, 'Master data record saved successfully'));
   } catch (err) {
     console.error('[MasterData] Upsert error:', err);
     next(err);
@@ -211,7 +211,7 @@ const upsertMasterDataRecord = async (req, res, next) => {
 const getDraftMasterData = async (req, res, next) => {
   try {
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     const { companyId } = req.query;
     const draftCompany = companyId
@@ -219,11 +219,11 @@ const getDraftMasterData = async (req, res, next) => {
       : await masterDataService.getLatestDraftCompanyProfile(req.user.id);
 
     if (!draftCompany || draftCompany.status !== 'draft') {
-      return res.json({ success: true, data: null });
+      return res.json(apiSuccess(null));
     }
 
     const aggregated = await masterDataService.getDraftAggregatedMasterData(draftCompany.id, req.user.id);
-    res.json({ success: true, data: aggregated });
+    res.json(apiSuccess(aggregated));
   } catch (err) {
     next(err);
   }
@@ -232,14 +232,14 @@ const getDraftMasterData = async (req, res, next) => {
 const createDraftFromPublished = async (req, res, next) => {
   try {
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     const { companyId } = req.body;
     if (!companyId) {
-      return res.status(400).json({ success: false, code: 'ERR_MISSING_COMPANY', message: 'companyId is required' });
+      return res.status(400).json(apiError('companyId is required', 'ERR_MISSING_COMPANY'));
     }
     const draftCompany = await masterDataService.createDraftFromPublished(companyId, req.user.id);
-    res.status(201).json({ success: true, data: draftCompany });
+    res.status(201).json(apiSuccess(draftCompany));
   } catch (err) {
     next(err);
   }
@@ -248,14 +248,14 @@ const createDraftFromPublished = async (req, res, next) => {
 const publishDraftMasterData = async (req, res, next) => {
   try {
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     const { draftCompanyId } = req.body;
     if (!draftCompanyId) {
-      return res.status(400).json({ success: false, code: 'ERR_MISSING_DRAFT', message: 'draftCompanyId is required' });
+      return res.status(400).json(apiError('draftCompanyId is required', 'ERR_MISSING_DRAFT'));
     }
     const published = await masterDataService.publishDraftSet(draftCompanyId, req.user.id);
-    res.json({ success: true, data: published, message: 'Draft published successfully' });
+    res.json(apiSuccess(published, 'Draft published successfully'));
   } catch (err) {
     next(err);
   }
@@ -264,12 +264,12 @@ const publishDraftMasterData = async (req, res, next) => {
 const getAggregatedMasterData = async (req, res, next) => {
   try {
     if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+      return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     
     // Get all aggregated master data sets (multiple cards)
     const aggregatedDataList = await masterDataService.getAggregatedMasterData(req.user.id);
-    res.json({ success: true, data: aggregatedDataList });
+    res.json(apiSuccess(aggregatedDataList));
   } catch (err) {
     console.error('[MasterData] Get aggregated error:', err);
     next(err);

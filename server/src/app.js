@@ -62,7 +62,7 @@ app.use(express.json({
   }
 }));
 
-// Handle JSON parsing errors
+// Handle JSON parsing and body-parser errors (like Payload Too Large)
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
     return res.status(400).json({
@@ -71,6 +71,15 @@ app.use((err, req, res, next) => {
       message: 'Invalid JSON in request body',
     });
   }
+  
+  if (err.type === 'entity.too.large' || err.status === 413) {
+    return res.status(413).json({
+      success: false,
+      code: 'ERR_PAYLOAD_TOO_LARGE',
+      message: 'The request payload is too large. Please reduce the size of attachments or logos.',
+    });
+  }
+  
   next(err);
 });
 
