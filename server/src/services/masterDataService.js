@@ -60,6 +60,26 @@ const normalizeStatus = (status) => {
   return ['draft', 'published', 'archived'].includes(normalized) ? normalized : 'published';
 };
 
+/**
+ * Extract core fields from values JSON to populate dedicated columns
+ */
+const mapValuesToColumns = (values) => {
+  if (!values || typeof values !== 'object') return {};
+  
+  return {
+    name: values.payerName || values.consigneeName || values.companyName || values.customerName || values.nameOfEmployee || values.name || null,
+    address: values.payerAddress || values.consigneeAddress || values.corporateOfficeAddress || values.correspondenceAddress || values.address || null,
+    city: values.city || values.corporateDistrict || values.correspondenceDistrict || null,
+    state: values.state || values.corporateState || values.correspondenceState || null,
+    country: values.country || values.corporateCountry || values.correspondenceCountry || null,
+    gst_no: values.payerGSTNo || values.consigneeGSTNo || values.gstNo || values.otherOfficeGST || null,
+    contact_person: values.contactPersonName || values.poIssuingAuthority || null,
+    contact_number: values.contactNumber || values.contactPersonContactNo || values.contactNo || null,
+    email: values.emailId || values.customerEmail || null,
+    designation: values.designation || null,
+  };
+};
+
 const listCustomers = async ({ page = 1, pageSize = 20, q }) => {
   const offset = (page - 1) * pageSize;
   const search = q ? `%${q}%` : '%';
@@ -215,11 +235,21 @@ const saveMasterDataRecord = async (type, { values, logoPreviews, companyId, sta
     logoPreviews: cleanLogoPreviews || {},
   };
 
+  const nextStatus = normalizeStatus(status);
+  const coreCols = mapValuesToColumns(combinedData);
+
   try {
     const valuesJson = JSON.stringify(combinedData);
     await query(
-      'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, type, validatedCompanyId, nextStatus, valuesJson, safeUserId, safeUserId]
+      `INSERT INTO master_data (
+        id, type, company_id, status, \`values\`, created_by, updated_by,
+        name, address, city, state, country, gst_no, contact_person, contact_number, email, designation
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, type, validatedCompanyId, nextStatus, valuesJson, safeUserId, safeUserId,
+        coreCols.name, coreCols.address, coreCols.city, coreCols.state, coreCols.country, 
+        coreCols.gst_no, coreCols.contact_person, coreCols.contact_number, coreCols.email, coreCols.designation
+      ]
     );
 
     return getMasterDataById(type, id, safeUserId);
@@ -274,10 +304,31 @@ const updateMasterDataRecord = async (type, id, { values, logoPreviews, companyI
   const valuesJson = JSON.stringify(updatedValues);
   
   const nextStatus = status ? normalizeStatus(status) : existing.status || 'published';
+  const coreCols = mapValuesToColumns(updatedValues);
 
   await query(
-    'UPDATE master_data SET `values` = ?, status = ?, updated_by = ?, updated_at = NOW() WHERE type = ? AND id = ? AND (created_by = ? OR updated_by = ?)',
-    [valuesJson, nextStatus, safeUserId, type, id, safeUserId, safeUserId]
+    `UPDATE master_data SET 
+      \`values\` = ?, 
+      status = ?, 
+      updated_by = ?, 
+      updated_at = NOW(),
+      name = ?, 
+      address = ?, 
+      city = ?, 
+      state = ?, 
+      country = ?, 
+      gst_no = ?, 
+      contact_person = ?, 
+      contact_number = ?, 
+      email = ?, 
+      designation = ?
+    WHERE type = ? AND id = ? AND (created_by = ? OR updated_by = ?)`,
+    [
+      valuesJson, nextStatus, safeUserId, 
+      coreCols.name, coreCols.address, coreCols.city, coreCols.state, coreCols.country, 
+      coreCols.gst_no, coreCols.contact_person, coreCols.contact_number, coreCols.email, coreCols.designation,
+      type, id, safeUserId, safeUserId
+    ]
   );
   
   return getMasterDataById(type, id, safeUserId);
@@ -390,16 +441,31 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
       // Update existing record
       const updatedValues = { ...existing.values, ...combinedData };
       const updatedJson = JSON.stringify(updatedValues);
+      const coreCols = mapValuesToColumns(updatedValues);
       
       await query(
-        'UPDATE master_data SET `values` = ?, status = ?, updated_by = ?, updated_at = NOW() WHERE id = ? AND (created_by = ? OR updated_by = ?)',
-        [updatedJson, nextStatus, safeUserId, existing.id, safeUserId, safeUserId]
+        `UPDATE master_data SET 
+          \`values\` = ?, 
+          status = ?, 
+          updated_by = ?, 
+          updated_at = NOW(),
+          name = ?, address = ?, city = ?, state = ?, country = ?, 
+          gst_no = ?, contact_person = ?, contact_number = ?, email = ?, designation = ?
+        WHERE id = ? AND (created_by = ? OR updated_by = ?)`,
+        [
+          updatedJson, nextStatus, safeUserId, 
+          coreCols.name, coreCols.address, coreCols.city, coreCols.state, coreCols.country,
+          coreCols.gst_no, coreCols.contact_person, coreCols.contact_number, coreCols.email, coreCols.designation,
+          existing.id, safeUserId, safeUserId
+        ]
       );
       
       return getMasterDataById(type, existing.id, safeUserId);
     }
   }
   
+  const coreCols = mapValuesToColumns(combinedData);
+
   try {
     // If id provided, try to update
     if (id) {
@@ -410,10 +476,23 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
         }
         const updatedValues = { ...existing.values, ...combinedData };
         const updatedJson = JSON.stringify(updatedValues);
+        const upCoreCols = mapValuesToColumns(updatedValues);
         
         await query(
-          'UPDATE master_data SET `values` = ?, status = ?, updated_by = ?, updated_at = NOW() WHERE id = ? AND (created_by = ? OR updated_by = ?)',
-          [updatedJson, nextStatus, safeUserId, id, safeUserId, safeUserId]
+          `UPDATE master_data SET 
+            \`values\` = ?, 
+            status = ?, 
+            updated_by = ?, 
+            updated_at = NOW(),
+            name = ?, address = ?, city = ?, state = ?, country = ?, 
+            gst_no = ?, contact_person = ?, contact_number = ?, email = ?, designation = ?
+          WHERE id = ? AND (created_by = ? OR updated_by = ?)`,
+          [
+            updatedJson, nextStatus, safeUserId, 
+            upCoreCols.name, upCoreCols.address, upCoreCols.city, upCoreCols.state, upCoreCols.country,
+            upCoreCols.gst_no, upCoreCols.contact_person, upCoreCols.contact_number, upCoreCols.email, upCoreCols.designation,
+            id, safeUserId, safeUserId
+          ]
         );
         
         return getMasterDataById(type, id, safeUserId);
@@ -423,8 +502,15 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
     // Create new record
     const newId = id || uuidv4();
     await query(
-      'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [newId, type, validatedCompanyId, nextStatus, valuesJson, safeUserId, safeUserId]
+      `INSERT INTO master_data (
+        id, type, company_id, status, \`values\`, created_by, updated_by,
+        name, address, city, state, country, gst_no, contact_person, contact_number, email, designation
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        newId, type, validatedCompanyId, nextStatus, valuesJson, safeUserId, safeUserId,
+        coreCols.name, coreCols.address, coreCols.city, coreCols.state, coreCols.country, 
+        coreCols.gst_no, coreCols.contact_person, coreCols.contact_number, coreCols.email, coreCols.designation
+      ]
     );
     
     return getMasterDataById(type, newId, safeUserId);
@@ -626,11 +712,20 @@ const createDraftFromPublished = async (publishedCompanyId, userId) => {
   }
 
   const draftCompanyId = uuidv4();
-  const draftValuesJson = JSON.stringify(normalizedPublished.values || {});
+  const draftValues = normalizedPublished.values || {};
+  const draftValuesJson = JSON.stringify(draftValues);
+  const companyCoreCols = mapValuesToColumns(draftValues);
 
   await query(
-    'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [draftCompanyId, 'company-profile', normalizedPublished.id, 'draft', draftValuesJson, safeUserId, safeUserId]
+    `INSERT INTO master_data (
+      id, type, company_id, status, \`values\`, created_by, updated_by,
+      name, address, city, state, country, gst_no, contact_person, contact_number, email, designation
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      draftCompanyId, 'company-profile', normalizedPublished.id, 'draft', draftValuesJson, safeUserId, safeUserId,
+      companyCoreCols.name, companyCoreCols.address, companyCoreCols.city, companyCoreCols.state, companyCoreCols.country,
+      companyCoreCols.gst_no, companyCoreCols.contact_person, companyCoreCols.contact_number, companyCoreCols.email, companyCoreCols.designation
+    ]
   );
 
   const types = [
@@ -646,10 +741,20 @@ const createDraftFromPublished = async (publishedCompanyId, userId) => {
     if (!latest) continue;
 
     const draftId = uuidv4();
-    const valuesJson = JSON.stringify(latest.values || {});
+    const latestValues = latest.values || {};
+    const valuesJson = JSON.stringify(latestValues);
+    const itemCoreCols = mapValuesToColumns(latestValues);
+    
     await query(
-      'INSERT INTO master_data (id, type, company_id, status, `values`, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [draftId, type, draftCompanyId, 'draft', valuesJson, safeUserId, safeUserId]
+      `INSERT INTO master_data (
+        id, type, company_id, status, \`values\`, created_by, updated_by,
+        name, address, city, state, country, gst_no, contact_person, contact_number, email, designation
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        draftId, type, draftCompanyId, 'draft', valuesJson, safeUserId, safeUserId,
+        itemCoreCols.name, itemCoreCols.address, itemCoreCols.city, itemCoreCols.state, itemCoreCols.country,
+        itemCoreCols.gst_no, itemCoreCols.contact_person, itemCoreCols.contact_number, itemCoreCols.email, itemCoreCols.designation
+      ]
     );
   }
 
