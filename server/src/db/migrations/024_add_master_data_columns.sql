@@ -5,40 +5,85 @@
 SET @dbname = DATABASE();
 SET @tablename = 'master_data';
 
--- Helper procedure to add column if not exists
-DROP PROCEDURE IF EXISTS AddColumnIfNotExists;
-DELIMITER //
-CREATE PROCEDURE AddColumnIfNotExists(
-    IN tableName VARCHAR(100),
-    IN columnName VARCHAR(100),
-    IN columnDef VARCHAR(255)
-)
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = tableName
-        AND COLUMN_NAME = columnName
-    ) THEN
-        SET @sql = CONCAT('ALTER TABLE ', tableName, ' ADD COLUMN ', columnName, ' ', columnDef);
-        PREPARE stmt FROM @sql;
-        EXECUTE stmt;
-        DEALLOCATE PREPARE stmt;
-    END IF;
-END //
-DELIMITER ;
+-- 1) name
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = 'name') > 0,
+  'SELECT 1',
+  'ALTER TABLE master_data ADD COLUMN name VARCHAR(200) NULL AFTER status'
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
 
--- Add core columns
-CALL AddColumnIfNotExists(@tablename, 'name', 'VARCHAR(200) NULL AFTER status');
-CALL AddColumnIfNotExists(@tablename, 'address', 'TEXT NULL AFTER name');
-CALL AddColumnIfNotExists(@tablename, 'city', 'VARCHAR(100) NULL AFTER address');
-CALL AddColumnIfNotExists(@tablename, 'state', 'VARCHAR(100) NULL AFTER city');
-CALL AddColumnIfNotExists(@tablename, 'country', 'VARCHAR(100) NULL AFTER state');
-CALL AddColumnIfNotExists(@tablename, 'gst_no', 'VARCHAR(50) NULL AFTER country');
-CALL AddColumnIfNotExists(@tablename, 'contact_person', 'VARCHAR(150) NULL AFTER gst_no');
-CALL AddColumnIfNotExists(@tablename, 'contact_number', 'VARCHAR(50) NULL AFTER contact_person');
-CALL AddColumnIfNotExists(@tablename, 'email', 'VARCHAR(160) NULL AFTER contact_number');
-CALL AddColumnIfNotExists(@tablename, 'designation', 'VARCHAR(100) NULL AFTER email');
+-- 2) address
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = 'address') > 0,
+  'SELECT 1',
+  'ALTER TABLE master_data ADD COLUMN address TEXT NULL AFTER name'
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+-- 3) city
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = 'city') > 0,
+  'SELECT 1',
+  'ALTER TABLE master_data ADD COLUMN city VARCHAR(100) NULL AFTER address'
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+-- 4) state
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = 'state') > 0,
+  'SELECT 1',
+  'ALTER TABLE master_data ADD COLUMN state VARCHAR(100) NULL AFTER city'
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+-- 5) country
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = 'country') > 0,
+  'SELECT 1',
+  'ALTER TABLE master_data ADD COLUMN country VARCHAR(100) NULL AFTER state'
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+-- 6) gst_no
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = 'gst_no') > 0,
+  'SELECT 1',
+  'ALTER TABLE master_data ADD COLUMN gst_no VARCHAR(50) NULL AFTER country'
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+-- 7) contact_person
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = 'contact_person') > 0,
+  'SELECT 1',
+  'ALTER TABLE master_data ADD COLUMN contact_person VARCHAR(150) NULL AFTER gst_no'
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+-- 8) contact_number
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = 'contact_number') > 0,
+  'SELECT 1',
+  'ALTER TABLE master_data ADD COLUMN contact_number VARCHAR(50) NULL AFTER contact_person'
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+-- 9) email
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = 'email') > 0,
+  'SELECT 1',
+  'ALTER TABLE master_data ADD COLUMN email VARCHAR(160) NULL AFTER contact_number'
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
+
+-- 10) designation
+SET @stmt = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = 'designation') > 0,
+  'SELECT 1',
+  'ALTER TABLE master_data ADD COLUMN designation VARCHAR(100) NULL AFTER email'
+));
+PREPARE p FROM @stmt; EXECUTE p; DEALLOCATE PREPARE p;
 
 -- Add indexes for common filter fields
 SET @add_idx_name = (SELECT IF(
@@ -56,7 +101,6 @@ SET @add_idx_gst = (SELECT IF(
 PREPARE stmt_idx_gst FROM @add_idx_gst; EXECUTE stmt_idx_gst; DEALLOCATE PREPARE stmt_idx_gst;
 
 -- Backfill data from JSON values (best effort for common keys)
--- Note: JSON_EXTRACT returns quoted strings, JSON_UNQUOTE removes them.
 UPDATE master_data SET 
     name = COALESCE(
         NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`values`, '$.payerName')), 'null'),
@@ -102,5 +146,3 @@ UPDATE master_data SET
     ),
     designation = NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`values`, '$.designation')), 'null')
 WHERE name IS NULL;
-
-DROP PROCEDURE AddColumnIfNotExists;
