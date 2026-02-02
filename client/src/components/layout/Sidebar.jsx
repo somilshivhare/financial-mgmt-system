@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
 } from 'lucide-react'
+import { performLogout } from '../../utils/logout'
 
 const sections = [
   {
@@ -63,9 +64,7 @@ function NavItem({ collapsed, to, icon: Icon, label }) {
 
 export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
   const onLogout = () => {
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
-    window.location.href = '/login'
+    performLogout()
   }
 
   return (

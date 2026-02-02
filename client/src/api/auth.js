@@ -32,6 +32,8 @@ export const resetPassword = async (token, newPassword) => {
   return data
 }
 
+import { clearAllLocalStorage } from '../utils/logout'
+
 export const logout = () => {
-  localStorage.removeItem('token')
+  clearAllLocalStorage()
 }

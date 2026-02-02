@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { me } from '../../api/auth'
 import { useNotifications } from '../../hooks/useNotifications'
+import { performLogout } from '../../utils/logout'
 
 export default function Navbar({ onToggleSidebar, collapsed }) {
   const navigate = useNavigate()
@@ -108,9 +109,7 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
   }, [])
 
   const handleLogout = () => {
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
-    window.location.href = '/login'
+    performLogout()
   }
 
   const handleSearch = (e) => {

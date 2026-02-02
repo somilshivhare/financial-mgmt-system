@@ -42,6 +42,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import PublicRoute from './components/PublicRoute'
 import NotFoundRoute from './components/NotFoundRoute'
 import { flushPendingSaves } from './utils/formPersistenceStorage'
+import { clearAllLocalStorage } from './utils/logout'
 import './App.css'
 
 function App() {
@@ -72,8 +73,7 @@ function App() {
 
   const handleLogout = () => {
     setUser(null)
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
+    clearAllLocalStorage()
   }
 
   return (

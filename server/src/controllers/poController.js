@@ -4,7 +4,15 @@ const poService = require('../services/poService');
 const listPOs = async (req, res, next) => {
   try {
     const { page = 1, pageSize = 20, status, q } = req.query;
-    const result = await poService.listPOs({ page, pageSize, status, q });
+    // CRITICAL: Pass user context for data isolation
+    const result = await poService.listPOs({ 
+      page, 
+      pageSize, 
+      status, 
+      q, 
+      userId: req.user.id, 
+      role: req.user.role 
+    });
     res.set('Cache-Control', 'no-store, no-cache');
     res.set('Pragma', 'no-cache');
     res.json(apiSuccess(result));
@@ -36,7 +44,8 @@ const updatePOStatus = async (req, res, next) => {
 
 const getPO = async (req, res, next) => {
   try {
-    const po = await poService.getPO(req.params.id);
+    // CRITICAL: Pass user context for authorization check
+    const po = await poService.getPO(req.params.id, req.user.id, req.user.role);
     if (!po) {
       return res.status(404).json(apiError('PO not found', 'NOT_FOUND'));
     }
@@ -48,7 +57,8 @@ const getPO = async (req, res, next) => {
 
 const getPONumbers = async (req, res, next) => {
   try {
-    const list = await poService.getPONumbers();
+    // CRITICAL: Pass user context for data isolation
+    const list = await poService.getPONumbers(req.user.id, req.user.role);
     res.json(apiSuccess(list));
   } catch (err) {
     next(err);
@@ -57,7 +67,8 @@ const getPONumbers = async (req, res, next) => {
 
 const getPOByNumber = async (req, res, next) => {
   try {
-    const po = await poService.getPOByNumber(req.params.poNumber);
+    // CRITICAL: Pass user context for authorization check
+    const po = await poService.getPOByNumber(req.params.poNumber, req.user.id, req.user.role);
     if (!po) {
       return res.status(404).json(apiError('PO not found', 'NOT_FOUND'));
     }
@@ -70,7 +81,8 @@ const getPOByNumber = async (req, res, next) => {
 const getPODraft = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const draft = await poService.getPODraft(id || null, req.user.id);
+    // CRITICAL: Pass user context for authorization check
+    const draft = await poService.getPODraft(id || null, req.user.id, req.user.role);
     if (!draft) {
       return res.json(apiSuccess(null));
     }
@@ -82,7 +94,8 @@ const getPODraft = async (req, res, next) => {
 
 const deletePO = async (req, res, next) => {
   try {
-    const result = await poService.deletePO(req.params.id);
+    // CRITICAL: Pass user context for authorization check
+    const result = await poService.deletePO(req.params.id, req.user.id, req.user.role);
     if (!result) {
       return res.status(404).json(apiError('PO not found', 'NOT_FOUND'));
     }
