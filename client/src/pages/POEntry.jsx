@@ -238,9 +238,17 @@ function POEntry() {
     clearLocalDraft,
   } = useFormPersistence({
     saveFn: async (data, entityId) => {
-      // Draft save only: no status so server keeps/ sets draft. Submit uses savePOEntry (status: approved).
+      // Draft save only: no status so server keeps/ sets draft. Submit uses savePOEntry (status: 'approved').
+      // Ensure customerId is always sent (required field for new PO creation)
+      const customerId = String(data.formData?.customerId || '').trim();
+      if (!customerId) {
+        // Skip save if customerId is missing (auto-save guard should prevent this, but double-check)
+        console.warn('[POEntry] Skipping draft save: customerId is required');
+        return null;
+      }
       const saveData = {
         ...data.formData,
+        customerId: customerId, // Explicitly set to ensure it's sent
         boqItems: data.boqItems || [],
         // Do not send status on draft save so existing row stays draft; Submit sends status: 'approved'
       }
@@ -394,7 +402,12 @@ function POEntry() {
       }],
     },
     // Autosave only for drafts; never overwrite a submitted PO (status approved)
-    enableAutoSave: (values) => (values?.formData?.status || '').toString().toLowerCase() !== 'approved',
+    // Also require customerId to be present before auto-saving (prevents 500 errors from null customer_id)
+    enableAutoSave: (values) => {
+      const status = (values?.formData?.status || '').toString().toLowerCase();
+      const customerId = String(values?.formData?.customerId || '').trim();
+      return status !== 'approved' && customerId !== '';
+    },
     autoSaveDelay: 2000,
   })
 

@@ -33,6 +33,13 @@ const normalizePOStatus = (status) => {
   return allowed.has(s) ? s : null;
 };
 
+const createHttpError = (status, code, message) => {
+  const err = new Error(message);
+  err.status = status;
+  err.code = code;
+  return err;
+};
+
 /**
  * Generate next PO number (transaction-safe)
  * Format: PO-{BU}-{FY}-{NNNN}
@@ -268,6 +275,13 @@ const upsertPODraft = async (formData, userId, poId = null) => {
     existingPO = await getPOByNumber(formData.poNumber);
   }
   
+  // Validate customer_id for new PO creation (required field)
+  // For existing PO updates, customer_id can be omitted (will preserve existing value)
+  const customerId = formData.customerId || formData.customer_id || null;
+  if (!existingPO && (!customerId || String(customerId).trim() === '')) {
+    throw createHttpError(400, 'ERR_VALIDATION', 'Customer is required. Please select a customer before saving the draft.');
+  }
+  
   // Extract BOQ items if present
   const boqItems = formData.boqItems || [];
   delete formData.boqItems; // Remove from main form data
@@ -333,12 +347,13 @@ const upsertPODraft = async (formData, userId, poId = null) => {
     } catch (err) {
       // If draft_data column doesn't exist, create a migration entry
       // For now, update basic fields
+      // For updates, preserve existing customer_id if new one is not provided
       await query(
         `UPDATE purchase_orders 
-         SET customer_id = ?, po_number = ?, currency = ?, status = COALESCE(?, status), updated_by = ?, updated_at = NOW() 
+         SET customer_id = COALESCE(?, customer_id), po_number = ?, currency = ?, status = COALESCE(?, status), updated_by = ?, updated_at = NOW() 
          WHERE id = ?`,
         [
-          formData.customerId || existingPO.customer_id,
+          customerId || existingPO.customer_id, // Use validated customerId or preserve existing
           cleanFormData.poNumber || existingPO.po_number,
           formData.poCurrency || existingPO.currency || 'INR',
           requestedStatus,
@@ -385,6 +400,7 @@ const upsertPODraft = async (formData, userId, poId = null) => {
     return getPO(existingPO.id);
   } else {
     // Create new PO
+    // customerId is already validated above (required for new PO)
     const newPoId = poId || uuidv4();
     const poNumber = cleanFormData.poNumber || `PO-${Date.now()}`;
     const initialStatus = requestedStatus || 'draft';
@@ -395,7 +411,7 @@ const upsertPODraft = async (formData, userId, poId = null) => {
       [
         newPoId,
         poNumber,
-        formData.customerId || null,
+        customerId, // Already validated - cannot be null for new PO
         initialStatus,
         formData.poCurrency || 'INR',
         formData.poDate || null,
