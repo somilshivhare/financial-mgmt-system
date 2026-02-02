@@ -3,6 +3,11 @@ const poService = require('../services/poService');
 
 const listPOs = async (req, res, next) => {
   try {
+    // PRODUCTION FIX: Validate user context before processing
+    if (!req.user || !req.user.id) {
+      return res.status(401).json(apiError('Authentication required', 'UNAUTHORIZED'));
+    }
+    
     const { page = 1, pageSize = 20, status, q } = req.query;
     // CRITICAL: Pass user context for data isolation
     const result = await poService.listPOs({ 
@@ -11,7 +16,7 @@ const listPOs = async (req, res, next) => {
       status, 
       q, 
       userId: req.user.id, 
-      role: req.user.role 
+      role: req.user.role || null
     });
     res.set('Cache-Control', 'no-store, no-cache');
     res.set('Pragma', 'no-cache');
@@ -107,6 +112,11 @@ const deletePO = async (req, res, next) => {
 
 const upsertPODraft = async (req, res, next) => {
   try {
+    // PRODUCTION FIX: Validate user context before processing
+    if (!req.user || !req.user.id) {
+      return res.status(401).json(apiError('Authentication required', 'UNAUTHORIZED'));
+    }
+    
     const { id } = req.params;
     const po = await poService.upsertPODraft(req.body, req.user.id, id || null);
     res.status(201).json(apiSuccess(po, 'PO draft saved'));

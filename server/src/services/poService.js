@@ -93,9 +93,14 @@ const listPOs = async ({ page = 1, pageSize = 20, status, q, userId, role }) => 
     // CRITICAL: Enforce user-level data isolation
     // Regular users can only see POs they created
     // Admin/operations/finance roles can see all POs
-    if (!canViewAllPOs(role) && userId) {
+    // PRODUCTION FIX: Require userId for non-admin users to prevent data leakage
+    if (!canViewAllPOs(role)) {
+      if (!userId || String(userId).trim() === '') {
+        console.error('[PO Service] Security violation: Non-admin user attempted to list POs without userId');
+        throw createHttpError(403, 'ERR_FORBIDDEN', 'User ID is required to list purchase orders');
+      }
       where.push('created_by = ?');
-      params.push(userId);
+      params.push(String(userId).trim());
     }
     
     if (status != null && String(status).trim() !== '') {
@@ -180,8 +185,14 @@ const getPO = async (poId, userId = null, role = null) => {
   if (!po) return null;
   
   // CRITICAL: Enforce authorization - users can only access their own POs unless admin/operations
-  if (userId && !canViewAllPOs(role) && po.created_by !== userId) {
-    throw createHttpError(403, 'ERR_FORBIDDEN', 'You do not have permission to access this PO');
+  // PRODUCTION FIX: Require userId for non-admin users to prevent unauthorized access
+  if (!canViewAllPOs(role)) {
+    if (!userId || String(userId).trim() === '') {
+      throw createHttpError(403, 'ERR_FORBIDDEN', 'User ID is required to access purchase orders');
+    }
+    if (po.created_by !== String(userId).trim()) {
+      throw createHttpError(403, 'ERR_FORBIDDEN', 'You do not have permission to access this PO');
+    }
   }
 
   if (po.draft_data) {
@@ -228,9 +239,13 @@ const getPONumbers = async (userId = null, role = null) => {
   const params = [];
   
   // CRITICAL: Enforce user-level data isolation
-  if (!canViewAllPOs(role) && userId) {
+  // PRODUCTION FIX: Require userId for non-admin users to prevent data leakage
+  if (!canViewAllPOs(role)) {
+    if (!userId || String(userId).trim() === '') {
+      throw createHttpError(403, 'ERR_FORBIDDEN', 'User ID is required to access purchase orders');
+    }
     where.push('created_by = ?');
-    params.push(userId);
+    params.push(String(userId).trim());
   }
   
   where.push("status IN ('approved', 'closed')");
@@ -257,9 +272,13 @@ const getPOByNumber = async (poNumber, userId = null, role = null) => {
   const params = [poNumber];
   
   // CRITICAL: Enforce user-level data isolation
-  if (!canViewAllPOs(role) && userId) {
+  // PRODUCTION FIX: Require userId for non-admin users to prevent data leakage
+  if (!canViewAllPOs(role)) {
+    if (!userId || String(userId).trim() === '') {
+      throw createHttpError(403, 'ERR_FORBIDDEN', 'User ID is required to access purchase orders');
+    }
     where.push('created_by = ?');
-    params.push(userId);
+    params.push(String(userId).trim());
   }
   
   const rows = await query(
@@ -324,15 +343,43 @@ const upsertPODraft = async (formData, userId, poId = null) => {
   
   // Resolve existing PO: by URL poId, then by body id (so Submit updates same row after Save Draft), then by poNumber
   // Single lifecycle: draft → submitted; never create a second row when client sends an existing id
+  // PRODUCTION FIX: Pass userId/role to enforce authorization checks on internal calls
   let existingPO = null;
   if (poId) {
-    existingPO = await getPO(poId);
+    try {
+      existingPO = await getPO(poId, userId, null);
+    } catch (err) {
+      // If authorization fails, treat as not found (user cannot access this PO)
+      if (err.status === 403) {
+        throw createHttpError(403, 'ERR_FORBIDDEN', 'You do not have permission to access this PO');
+      }
+      throw err;
+    }
   }
   if (!existingPO && formData.id) {
-    existingPO = await getPO(formData.id);
+    try {
+      existingPO = await getPO(formData.id, userId, null);
+    } catch (err) {
+      if (err.status === 403) {
+        throw createHttpError(403, 'ERR_FORBIDDEN', 'You do not have permission to access this PO');
+      }
+      throw err;
+    }
   }
   if (!existingPO && formData.poNumber) {
-    existingPO = await getPOByNumber(formData.poNumber);
+    try {
+      existingPO = await getPOByNumber(formData.poNumber, userId, null);
+    } catch (err) {
+      if (err.status === 403) {
+        throw createHttpError(403, 'ERR_FORBIDDEN', 'You do not have permission to access this PO');
+      }
+      throw err;
+    }
+  }
+  
+  // PRODUCTION FIX: Additional security check - ensure user owns the PO they're trying to update
+  if (existingPO && userId && !canViewAllPOs(null) && existingPO.created_by !== userId) {
+    throw createHttpError(403, 'ERR_FORBIDDEN', 'You do not have permission to modify this PO');
   }
   
   // Validate customer_id for new PO creation (required field)
@@ -535,8 +582,14 @@ const getPODraft = async (poId = null, userId = null, role = null) => {
   
   // CRITICAL: Additional authorization check for drafts
   // Users can only access their own drafts unless admin/operations
-  if (userId && !canViewAllPOs(role) && po.created_by !== userId) {
-    throw createHttpError(403, 'ERR_FORBIDDEN', 'You do not have permission to access this draft');
+  // PRODUCTION FIX: Require userId for non-admin users
+  if (!canViewAllPOs(role)) {
+    if (!userId || String(userId).trim() === '') {
+      throw createHttpError(403, 'ERR_FORBIDDEN', 'User ID is required to access purchase order drafts');
+    }
+    if (po.created_by !== String(userId).trim()) {
+      throw createHttpError(403, 'ERR_FORBIDDEN', 'You do not have permission to access this draft');
+    }
   }
   
   // Try to get draft_data JSON
