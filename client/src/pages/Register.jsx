@@ -120,6 +120,17 @@ function Register({ onRegister }) {
     setLoading(true)
 
     try {
+      // Map UI role selection to backend roleId.
+      // Backend roles: 1=admin, 2=finance, 3=operations, 4=sales, 5=viewer.
+      // Public registration is restricted server-side to 4 (sales) and 5 (viewer).
+      const roleKey = (formData.role || '').toLowerCase()
+      const roleIdByKey = {
+        manager: 4,    // treat Manager as a sales/manager role
+        user: 5,       // basic user -> viewer
+        accountant: 5, // accountant still gets viewer-level backend role by default
+      }
+      const roleId = roleIdByKey[roleKey]
+
       const response = await register(
         formData.email,
         formData.password,
@@ -128,6 +139,9 @@ function Register({ onRegister }) {
           companyName: formData.companyName,
           mobileNumber: formData.mobileNumber,
           role: formData.role,
+          // Pass numeric roleId to backend; auth API will still
+          // fall back to a safe default if this is missing/invalid.
+          roleId,
         }
       )
       

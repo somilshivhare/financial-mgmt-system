@@ -6,14 +6,31 @@ const { query, transaction } = require('../db/query');
 const { env } = require('../config/env');
 const userService = require('./userService');
 
+// Roles: 1=admin, 2=finance, 3=operations, 4=sales, 5=viewer
+const DEFAULT_REGISTRATION_ROLE_ID = 5;
+const ALLOWED_PUBLIC_REGISTRATION_ROLE_IDS = [4, 5]; // sales, viewer only
+
+/**
+ * Return a role ID safe for public registration.
+ * Admin (1), finance (2), operations (3) are never assigned via public signup.
+ */
+const getSafeRegistrationRoleId = (roleId) => {
+  const id = roleId != null ? Number(roleId) : NaN;
+  if (Number.isInteger(id) && ALLOWED_PUBLIC_REGISTRATION_ROLE_IDS.includes(id)) {
+    return id;
+  }
+  return DEFAULT_REGISTRATION_ROLE_ID;
+};
+
 const register = async (fullName, email, password, roleId) => {
+  const safeRoleId = getSafeRegistrationRoleId(roleId);
   const passwordHash = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
   const id = uuidv4();
   await query(
     'INSERT INTO users (id, full_name, email, password_hash, role_id) VALUES (?, ?, ?, ?, ?)',
-    [id, fullName, email, passwordHash, roleId],
+    [id, fullName, email, passwordHash, safeRoleId],
   );
-  return { id, fullName, email, roleId };
+  return { id, fullName, email, roleId: safeRoleId };
 };
 
 /**
@@ -244,4 +261,4 @@ const resetPassword = async (token, newPassword) => {
   });
 };
 
-module.exports = { register, login, me, requestPasswordReset, resetPassword };
+module.exports = { register, login, me, requestPasswordReset, resetPassword, getSafeRegistrationRoleId };

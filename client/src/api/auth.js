@@ -6,12 +6,16 @@ export const login = async (email, password) => {
   return data
 }
 
+// Default role for new registrations: 5 = viewer (NOT admin).
+// Roles: 1=admin, 2=finance, 3=operations, 4=sales, 5=viewer
+const DEFAULT_REGISTRATION_ROLE_ID = 5
+
 export const register = async (email, password, name, additionalData = {}) => {
   const payload = {
     fullName: name,
     email,
     password,
-    roleId: additionalData.roleId || 1,
+    roleId: additionalData.roleId ?? DEFAULT_REGISTRATION_ROLE_ID,
   }
   const { data } = await client.post('/auth/register', payload)
   return data

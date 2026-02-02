@@ -33,7 +33,11 @@ const register = async (req, res, next) => {
       ));
     }
     
-    const result = await authService.register(fullName, email, password, roleId);
+    // PRODUCTION FIX: Public registration must not assign admin/finance/operations.
+    // Default to viewer (5); only sales (4) and viewer (5) are allowed for self-registration.
+    const safeRoleId = authService.getSafeRegistrationRoleId(roleId);
+    
+    const result = await authService.register(fullName, email, password, safeRoleId);
     res.status(201).json(apiSuccess(result, 'User registered successfully'));
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY' || err.message?.includes('Duplicate entry')) {

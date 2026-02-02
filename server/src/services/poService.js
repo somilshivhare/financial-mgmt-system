@@ -94,13 +94,27 @@ const listPOs = async ({ page = 1, pageSize = 20, status, q, userId, role }) => 
     // Regular users can only see POs they created
     // Admin/operations/finance roles can see all POs
     // PRODUCTION FIX: Require userId for non-admin users to prevent data leakage
-    if (!canViewAllPOs(role)) {
+    const canViewAll = canViewAllPOs(role);
+    
+    // PRODUCTION DEBUG: Log role and filtering decision
+    console.log('[PO Service] listPOs called:', {
+      userId: userId ? `${userId.substring(0, 8)}...` : 'MISSING',
+      role: role || 'MISSING',
+      canViewAll,
+      status,
+      q: q ? `${q.substring(0, 20)}...` : null
+    });
+    
+    if (!canViewAll) {
       if (!userId || String(userId).trim() === '') {
         console.error('[PO Service] Security violation: Non-admin user attempted to list POs without userId');
         throw createHttpError(403, 'ERR_FORBIDDEN', 'User ID is required to list purchase orders');
       }
       where.push('created_by = ?');
       params.push(String(userId).trim());
+      console.log('[PO Service] Filtering by userId:', userId.substring(0, 8) + '...');
+    } else {
+      console.log('[PO Service] Admin/operations/finance role detected - showing all POs');
     }
     
     if (status != null && String(status).trim() !== '') {
@@ -122,8 +136,13 @@ const listPOs = async ({ page = 1, pageSize = 20, status, q, userId, role }) => 
     const total = countResult && countResult[0] ? Number(countResult[0].total) : 0;
     return { data: data || [], page: pageNum, pageSize: pageSizeNum, total };
   } catch (err) {
+    // PRODUCTION FIX: Don't swallow authorization errors - let them propagate
+    if (err.status === 403 || err.code === 'ERR_FORBIDDEN') {
+      throw err;
+    }
     console.error('[PO Service] Error listing POs:', err.message);
-    return { data: [], page: 1, pageSize: 20, total: 0 };
+    // Re-throw database errors instead of silently returning empty data
+    throw err;
   }
 };
 
