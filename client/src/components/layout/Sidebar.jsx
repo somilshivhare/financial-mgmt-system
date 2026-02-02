@@ -11,7 +11,6 @@ import {
   Bell,
   User,
   Mail,
-  AlertCircle,
   Settings,
   LogOut,
 } from 'lucide-react'
@@ -42,7 +41,6 @@ const sections = [
       { to: '/subscription', label: 'Subscription', icon: Bell },
       { to: '/profile', label: 'My Profile', icon: User },
       { to: '/support', label: 'Contact & Support', icon: Mail },
-      { to: '/alerts', label: 'Alerts', icon: AlertCircle },
       { to: '/settings', label: 'Settings', icon: Settings },
     ],
   },

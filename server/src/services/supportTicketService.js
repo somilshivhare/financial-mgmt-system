@@ -1,6 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
 const { query, transaction } = require('../db/query');
-const alertsService = require('./alertsService');
 
 /**
  * Generate unique ticket number (format: TCK-YYYY-NNNNN)
@@ -75,21 +74,6 @@ const createTicket = async (ticketData, userId) => {
         `Ticket created: ${ticketData.category} - ${ticketData.subject}`,
       ]
     );
-    
-    // Create alert for admins about new ticket
-    try {
-      await alertsService.createAlert(
-        {
-          userId: null, // System-wide alert
-          alertType: 'support_ticket_created',
-          message: `New support ticket ${ticketNumber}: ${ticketData.subject}`,
-          linkUrl: `/support/tickets/${ticketId}`,
-        },
-        userId
-      );
-    } catch (err) {
-      console.error('Failed to create alert for new ticket:', err);
-    }
     
     // Get created ticket
     const [tickets] = await conn.execute(
@@ -325,34 +309,6 @@ const addReply = async (ticketId, message, userId, userRole, isInternal = false)
       await updateTicketStatus(ticketId, 'open', userId, userRole, 'Reopened by user reply');
     }
     
-    // Create alert for ticket owner (if not the replier) or admins
-    try {
-      if (isInternal) {
-        // Alert ticket owner about admin reply
-        await alertsService.createAlert(
-          {
-            userId: ticket.user_id,
-            alertType: 'support_ticket_reply',
-            message: `Admin replied to ticket ${ticket.ticket_number}`,
-            linkUrl: `/support/tickets/${ticketId}`,
-          },
-          userId
-        );
-      } else {
-        // Alert admins about user reply
-        await alertsService.createAlert(
-          {
-            userId: null,
-            alertType: 'support_ticket_reply',
-            message: `User replied to ticket ${ticket.ticket_number}`,
-            linkUrl: `/support/tickets/${ticketId}`,
-          },
-          userId
-        );
-      }
-    } catch (err) {
-      console.error('Failed to create alert for reply:', err);
-    }
     
     const replies = await query(
       `SELECT 
@@ -445,20 +401,6 @@ const updateTicketStatus = async (ticketId, status, userId, userRole, notes = nu
       ]
     );
     
-    // Create alert for status change
-    try {
-      await alertsService.createAlert(
-        {
-          userId: ticket.user_id,
-          alertType: 'support_ticket_status_changed',
-          message: `Ticket ${ticket.ticket_number} status changed to ${status}`,
-          linkUrl: `/support/tickets/${ticketId}`,
-        },
-        userId
-      );
-    } catch (err) {
-      console.error('Failed to create alert for status change:', err);
-    }
     
     // Get updated ticket
     return getTicketById(ticketId, userId, userRole);

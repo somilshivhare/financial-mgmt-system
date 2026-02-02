@@ -28,7 +28,6 @@ import CollectionPlan from './pages/CollectionPlan'
 import Subscription from './pages/Subscription'
 import MyProfile from './pages/MyProfile'
 import ContactSupport from './pages/ContactSupport'
-import Alerts from './pages/Alerts'
 import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
 import Meetings from './pages/Meetings'
@@ -163,7 +162,6 @@ function App() {
                 <Route path="/subscription" element={<ErrorBoundary><Subscription /></ErrorBoundary>} />
                 <Route path="/profile" element={<ErrorBoundary><MyProfile /></ErrorBoundary>} />
                 <Route path="/support" element={<ErrorBoundary><ContactSupport /></ErrorBoundary>} />
-                <Route path="/alerts" element={<ErrorBoundary><Alerts /></ErrorBoundary>} />
                 <Route path="/notifications" element={<ErrorBoundary><Notifications /></ErrorBoundary>} />
                 <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
                 <Route path="/meetings" element={<ErrorBoundary><Meetings /></ErrorBoundary>} />

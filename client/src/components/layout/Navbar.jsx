@@ -19,7 +19,6 @@ import {
 } from 'lucide-react'
 import { me } from '../../api/auth'
 import { useNotifications } from '../../hooks/useNotifications'
-import { useAlerts } from '../../hooks/useAlerts'
 
 export default function Navbar({ onToggleSidebar, collapsed }) {
   const navigate = useNavigate()
@@ -85,14 +84,8 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
     dismissNotification = () => {},
   } = useNotifications() || {}
 
-  // Use alerts hook for badge count - hooks handle errors internally
-  const {
-    unreadCount: alertsUnreadCount = 0,
-    refreshUnreadCount: refreshAlertsCount = () => {},
-  } = useAlerts() || {}
-
-  // Combined unread count (alerts + notifications) - safe defaults
-  const unreadCount = (alertsUnreadCount || 0) + (notificationUnreadCount || 0)
+  // Unread count from notifications only
+  const unreadCount = notificationUnreadCount || 0
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -320,11 +313,11 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
                   type="button"
                   className="navbar-dropdown-footer-link"
                   onClick={() => {
-                    navigate('/alerts')
+                    navigate('/notifications')
                     setShowNotifications(false)
                   }}
                 >
-                  View all alerts
+                  View all notifications
                 </button>
               </div>
             </div>

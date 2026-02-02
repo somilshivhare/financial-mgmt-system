@@ -28,7 +28,6 @@ import {
 } from 'lucide-react'
 import * as dashboardApi from '../api/dashboard'
 import { useNotifications } from '../hooks/useNotifications'
-import { useAlerts } from '../hooks/useAlerts'
 import { useMasterData } from '../contexts/MasterDataContext'
 import {
   LineChart as RechartsLineChart,
@@ -112,7 +111,6 @@ function Dashboard() {
   const navigate = useNavigate()
   const userRole = getUserRole()
   const { notifications, unreadCount: notificationUnreadCount, markAsRead: markNotificationRead } = useNotifications()
-  const { alerts, unreadCount: alertUnreadCount } = useAlerts()
   const { getCustomers } = useMasterData()
   
   const [dashboardData, setDashboardData] = useState(null)
@@ -794,43 +792,9 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Alerts & Notifications */}
+      {/* Notifications */}
       <div className="dashboard-section">
         <div className="dashboard-two-column">
-          {/* Real-time Alerts */}
-          <div className="dashboard-card">
-            <div className="dashboard-card-header">
-              <h3 className="dashboard-card-title">
-                Alerts
-                {alertUnreadCount > 0 && (
-                  <span className="dashboard-badge">{alertUnreadCount}</span>
-                )}
-              </h3>
-              <Bell className="dashboard-card-icon" />
-            </div>
-            <div className="dashboard-list">
-              {(alerts || []).slice(0, 5).map((alert) => (
-                <div key={alert.id} className="dashboard-list-item">
-                  <div className="dashboard-list-item-content">
-                    <div className="dashboard-list-item-title">{alert.title || alert.message}</div>
-                    <div className="dashboard-list-item-subtitle">
-                      {alert.type || 'System Alert'} • {formatDate(alert.created_at)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {(!alerts || alerts.length === 0) && (
-                <div className="dashboard-list-empty">No alerts</div>
-              )}
-            </div>
-            <button
-              onClick={() => navigate('/alerts')}
-              className="dashboard-card-footer-link"
-            >
-              View All Alerts <ArrowRight className="dashboard-card-link-icon" />
-            </button>
-          </div>
-
           {/* Real-time Notifications */}
           <div className="dashboard-card">
             <div className="dashboard-card-header">

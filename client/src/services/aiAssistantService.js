@@ -36,7 +36,6 @@ const getPageQuickActions = (pathname) => {
       { action: 'Add Customer', description: 'Add a new customer in Master Data', path: '/master-data/new/customer-profile' },
       { action: 'Create PO', description: 'Create a new purchase order', path: '/po-entry/new' },
       { action: 'View Invoices', description: 'See all invoices', path: '/invoices' },
-      { action: 'View Alerts', description: 'Check alerts', path: '/alerts' },
     ],
     '/invoices': [
       { action: 'New Invoice', description: 'Create a new invoice', path: '/invoices/new' },
@@ -59,10 +58,6 @@ const getPageQuickActions = (pathname) => {
       { action: 'New Entry', description: 'Start new master data', path: '/master-data/new' },
     ],
     '/reports': [
-      { action: 'View Dashboard', description: 'Back to overview', path: '/dashboard' },
-    ],
-    '/alerts': [
-      { action: 'View Invoices', description: 'Act on invoice alerts', path: '/invoices' },
       { action: 'View Dashboard', description: 'Back to overview', path: '/dashboard' },
     ],
     '/notifications': [
@@ -134,11 +129,6 @@ const getPageContext = (pathname) => {
       name: 'Reports',
       description: 'Business reports and analytics',
       keyMetrics: ['reports', 'analytics', 'insights', 'trends'],
-    },
-    '/alerts': {
-      name: 'Alerts',
-      description: 'Business alerts and important notifications',
-      keyMetrics: ['alerts', 'unread', 'priority'],
     },
     '/notifications': {
       name: 'Notifications',
@@ -330,7 +320,7 @@ export const generatePageContext = (pathname, pageData) => {
       guidance += `**What you can do here:**\n`
       guidance += `• View your financial KPIs and metrics at a glance\n`
       guidance += `• See recent invoices, payments, and collections\n`
-      guidance += `• Check alerts and notifications\n`
+      guidance += `• Check notifications\n`
       guidance += `• Access quick actions to create invoices, record payments, or add customers\n`
       guidance += `• Analyze trends with interactive charts\n\n`
       guidance += `**Quick Tips:**\n`
@@ -408,12 +398,11 @@ export const generatePageContext = (pathname, pageData) => {
       }
       break
 
-    case '/alerts':
+    case '/notifications':
       guidance += `**What you can do here:**\n`
-      guidance += `• View all business alerts\n`
-      guidance += `• See overdue and high-priority items\n`
-      guidance += `• Mark alerts as read\n`
-      guidance += `• Act on recommended follow-ups\n\n`
+      guidance += `• View system and activity notifications\n`
+      guidance += `• Mark notifications as read\n`
+      guidance += `• Stay updated on invoices, payments, and approvals\n\n`
       break
 
     case '/notifications':
@@ -544,7 +533,6 @@ export const generateResponse = (query, context) => {
       { match: 'collection', path: '/collection', label: 'Collection Plan', description: 'Plan follow-ups and track collection targets.' },
       { match: 'master data', path: '/master-data', label: 'Master Data', description: 'Manage customers, vendors, and business data.' },
       { match: 'reports', path: '/reports', label: 'Reports', description: 'View reports and analytics.' },
-      { match: 'alerts', path: '/alerts', label: 'Alerts', description: 'View business alerts and priorities.' },
       { match: 'invoices', path: '/invoices', label: 'Invoices', description: 'View and manage invoices.' },
       { match: 'payments', path: '/payments', label: 'Payments', description: 'View and record payments.' },
       { match: 'dashboard', path: '/dashboard', label: 'Dashboard', description: 'Your business overview and quick actions.' },
@@ -570,14 +558,6 @@ export const generateResponse = (query, context) => {
     }
   }
 
-  // "Show my alerts" / "Open reports" shortcuts
-  if (lowerQuery.includes('show my alerts') || lowerQuery.includes('show alerts')) {
-    return {
-      response: 'Here are your alerts. You can view and act on them from the Alerts page.',
-      type: 'navigation',
-      recommendations: [{ priority: 'high', action: 'View Alerts', description: 'See all business alerts and priorities.', path: '/alerts' }],
-    }
-  }
   if (lowerQuery.includes('open reports') || lowerQuery.includes('show reports')) {
     return {
       response: 'Opening Reports. You can generate and view financial reports and analytics there.',
@@ -656,7 +636,7 @@ export const generateResponse = (query, context) => {
   if (lowerQuery.includes('what is') || lowerQuery.includes('what does')) {
     if (lowerQuery.includes('dashboard')) {
       return {
-        response: `The Dashboard is your business control center. It shows you:\n\n• **Financial KPIs**: Outstanding amounts, collections, overdue invoices\n• **Recent Activity**: Latest invoices, payments, and follow-ups\n• **Analytics**: Charts showing trends over time\n• **Quick Actions**: Fast access to create invoices, record payments, or add customers\n• **Alerts & Notifications**: Important updates about your business\n\nUse the date range filter to view different time periods, and click on any card to see more details.`,
+        response: `The Dashboard is your business control center. It shows you:\n\n• **Financial KPIs**: Outstanding amounts, collections, overdue invoices\n• **Recent Activity**: Latest invoices, payments, and follow-ups\n• **Analytics**: Charts showing trends over time\n• **Quick Actions**: Fast access to create invoices, record payments, or add customers\n• **Notifications**: Important updates about your business\n\nUse the date range filter to view different time periods, and click on any card to see more details.`,
         type: 'info',
       }
     }
@@ -671,7 +651,7 @@ export const generateResponse = (query, context) => {
   // Default response
   const pageContext = generatePageContext(context.pathname, context.pageData)
   return {
-    response: `I'm here to help! You can ask me:\n\n• **"Give me a summary"** – Overview of your business and receivables\n• **"What's overdue?"** – Check overdue invoices\n• **"Total outstanding?"** – See total receivables\n• **"How do I create an invoice?"** – Step-by-step guide\n• **"How do I record a payment?"** – Record a payment\n• **"How do I create a PO?"** – Create a purchase order\n• **"Open Collection Plan"** / **"Open Master Data"** / **"Open Reports"** – Go to that section\n• **"What can I do here?"** – Actions on this page\n• **"Show my alerts"** – View alerts\n\nYou're on **${pageContext.pageName}**. ${pageContext.description}. What would you like to do?`,
+    response: `I'm here to help! You can ask me:\n\n• **"Give me a summary"** – Overview of your business and receivables\n• **"What's overdue?"** – Check overdue invoices\n• **"Total outstanding?"** – See total receivables\n• **"How do I create an invoice?"** – Step-by-step guide\n• **"How do I record a payment?"** – Record a payment\n• **"How do I create a PO?"** – Create a purchase order\n• **"Open Collection Plan"** / **"Open Master Data"** / **"Open Reports"** – Go to that section\n• **"What can I do here?"** – Actions on this page\n• **"Show notifications"** – View notifications\n\nYou're on **${pageContext.pageName}**. ${pageContext.description}. What would you like to do?`,
     type: 'help',
   }
 }

@@ -61,18 +61,14 @@ const createPayment = async (payload, userId) =>
     // Get updated invoice
     const [[updatedInvoice]] = await conn.execute('SELECT * FROM invoices WHERE id = ?', [payload.invoiceId]);
     
-    // Trigger notification and alert after transaction commits
+    // Trigger notification after transaction commits
     setImmediate(async () => {
       try {
         const notificationService = require('./notificationService');
-        const alertsService = require('./alertsService');
         const websocketService = require('./websocketService');
         
         // Create notifications
         const notifications = await notificationService.notifyPaymentReceived(payment, updatedInvoice);
-        
-        // Create alert for payment received
-        await alertsService.createPaymentReceivedAlert(payment, updatedInvoice, userId);
         
         // Send via WebSocket
         notifications.forEach(notif => {
@@ -81,7 +77,7 @@ const createPayment = async (payload, userId) =>
           }
         });
       } catch (err) {
-        console.error('Error sending payment notification/alert:', err);
+        console.error('Error sending payment notification:', err);
       }
     });
     
