@@ -28,7 +28,8 @@ const DEFAULT_SETTINGS = {
   general: {
     companyName: 'NB Aurum Solutions',
     companyEmail: 'finance@nbaurumsolutions.com',
-    companyPhone: '+91 00000 00000',
+    companyPhone: '+91 99674 50118',
+    companyAddress: 'Lower Ground Floor, LGF-17, Krishna Apra D Mall, Shakti Khand-2, Indirapuram, Ghaziabad District, Uttar Pradesh – 201014, India',
     financialYear: '2024-2025',
     currency: 'INR',
   },

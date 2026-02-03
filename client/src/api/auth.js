@@ -1,4 +1,5 @@
 import client from './client'
+import { clearAllLocalStorage } from '../utils/logout'
 
 export const login = async (email, password) => {
   const { data } = await client.post('/auth/login', { email, password })
@@ -35,8 +36,6 @@ export const resetPassword = async (token, newPassword) => {
   const { data } = await client.post('/auth/reset-password', { token, newPassword })
   return data
 }
-
-import { clearAllLocalStorage } from '../utils/logout'
 
 export const logout = () => {
   clearAllLocalStorage()

@@ -40,9 +40,11 @@ export default function Contact() {
                   <span className="mkt-contact-val">
                     NB Aurum Solutions Pvt. Ltd.
                     <br />
-                    4th Floor, Business District
+                    Lower Ground Floor, LGF-17, Krishna Apra D Mall,
                     <br />
-                    Bengaluru, India
+                    Shakti Khand-2, Indirapuram, Ghaziabad District,
+                    <br />
+                    Uttar Pradesh – 201014, India
                   </span>
                 </div>
                 <div className="mkt-contact-line">
@@ -51,7 +53,7 @@ export default function Contact() {
                 </div>
                 <div className="mkt-contact-line">
                   <span className="mkt-contact-key">Phone</span>
-                  <span className="mkt-contact-val">+91-00000-00000</span>
+                  <span className="mkt-contact-val">+91 99674 50118</span>
                 </div>
                 <div className="mkt-contact-line">
                   <span className="mkt-contact-key">Hours</span>
@@ -105,7 +107,7 @@ export default function Contact() {
                     id="contact-phone"
                     name="phone"
                     type="tel"
-                    placeholder="+91-00000-00000"
+                    placeholder="+91 99674 50118"
                     autoComplete="tel"
                   />
                 </div>

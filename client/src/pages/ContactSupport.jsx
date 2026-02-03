@@ -68,7 +68,7 @@ export default function ContactSupport() {
   const [userRole, setUserRole] = useState(null)
   const [supportChannels, setSupportChannels] = useState({
     email: 'support@nbaurumsolutions.com',
-    phone: '+91 00000 00000',
+    phone: '+91 99674 50118',
     businessHours: 'Mon–Fri, 10:00–18:00 (IST)',
   })
   const { values: ticket, setValues: setTicket, clearLocalDraft } = usePersistedFormState({
@@ -117,7 +117,7 @@ export default function ContactSupport() {
       if (settings?.general) {
         setSupportChannels({
           email: settings.general.supportEmail || settings.general.companyEmail || 'support@nbaurumsolutions.com',
-          phone: settings.general.supportPhone || settings.general.companyPhone || '+91 00000 00000',
+          phone: settings.general.supportPhone || settings.general.companyPhone || '+91 99674 50118',
           businessHours: settings.general.businessHours || 'Mon–Fri, 10:00–18:00 (IST)',
         })
       }

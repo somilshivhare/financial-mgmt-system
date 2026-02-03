@@ -1,6 +1,20 @@
 const { v4: uuidv4 } = require('uuid');
 const { query, transaction } = require('../db/query');
 
+/**
+ * Parse setting value from DB - may be string (JSON) or already an object (e.g. MySQL2 JSON column)
+ */
+const parseSettingValue = (val) => {
+  if (val == null) return {};
+  if (typeof val === 'object') return val;
+  if (typeof val !== 'string') return {};
+  try {
+    return JSON.parse(val);
+  } catch (e) {
+    return {};
+  }
+};
+
 // In-memory cache for settings (refreshed on updates)
 let settingsCache = null;
 let cacheTimestamp = null;
@@ -27,7 +41,7 @@ const getAllSettings = async (useCache = true) => {
       settings.forEach(setting => {
         try {
           settingsObj[setting.setting_key] = {
-            ...JSON.parse(setting.setting_value),
+            ...parseSettingValue(setting.setting_value),
             _meta: {
               type: setting.setting_type,
               isLocked: setting.is_locked,
@@ -65,7 +79,7 @@ const getSetting = async (key) => {
   if (!setting) return null;
   
   return {
-    ...JSON.parse(setting.setting_value),
+    ...parseSettingValue(setting.setting_value),
     _meta: {
       type: setting.setting_type,
       isLocked: setting.is_locked,
@@ -80,27 +94,35 @@ const getSetting = async (key) => {
  * Check if financial year can be changed (no transactions exist)
  */
 const canChangeFinancialYear = async (newFinancialYear) => {
-  // Check if any invoices exist for the current financial year
-  const [invoices] = await query(
-    'SELECT COUNT(*) as count FROM invoices WHERE YEAR(created_at) IN (?, ?)',
-    [newFinancialYear.split('-')[0], newFinancialYear.split('-')[1]]
-  );
-  
-  // Check if any payments exist
-  const [payments] = await query('SELECT COUNT(*) as count FROM payments');
-  
-  // If transactions exist, cannot change financial year
-  if (invoices.count > 0 || payments.count > 0) {
-    const currentFY = await getSetting('general');
-    if (currentFY && currentFY.financialYear !== newFinancialYear) {
-      return {
-        allowed: false,
-        reason: 'Cannot change financial year: Transactions already exist in the system. Financial year changes are only allowed before any transactions are recorded.',
-      };
+  try {
+    // Check if any invoices exist for the current financial year
+    const invoiceRows = await query(
+      'SELECT COUNT(*) as count FROM invoices WHERE YEAR(created_at) IN (?, ?)',
+      [newFinancialYear.split('-')[0], newFinancialYear.split('-')[1]]
+    );
+    const invoiceCount = (invoiceRows && invoiceRows[0]) ? Number(invoiceRows[0].count) : 0;
+
+    // Check if any payments exist
+    const paymentRows = await query('SELECT COUNT(*) as count FROM payments');
+    const paymentCount = (paymentRows && paymentRows[0]) ? Number(paymentRows[0].count) : 0;
+
+    // If transactions exist, cannot change financial year
+    if (invoiceCount > 0 || paymentCount > 0) {
+      const currentFY = await getSetting('general');
+      if (currentFY && currentFY.financialYear !== newFinancialYear) {
+        return {
+          allowed: false,
+          reason: 'Cannot change financial year: Transactions already exist in the system. Financial year changes are only allowed before any transactions are recorded.',
+        };
+      }
     }
+
+    return { allowed: true };
+  } catch (err) {
+    // If tables don't exist or query fails, allow change (fail open for new installs)
+    console.warn('[Settings] canChangeFinancialYear check failed:', err.message);
+    return { allowed: true };
   }
-  
-  return { allowed: true };
 };
 
 /**
@@ -118,7 +140,7 @@ const updateSetting = async (key, value, userId, changeReason = null) => {
       throw new Error('SETTING_NOT_FOUND');
     }
     
-    const oldValue = JSON.parse(oldSetting[0].setting_value);
+    const oldValue = parseSettingValue(oldSetting[0].setting_value);
     
     // Validate financial year change
     if (key === 'general' && value.financialYear && oldValue.financialYear !== value.financialYear) {
@@ -159,7 +181,7 @@ const updateSetting = async (key, value, userId, changeReason = null) => {
     
     return {
       key: updated[0].setting_key,
-      value: JSON.parse(updated[0].setting_value),
+      value: parseSettingValue(updated[0].setting_value),
       type: updated[0].setting_type,
       updatedAt: updated[0].updated_at,
     };
@@ -189,7 +211,8 @@ const resetToDefaults = async (userId, settingKeys = null) => {
     general: {
       companyName: 'NB Aurum Solutions',
       companyEmail: 'finance@nbaurumsolutions.com',
-      companyPhone: '+91 00000 00000',
+      companyPhone: '+91 99674 50118',
+      companyAddress: 'Lower Ground Floor, LGF-17, Krishna Apra D Mall, Shakti Khand-2, Indirapuram, Ghaziabad District, Uttar Pradesh – 201014, India',
       financialYear: '2024-2025',
       currency: 'INR',
     },
@@ -275,8 +298,8 @@ const getAuditLog = async (key = null, limit = 50) => {
   return logs.map(log => ({
     id: log.id,
     settingKey: log.setting_key,
-    oldValue: JSON.parse(log.old_value || '{}'),
-    newValue: JSON.parse(log.new_value),
+    oldValue: parseSettingValue(log.old_value),
+    newValue: parseSettingValue(log.new_value),
     changedBy: log.changed_by,
     changeReason: log.change_reason,
     createdAt: log.created_at,

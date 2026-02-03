@@ -1,16 +1,19 @@
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../db/query');
 
+/**
+ * Parse values column from DB - may be string (JSON), Buffer, or already an object (e.g. MySQL JSON column).
+ * Avoids "SyntaxError: [object Object] is not valid JSON" in production when driver returns object or invalid string.
+ */
 const parseJson = (value) => {
   if (value == null) return null;
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
+  if (typeof value === 'object' && value !== null && !Buffer.isBuffer(value)) return value;
+  const str = Buffer.isBuffer(value) ? value.toString('utf8') : (typeof value === 'string' ? value : String(value));
+  try {
+    return JSON.parse(str);
+  } catch {
+    return {};
   }
-  return value;
 };
 
 const normalizeMasterDataRecord = (record) => {

@@ -172,7 +172,7 @@ const transaction = async (fn) => {
     // Rollback only if transaction was started
     if (connection && connectionAcquired) {
       try {
-    await connection.rollback();
+        await connection.rollback();
       } catch (rollbackError) {
         console.error('Error during transaction rollback:', rollbackError.message);
       }
@@ -182,12 +182,12 @@ const transaction = async (fn) => {
     // Always release connection
     if (connection && connectionAcquired) {
       try {
-    connection.release();
+        connection.release();
       } catch (releaseError) {
         console.error('Error releasing connection:', releaseError.message);
       }
     }
-    }
+  }
 };
 
 module.exports = { query, transaction };
