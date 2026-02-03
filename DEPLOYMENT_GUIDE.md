@@ -213,13 +213,17 @@ sudo nano /etc/nginx/sites-available/nbaurum
 
 **Add the following configuration:**
 
+> **Important (Master Data / 413 fix):** Add `client_max_body_size 50m;` inside the `location /api` block (and in the server block if you use a single server). Without this, saving Consignee/Employee profiles with logos can return **413 Request Entity Too Large** from Nginx.
+
 ```nginx
 # Backend API
 server {
     listen 80;
     server_name api.yourdomain.com;  # Replace with your domain or IP
+    client_max_body_size 50m;
 
     location /api {
+        client_max_body_size 50m;
         proxy_pass http://localhost:4000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -280,8 +284,10 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Backend API
+    # Backend API (client_max_body_size 50m required for Master Data logos)
+    client_max_body_size 50m;
     location /api {
+        client_max_body_size 50m;
         proxy_pass http://localhost:4000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;

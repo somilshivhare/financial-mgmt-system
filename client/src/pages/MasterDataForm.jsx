@@ -12,8 +12,8 @@ import { COUNTRIES, INDIA_STATES } from '../utils/indiaStates'
 import { saveMasterDataRecord, updateMasterDataRecord, upsertMasterDataRecord, getMasterDataById, getMasterDataByType, getLatestMasterDataByType } from '../api/masterData'
 import '../styles/MasterData.css'
 import { FORM_DEFS, FORM_STEPS } from '../utils/masterDataDefs'
+import { capLogoPreviewsPayload } from '../utils/logoPayloadHelper'
 
- 
 
 /**
  * MasterDataForm Component
@@ -1002,7 +1002,7 @@ function MasterDataForm() {
         const savedItems = await Promise.all(items.map(async (item) => {
           const payload = {
             values: cleanValues(item.values || {}),
-            logoPreviews: item.logoPreviews || {},
+            logoPreviews: await capLogoPreviewsPayload(cleanLogoPreviews(item.logoPreviews || {})),
             companyId: type === 'company-profile' ? undefined : nextDraftId,
             status: 'draft',
           }
@@ -1027,7 +1027,7 @@ function MasterDataForm() {
       } else {
         const payload = {
           values: cleanValues(values) || {},
-          logoPreviews: cleanLogoPreviews(logoPreviewsRef.current),
+          logoPreviews: await capLogoPreviewsPayload(cleanLogoPreviews(logoPreviewsRef.current)),
           companyId: type === 'company-profile' ? undefined : nextDraftId,
           status: 'draft',
         }
@@ -1067,10 +1067,13 @@ function MasterDataForm() {
       return nextDraftId
     } catch (error) {
       console.error('[MasterDataForm] Failed to save draft:', error)
-      const message =
+      let message =
         error?.response?.data?.message ||
         error?.message ||
         'Failed to save draft. Please try again.'
+      if (error?.status === 413 || error?.code === 'ERR_PAYLOAD_TOO_LARGE') {
+        message = 'Request too large. Try smaller logos/images or ask your administrator to increase server limits.'
+      }
       setStatus({ kind: 'error', message })
       setSavingInProgress(false)
       return null
@@ -1109,13 +1112,13 @@ function MasterDataForm() {
 
           await updateMasterDataRecord(type, id, {
             values: cleanValues(item?.values || {}),
-            logoPreviews: item?.logoPreviews || {},
+            logoPreviews: await capLogoPreviewsPayload(item?.logoPreviews || {}),
             companyId: type === 'company-profile' ? undefined : selectedCompanyId,
           })
         } else {
           await updateMasterDataRecord(type, id, {
             values: cleanValues(values),
-            logoPreviews: logoPreviewsRef.current,
+            logoPreviews: await capLogoPreviewsPayload(logoPreviewsRef.current || {}),
             companyId: type === 'company-profile' ? undefined : selectedCompanyId,
           })
         }
@@ -1127,10 +1130,10 @@ function MasterDataForm() {
 
       // Create mode: keep existing behavior (may create multiple records)
       const records = transformToTabularRecords()
-      const savePromises = records.map(record => 
+      const savePromises = records.map(async record =>
         saveMasterDataRecord(type, {
           values: cleanValues(record.values),
-          logoPreviews: record.logoPreviews,
+          logoPreviews: await capLogoPreviewsPayload(record.logoPreviews || {}),
           companyId: type === 'company-profile' ? undefined : selectedCompanyId,
         })
       )
@@ -1140,7 +1143,11 @@ function MasterDataForm() {
       setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
     } catch (error) {
       console.error('Failed to save:', error)
-      setStatus({ kind: 'error', message: 'Failed to save form. Please try again.' })
+      let msg = 'Failed to save form. Please try again.'
+      if (error?.status === 413 || error?.code === 'ERR_PAYLOAD_TOO_LARGE') {
+        msg = 'Request too large. Try smaller logos/images or ask your administrator to increase server limits.'
+      } else if (error?.message) msg = error.message
+      setStatus({ kind: 'error', message: msg })
     }
   }
 
@@ -1298,13 +1305,13 @@ function MasterDataForm() {
 
           await updateMasterDataRecord(type, id, {
             values: cleanValues(item?.values || {}),
-            logoPreviews: item?.logoPreviews || {},
+            logoPreviews: await capLogoPreviewsPayload(item?.logoPreviews || {}),
             companyId: type === 'company-profile' ? undefined : selectedCompanyId,
           })
         } else {
           await updateMasterDataRecord(type, id, {
             values: cleanValues(values),
-            logoPreviews: logoPreviewsRef.current,
+            logoPreviews: await capLogoPreviewsPayload(logoPreviewsRef.current || {}),
             companyId: type === 'company-profile' ? undefined : selectedCompanyId,
           })
         }
@@ -1332,7 +1339,7 @@ function MasterDataForm() {
         // Always create new company profile (not update)
         await saveMasterDataRecord(type, {
           values: cleanValues(values),
-          logoPreviews: logoPreviewsRef.current,
+          logoPreviews: await capLogoPreviewsPayload(logoPreviewsRef.current || {}),
         })
         
         // Trigger refresh of Master Data Records page
@@ -1374,11 +1381,11 @@ function MasterDataForm() {
           return cleaned
         }
         
-        // Save all items as separate records
-        const savePromises = items.map(item => 
+        // Save all items as separate records (cap logo size to avoid 413)
+        const savePromises = items.map(async item =>
           saveMasterDataRecord(type, {
             values: cleanValues(item.values),
-            logoPreviews: item.logoPreviews || {},
+            logoPreviews: await capLogoPreviewsPayload(item.logoPreviews || {}),
             companyId: type === 'company-profile' ? undefined : selectedCompanyId,
           })
         )
@@ -1415,7 +1422,7 @@ function MasterDataForm() {
         // Always create new record (not update) for complete isolation
         await saveMasterDataRecord(type, {
           values: cleanValues(values),
-          logoPreviews: logoPreviewsRef.current,
+          logoPreviews: await capLogoPreviewsPayload(logoPreviewsRef.current || {}),
           companyId: type === 'company-profile' ? undefined : selectedCompanyId,
         })
         
@@ -1444,11 +1451,11 @@ function MasterDataForm() {
         return cleaned
       }
       
-      // Save each record separately to database
-      const savePromises = records.map(record => 
+      // Save each record separately to database (cap logo size to avoid 413)
+      const savePromises = records.map(async record =>
         saveMasterDataRecord(type, {
           values: cleanValues(record.values),
-          logoPreviews: record.logoPreviews,
+          logoPreviews: await capLogoPreviewsPayload(record.logoPreviews || {}),
           companyId: type === 'company-profile' ? undefined : selectedCompanyId,
         })
       )
@@ -1463,7 +1470,11 @@ function MasterDataForm() {
       setSavingInProgress(false)
     } catch (error) {
       console.error('Failed to save:', error)
-      setStatus({ kind: 'error', message: 'Failed to save record. Please try again.' })
+      let msg = 'Failed to save record. Please try again.'
+      if (error?.status === 413 || error?.code === 'ERR_PAYLOAD_TOO_LARGE') {
+        msg = 'Request too large. Try smaller logos/images or ask your administrator to increase server limits.'
+      } else if (error?.message) msg = error.message
+      setStatus({ kind: 'error', message: msg })
       setSavingInProgress(false)
     }
   }

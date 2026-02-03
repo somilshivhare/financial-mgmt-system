@@ -123,6 +123,15 @@ client.interceptors.response.use(
       })
     }
 
+    if (status === 413) {
+      return Promise.reject({
+        message: data?.message || 'Request too large. Try removing or resizing logos/images, or contact your administrator to increase server limits.',
+        code: data?.code || 'ERR_PAYLOAD_TOO_LARGE',
+        status,
+        isPayloadTooLarge: true,
+      })
+    }
+
     // Return the error response data if available
     return Promise.reject({
       message: data?.message || error.message || 'An error occurred',
