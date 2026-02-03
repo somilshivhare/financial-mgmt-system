@@ -156,41 +156,51 @@ const getMasterDataByType = async (type, userId, { companyId = null, status = nu
     throw createHttpError(401, 'ERR_UNAUTHORIZED', 'Authentication required');
   }
 
-  let sql = `
-    SELECT id, type, company_id AS companyId, status, \`values\`, created_by, updated_by, created_at, updated_at
-    FROM master_data
-    WHERE type = ?
-      AND (created_by = ? OR updated_by = ?)
-  `;
-  const params = [type, userId, userId];
+  try {
+    let sql = `
+      SELECT id, type, company_id AS companyId, status, \`values\`, created_by, updated_by, created_at, updated_at
+      FROM master_data
+      WHERE type = ?
+        AND (created_by = ? OR updated_by = ?)
+    `;
+    const params = [type, userId, userId];
 
-  if (companyId && type !== 'company-profile') {
-    sql += ' AND company_id = ?';
-    params.push(companyId);
+    if (companyId && type !== 'company-profile') {
+      sql += ' AND company_id = ?';
+      params.push(companyId);
+    }
+
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(normalizeStatus(status));
+    }
+
+    sql += ' ORDER BY created_at DESC';
+
+    const records = await query(sql, params);
+    return (records || []).map(normalizeMasterDataRecord);
+  } catch (err) {
+    console.error('[MasterDataService] getMasterDataByType failed:', err.code || err.message, { type, userId: userId?.substring?.(0, 8) });
+    return [];
   }
-
-  if (status) {
-    sql += ' AND status = ?';
-    params.push(normalizeStatus(status));
-  }
-
-  sql += ' ORDER BY created_at DESC';
-
-  const records = await query(sql, params);
-  return records.map(normalizeMasterDataRecord);
 };
 
 const getMasterDataById = async (type, id, userId) => {
-  const [record] = await query(
-    `SELECT id, type, company_id AS companyId, status, \`values\`, created_by, updated_by, created_at, updated_at
-     FROM master_data
-     WHERE type = ?
-       AND id = ?
-       AND (created_by = ? OR updated_by = ?)
-     LIMIT 1`,
-    [type, id, userId, userId]
-  );
-  return normalizeMasterDataRecord(record);
+  try {
+    const [record] = await query(
+      `SELECT id, type, company_id AS companyId, status, \`values\`, created_by, updated_by, created_at, updated_at
+       FROM master_data
+       WHERE type = ?
+         AND id = ?
+         AND (created_by = ? OR updated_by = ?)
+       LIMIT 1`,
+      [type, id, userId, userId]
+    );
+    return normalizeMasterDataRecord(record);
+  } catch (err) {
+    console.error('[MasterDataService] getMasterDataById failed:', err.code || err.message, { type, id: id?.substring?.(0, 8) });
+    return null;
+  }
 };
 
 const saveMasterDataRecord = async (type, { values, logoPreviews, companyId, status }, userId) => {
@@ -372,30 +382,35 @@ const searchMasterData = async (queryString, userId) => {
  * Returns the most recently created or updated record
  */
 const getLatestMasterDataByType = async (type, userId = null, companyId = null, status = null) => {
-  let sql = 'SELECT id, type, company_id AS companyId, status, `values`, created_by, updated_by, created_at, updated_at FROM master_data WHERE type = ?';
-  const params = [type];
-  
-  // Optionally filter by user
-  if (userId) {
-    sql += ' AND (created_by = ? OR updated_by = ?)';
-    params.push(userId, userId);
-  }
+  try {
+    let sql = 'SELECT id, type, company_id AS companyId, status, `values`, created_by, updated_by, created_at, updated_at FROM master_data WHERE type = ?';
+    const params = [type];
 
-  // Optionally filter by company (for non-company types)
-  if (companyId && type !== 'company-profile') {
-    sql += ' AND company_id = ?';
-    params.push(companyId);
-  }
+    // Optionally filter by user
+    if (userId) {
+      sql += ' AND (created_by = ? OR updated_by = ?)';
+      params.push(userId, userId);
+    }
 
-  if (status) {
-    sql += ' AND status = ?';
-    params.push(normalizeStatus(status));
+    // Optionally filter by company (for non-company types)
+    if (companyId && type !== 'company-profile') {
+      sql += ' AND company_id = ?';
+      params.push(companyId);
+    }
+
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(normalizeStatus(status));
+    }
+
+    sql += ' ORDER BY updated_at DESC, created_at DESC LIMIT 1';
+
+    const [record] = await query(sql, params);
+    return normalizeMasterDataRecord(record);
+  } catch (err) {
+    console.error('[MasterDataService] getLatestMasterDataByType failed:', err.code || err.message, { type });
+    return null;
   }
-  
-  sql += ' ORDER BY updated_at DESC, created_at DESC LIMIT 1';
-  
-  const [record] = await query(sql, params);
-  return normalizeMasterDataRecord(record);
 };
 
 /**
