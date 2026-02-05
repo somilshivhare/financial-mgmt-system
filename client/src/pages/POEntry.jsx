@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, Plus, X, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { ArrowLeft, Save, Plus, X, Trash2, ToggleLeft, ToggleRight, RotateCcw, Zap } from 'lucide-react'
 import DatePicker from '../components/DatePicker'
 import { useMasterData } from '../contexts/MasterDataContext'
 import { useToast } from '../contexts/ToastContext'
@@ -682,6 +682,178 @@ function POEntry() {
     }
   }
 
+  const handleReset = () => {
+    // Confirm reset action
+    if (window.confirm('Are you sure you want to reset the form? All unsaved changes will be lost.')) {
+      // Reset form data to defaults (preserve id if editing)
+      const resetFormData = { ...defaultFormData }
+      if (id || formData.id) {
+        resetFormData.id = id || formData.id
+      }
+      
+      // Reset BOQ items to single empty item
+      const resetBoqItems = [{
+        id: 1,
+        materialDescription: '',
+        quantity: '',
+        uom: '',
+        unitPrice: '',
+        unitCost: '',
+        freight: '',
+        gst: '',
+        totalCost: '',
+      }]
+      
+      // Update persisted data
+      setPersistedData({
+        formData: resetFormData,
+        boqItems: resetBoqItems,
+      })
+      
+      // Clear local draft
+      if (typeof clearLocalDraft === 'function') {
+        clearLocalDraft()
+      }
+      
+      showToast('Form reset successfully!', 'success')
+    }
+  }
+
+  // Auto-fill sample data for manually filled fields only (not auto-generated or auto-filled)
+  const handleAutoFill = () => {
+    // Get today's date for date fields
+    const today = new Date().toISOString().split('T')[0]
+    const futureDate = new Date()
+    futureDate.setDate(futureDate.getDate() + 90)
+    const futureDateStr = futureDate.toISOString().split('T')[0]
+    
+    // Get first available employee IDs for role assignments
+    const getFirstEmployeeId = (employeeList) => {
+      return Array.isArray(employeeList) && employeeList.length > 0 ? employeeList[0].id : ''
+    }
+    
+    // Sample BOQ items (totalCost will be auto-calculated by handleBOQItemChange)
+    const sampleBoqItems = [
+      {
+        id: 1,
+        materialDescription: 'Steel Beams ISMB 200',
+        quantity: '100',
+        uom: 'MT',
+        unitPrice: '65000',
+        unitCost: '60000',
+        freight: '50000',
+        gst: '108000',
+        totalCost: '', // Will be auto-calculated
+      },
+      {
+        id: 2,
+        materialDescription: 'Cement Grade 53',
+        quantity: '500',
+        uom: 'Bags',
+        unitPrice: '450',
+        unitCost: '400',
+        freight: '10000',
+        gst: '36000',
+        totalCost: '', // Will be auto-calculated
+      },
+      {
+        id: 3,
+        materialDescription: 'Reinforcement Steel Bars',
+        quantity: '50',
+        uom: 'MT',
+        unitPrice: '55000',
+        unitCost: '52000',
+        freight: '25000',
+        gst: '93600',
+        totalCost: '', // Will be auto-calculated
+      },
+    ]
+    
+    // Calculate totalCost for each BOQ item
+    const calculatedBoqItems = sampleBoqItems.map((item) => {
+      const quantity = parseFloat(item.quantity) || 0
+      const unitCost = parseFloat(item.unitCost) || 0
+      const freight = parseFloat(item.freight) || 0
+      const gst = parseFloat(item.gst) || 0
+      const calculatedTotal = quantity * unitCost + freight + gst
+      return {
+        ...item,
+        totalCost: calculatedTotal > 0 ? calculatedTotal.toFixed(2) : '',
+      }
+    })
+    
+    // Auto-fill only manual fields (preserve auto-generated and auto-filled fields)
+    setFormData((prev) => ({
+      ...prev,
+      // Contract & Agreement Details
+      contractAgreementNo: 'CA/2025-26/001',
+      contractAgreementDate: today,
+      
+      // LOI, LOA & Tender References
+      loiNumber: 'LOI/2025-26/001',
+      loiDate: today,
+      loaNumber: 'LOA/2025-26/001',
+      loaDate: today,
+      tenderNumber: 'TENDER/2025-26/001',
+      tenderDate: today,
+      
+      // Project Description
+      projectDescription: 'Supply and installation of structural steel works for commercial building project. Scope includes fabrication, transportation, and erection of steel structures as per approved drawings and specifications.',
+      
+      // Payment Details
+      paymentType: 'Secured',
+      paymentTermsClauseInPO: 'Payment shall be made as per the following schedule: 30% advance payment, 40% on delivery, 20% after 30 days of delivery, and 10% retention after 90 days. All payments subject to GST as applicable.',
+      
+      // Insurance Details
+      insuranceType: 'Marine Insurance',
+      insurancePolicyNumber: 'INS/MAR/2025-26/001',
+      insurancePolicyDate: today,
+      insurancePolicyCompany: 'New India Assurance Company Limited',
+      insurancePolicyValidUpto: futureDateStr,
+      insurancePolicyClauseInPO: 'The supplier shall arrange comprehensive marine insurance covering all risks from factory to site. Insurance policy shall be valid for the entire duration of the project.',
+      insurancePolicyRemarks: 'Insurance coverage includes transit, storage, and erection risks. Policy to be submitted before dispatch.',
+      
+      // Bank Guarantee Details
+      bankGuaranteeType: 'Advance Bank Guarantee',
+      bankGuaranteeNumber: 'BG/ADV/2025-26/001',
+      bankGuaranteeDate: today,
+      bankGuaranteeValue: '500000',
+      bankName: 'State Bank of India',
+      bankGuaranteeValidity: futureDateStr,
+      bankGuaranteeReleaseValidityClauseInPO: 'Bank guarantee shall be valid until completion of all contractual obligations and shall be released within 30 days of project completion and acceptance.',
+      bankGuaranteeRemarks: 'Bank guarantee to be submitted along with advance payment request. Original document required.',
+      
+      // Role Assignments (use first available employee from each role)
+      salesManagerId: getFirstEmployeeId(salesManagers),
+      salesHeadId: getFirstEmployeeId(salesHeads),
+      businessHeadId: getFirstEmployeeId(businessHeads),
+      projectManagerId: getFirstEmployeeId(projectManagers),
+      projectHeadId: getFirstEmployeeId(projectHeads),
+      collectionInchargeId: getFirstEmployeeId(collectionIncharges),
+      salesAgentName: getFirstEmployeeId(salesAgents),
+      salesAgentCommission: '2.5',
+      collectionAgentName: getFirstEmployeeId(collectionAgents),
+      collectionAgentCommission: '1.5',
+      
+      // Delivery Schedule & Other Details
+      deliveryScheduleClause: 'Delivery shall be completed within 90 days from the date of purchase order. Partial deliveries are acceptable. All materials must be delivered to the site address mentioned in the PO.',
+      liquidatedDamagesClause: 'Liquidated damages at the rate of 0.5% per week of delay, subject to a maximum of 5% of the contract value, shall be applicable for any delay beyond the agreed delivery schedule.',
+      lastDateOfDelivery: futureDateStr,
+      poValidity: '90 days',
+      poSignedConcernName: 'ABC Corporation Private Limited',
+      
+      // Business Unit, Segment, Zone (if not already set from customer)
+      businessUnit: prev.businessUnit || 'MAIN',
+      segment: prev.segment || 'Domestic',
+      zone: prev.zone || 'North',
+    }))
+    
+    // Fill BOQ items
+    setBoqItems(calculatedBoqItems)
+    
+    showToast('Sample data filled! You can modify any field as needed.', 'success')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -833,6 +1005,17 @@ function POEntry() {
         </div>
         
         <div className="po-entry-header-actions">
+          {!id && (
+            <button
+              type="button"
+              onClick={handleAutoFill}
+              className="po-entry-action-button po-entry-action-button-secondary"
+              title="Auto-fill sample data for testing (only manual fields)"
+            >
+              <Zap className="po-entry-action-icon" />
+              <span>Auto-Fill Sample Data</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleSaveDraft}
@@ -840,6 +1023,15 @@ function POEntry() {
           >
             <Save className="po-entry-action-icon" />
             <span>Save Draft</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="po-entry-action-button po-entry-action-button-secondary"
+            title="Reset form to default values"
+          >
+            <RotateCcw className="po-entry-action-icon" />
+            <span>Reset</span>
           </button>
           <button
             type="button"

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, Calculator, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Save, Calculator, RotateCcw, Zap } from 'lucide-react'
 import DatePicker from '../components/DatePicker'
 import { useMasterData } from '../contexts/MasterDataContext'
 import { useToast } from '../contexts/ToastContext'
@@ -817,6 +817,137 @@ function InvoiceEntry() {
     showToast('Form reset', 'success')
   }
 
+  // Auto-fill sample data for manually filled fields only (not auto-generated or auto-filled)
+  const handleAutoFill = () => {
+    // Get today's date for date fields
+    const today = new Date().toISOString().split('T')[0]
+    const futureDate = new Date()
+    futureDate.setDate(futureDate.getDate() + 30)
+    const futureDateStr = futureDate.toISOString().split('T')[0]
+    
+    // Get first available IDs from master data
+    const getFirstId = (list) => {
+      return Array.isArray(list) && list.length > 0 ? list[0].id : ''
+    }
+    
+    // Auto-fill only manual fields (preserve auto-generated and auto-filled fields)
+    setFormData((prev) => ({
+      ...prev,
+      // Invoice Identification (manual fields only)
+      gstTaxInvoiceNo: prev.gstTaxInvoiceNo || 'GST/INV/2025-26/001',
+      gstTaxInvoiceDate: prev.gstTaxInvoiceDate || today,
+      
+      // Customer & PO Details (manual fields only)
+      region: prev.region || 'North',
+      zone: prev.zone || 'North',
+      salesOrderNo: prev.salesOrderNo || 'SO/2025-26/001',
+      poDate: prev.poDate || today,
+      
+      // Material & Supply Details
+      materialDescriptionType: prev.materialDescriptionType || 'Goods',
+      stateOfSupply: prev.stateOfSupply || 'Maharashtra',
+      qty: prev.qty || '100',
+      unit: prev.unit || 'MT',
+      
+      // Tax & Value Calculations (manual rates only)
+      basicRate: prev.basicRate || '50000',
+      freightInvoiceNo: prev.freightInvoiceNo || 'FRT/2025-26/001',
+      freightRate: prev.freightRate || '5000',
+      sgstRate: prev.sgstRate || '9',
+      cgstRate: prev.cgstRate || '9',
+      igstRate: prev.igstRate || '18',
+      ugstRate: prev.ugstRate || '0',
+      tcs: prev.tcs || '0',
+      
+      // Consignee & Payer Details (manual entry fields)
+      consigneeNameAddress: prev.consigneeNameAddress || 'ABC Logistics Solutions\n123 Warehouse Complex, Industrial Estate\nMumbai, Maharashtra',
+      consigneeCity: prev.consigneeCity || 'Mumbai',
+      payerNameAddress: prev.payerNameAddress || 'XYZ Trading Company\n456 Commercial Street\nChennai, Tamil Nadu',
+      payerCity: prev.payerCity || 'Chennai',
+      
+      // Logistics & Transport
+      lorryReceiptNo: prev.lorryReceiptNo || 'LR/2025-26/001',
+      lorryReceiptDate: prev.lorryReceiptDate || today,
+      ...(() => {
+        const transporterId = prev.transporterId || getFirstId(employees.filter((emp) => {
+          const role = (emp.values?.role || emp.role || '').toLowerCase()
+          return role.includes('transporter')
+        }))
+        const transporter = employees.find((emp) => emp.id === transporterId)
+        const transporterName = transporter 
+          ? (transporter.values?.nameOfEmployee || transporter.values?.transporterName || transporter.name || 'Fast Track Logistics')
+          : (prev.transporterName || 'Fast Track Logistics')
+        return {
+          transporterId,
+          transporterName,
+        }
+      })(),
+      deliveryChallanNo: prev.deliveryChallanNo || 'DC/2025-26/001',
+      deliveryChallanDate: prev.deliveryChallanDate || today,
+      
+      // Material Inspection Dates
+      materialInspectionRequestDate: prev.materialInspectionRequestDate || today,
+      inspectionOfferDate: prev.inspectionOfferDate || futureDateStr,
+      materialInspectionDate: prev.materialInspectionDate || futureDateStr,
+      deliveryInstructionDate: prev.deliveryInstructionDate || futureDateStr,
+      deliveryInspectionCIPReceivedDate: prev.deliveryInspectionCIPReceivedDate || futureDateStr,
+      miccReceiptDate: prev.miccReceiptDate || futureDateStr,
+      lastDateOfDispatch: prev.lastDateOfDispatch || futureDateStr,
+      invoiceReadyDate: prev.invoiceReadyDate || futureDateStr,
+      
+      // Courier Details
+      courierDocumentNo: prev.courierDocumentNo || 'COURIER/2025-26/001',
+      courierDocumentDate: prev.courierDocumentDate || today,
+      courierCompanyName: prev.courierCompanyName || 'Blue Dart Express',
+      billSentToPersonName: prev.billSentToPersonName || 'John Doe',
+      billSentDate: prev.billSentDate || today,
+      
+      // Material Receipt Dates
+      lastDateOfMaterialReceipt: prev.lastDateOfMaterialReceipt || today,
+      invoiceReceiptDate: prev.invoiceReceiptDate || today,
+      ...(() => {
+        const invoiceReceiptPersonId = prev.invoiceReceiptPersonId || getFirstId(employees)
+        const person = employees.find((emp) => emp.id === invoiceReceiptPersonId)
+        const invoiceReceiptPersonName = person
+          ? (person.values?.nameOfEmployee || person.name || 'Jane Smith')
+          : (prev.invoiceReceiptPersonName || 'Jane Smith')
+        return {
+          invoiceReceiptPersonId,
+          invoiceReceiptPersonName,
+        }
+      })(),
+      materialVerificationDate: prev.materialVerificationDate || today,
+      
+      // Processing Dates
+      jvrDate: prev.jvrDate || today,
+      srnDate: prev.srnDate || today,
+      mrcDate: prev.mrcDate || today,
+      invoiceSubmissionAtSiteDate: prev.invoiceSubmissionAtSiteDate || today,
+      invoiceForwardedToHODate: prev.invoiceForwardedToHODate || today,
+      invoiceForwardedForPaymentDate: prev.invoiceForwardedForPaymentDate || today,
+      
+      // TDS Fields
+      itTDS2Percent: prev.itTDS2Percent || '0',
+      itTDS1Percent194Q: prev.itTDS1Percent194Q || '0',
+      lcessBoq1Percent: prev.lcessBoq1Percent || '0',
+      tds2PercentCGSTSGST: prev.tds2PercentCGSTSGST || '0',
+      tdsOnCGST1Percent: prev.tdsOnCGST1Percent || '0',
+      tdsOnSGST1Percent: prev.tdsOnSGST1Percent || '0',
+      
+      // Deductions & Adjustments
+      excessSupplyQty: prev.excessSupplyQty || '0',
+      interestOnAdvance: prev.interestOnAdvance || '0',
+      anyHold: prev.anyHold || 'No',
+      penaltyLDDeduction: prev.penaltyLDDeduction || '0',
+      bankCharges: prev.bankCharges || '0',
+      lcDiscrepancyCharge: prev.lcDiscrepancyCharge || '0',
+      provisionForBadDebts: prev.provisionForBadDebts || '0',
+      badDebts: prev.badDebts || '0',
+    }))
+    
+    showToast('Sample data filled! You can modify any field as needed.', 'success')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -838,13 +969,23 @@ function InvoiceEntry() {
     
     // Save invoice with all computed values. Send poId when available so backend validates from single source.
     try {
+      // Ensure totalInvoiceValue is included and is a valid number
+      const calculatedTotal = parseFloat(displayData.totalInvoiceValue || calculatedValues.totalInvoiceValue || formData.totalInvoiceValue || 0)
+      const finalTotalInvoiceValue = isNaN(calculatedTotal) ? 0 : calculatedTotal
+      
+      console.log('[InvoiceEntry] Submitting invoice with totalInvoiceValue:', finalTotalInvoiceValue, 'from displayData:', displayData.totalInvoiceValue, 'calculatedValues:', calculatedValues.totalInvoiceValue)
+      
       const invoiceData = {
         ...formData,
         ...displayData,
+        // Explicitly set total_amount and totalInvoiceValue to ensure they're sent
+        total_amount: finalTotalInvoiceValue,
+        totalInvoiceValue: finalTotalInvoiceValue,
         key_id: formData.keyID, // Store Key ID for reporting
         poId: formData.poId || undefined, // Preferred: backend uses this for PO lookup when present
         invoice_number: formData.internalInvoiceNo,
         issue_date: formData.gstTaxInvoiceDate,
+        status: id ? (formData.status || 'open') : 'posted', // Set status to 'posted' for new invoices, preserve existing for updates
       }
       
       let savedInvoice
@@ -861,6 +1002,38 @@ function InvoiceEntry() {
       } else {
         // Create new invoice
         savedInvoice = await invoiceService.saveInvoice(invoiceData)
+        
+        // Extract invoice from nested response structure
+        const invoiceFromResponse = savedInvoice?.data?.data || savedInvoice?.data || savedInvoice
+        
+        // Ensure status is explicitly set to 'posted' for new invoices
+        const invoiceWithStatus = {
+          ...invoiceFromResponse,
+          status: invoiceFromResponse?.status || invoiceData.status || 'posted'
+        }
+        
+        console.log('[InvoiceEntry] Created invoice with status:', invoiceWithStatus.status, invoiceWithStatus)
+        
+        // Dispatch event immediately with correct status
+        window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { invoice: invoiceWithStatus } }))
+        
+        // Also refresh from backend to ensure consistency
+        try {
+          const refreshedInvoice = await getInvoiceById(invoiceWithStatus?.id || savedInvoice?.id)
+          const refreshedData = refreshedInvoice?.data?.data || refreshedInvoice?.data || refreshedInvoice
+          if (refreshedData) {
+            // Use refreshed data but ensure status is 'posted' if it was set
+            const finalInvoice = {
+              ...refreshedData,
+              status: refreshedData.status || invoiceData.status || 'posted'
+            }
+            console.log('[InvoiceEntry] Refreshed invoice with status:', finalInvoice.status)
+            window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { invoice: finalInvoice } }))
+          }
+        } catch (e) {
+          console.warn('[InvoiceEntry] Failed to refresh invoice after save:', e)
+          // Already dispatched above, so continue
+        }
       }
       
       // Re-fetch the saved invoice to ensure UI is synced with backend
@@ -877,6 +1050,7 @@ function InvoiceEntry() {
               gstTaxInvoiceDate: invoice.gst_tax_invoice_date || invoice.gstTaxInvoiceDate || prev.gstTaxInvoiceDate,
               internalInvoiceNo: invoice.internal_invoice_no || invoice.internalInvoiceNo || invoice.invoice_number || prev.internalInvoiceNo,
               totalInvoiceValue: invoice.total_invoice_value || invoice.totalInvoiceValue || invoice.total_amount || prev.totalInvoiceValue,
+              status: invoice.status || prev.status,
             }))
           }
         } catch (refreshError) {
@@ -885,9 +1059,20 @@ function InvoiceEntry() {
         }
       }
       
-      showToast(`Invoice ${savedInvoice?.invoice_number || savedInvoice?.internalInvoiceNo || formData.internalInvoiceNo || ''} saved successfully!`, 'success')
+      // Use the invoice with correct status for the success message
+      const finalInvoice = savedInvoice?.data?.data || savedInvoice?.data || savedInvoice
+      const invoiceNumber = finalInvoice?.invoice_number || finalInvoice?.internal_invoice_no || finalInvoice?.internalInvoiceNo || formData.internalInvoiceNo || ''
+      const invoiceStatus = finalInvoice?.status || invoiceData.status || 'posted'
+      
+      console.log('[InvoiceEntry] Invoice saved - Number:', invoiceNumber, 'Status:', invoiceStatus)
+      
+      showToast(`Invoice ${invoiceNumber} saved successfully!`, 'success')
       if (typeof clearLocalDraft === 'function') clearLocalDraft()
-      navigate('/invoices', { state: { fromCreate: true }, replace: false })
+      
+      // Small delay to ensure events are processed before navigation
+      setTimeout(() => {
+        navigate('/invoices', { state: { fromCreate: true, invoiceStatus }, replace: false })
+      }, 100)
     } catch (error) {
       console.error('Failed to save invoice:', error)
       const msg = error?.response?.data?.message || error?.message || 'Failed to save invoice. Please try again.'
@@ -1012,6 +1197,17 @@ function InvoiceEntry() {
         </div>
         
         <div className="invoice-entry-header-actions">
+          {!id && (
+            <button
+              type="button"
+              onClick={handleAutoFill}
+              className="invoice-entry-action-button invoice-entry-action-button-secondary"
+              title="Auto-fill sample data for testing (only manual fields)"
+            >
+              <Zap className="invoice-entry-action-icon" />
+              <span>Auto-Fill Sample Data</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleReset}

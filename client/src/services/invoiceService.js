@@ -100,10 +100,21 @@ export const saveInvoice = async (invoiceData) => {
       response = await invoiceApi.createInvoice(invoiceData)
     }
 
-    // Trigger update event
-    window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { invoice: response.data } }))
+    // Extract invoice data from response (handle nested structure: { success, data: { data: invoice } } or { data: invoice })
+    const invoice = response?.data?.data || response?.data || response
+    
+    // Ensure status is preserved from submission (especially for new invoices)
+    const invoiceWithStatus = {
+      ...invoice,
+      status: invoice?.status || invoiceData.status || (invoiceData.id ? 'open' : 'posted')
+    }
 
-    return response?.data ?? response
+    console.log('[InvoiceService] Saved invoice with status:', invoiceWithStatus.status, 'from payload:', invoiceData.status)
+
+    // Note: Event dispatch is handled in InvoiceEntry.jsx to ensure proper timing
+    // Don't dispatch here to avoid duplicate events
+
+    return invoiceWithStatus
   } catch (error) {
     console.error('Failed to save invoice:', error)
     // Re-throw so caller can read error.response?.data?.message

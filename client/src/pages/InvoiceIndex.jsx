@@ -45,7 +45,13 @@ function InvoiceIndex() {
       // Clear existing invoices while loading to prevent stale empty state
       setInvoices([]) 
       const list = await invoiceService.getAllInvoices()
-      console.log('Invoices loaded:', list) // Debug log to verify data in console
+      console.log('[InvoiceIndex] Invoices loaded:', list?.length || 0, 'invoices')
+      // Log status of first few invoices for debugging
+      if (Array.isArray(list) && list.length > 0) {
+        list.slice(0, 3).forEach((inv, idx) => {
+          console.log(`[InvoiceIndex] Invoice ${idx + 1}:`, inv.invoice_number || inv.internal_invoice_no, 'status:', inv.status)
+        })
+      }
       setInvoices(Array.isArray(list) ? list : [])
     } catch (error) {
       console.error('Failed to load invoices:', error)
@@ -64,21 +70,33 @@ function InvoiceIndex() {
   // Refetch whenever we navigate back to this page (after create/edit navigation)
   useEffect(() => {
     if (location.pathname === '/invoices') {
-      loadInvoices()
+      // Small delay to ensure backend has processed the update
+      const timer = setTimeout(() => {
+        loadInvoices()
+      }, 200)
+      return () => clearTimeout(timer)
     }
-  }, [location.pathname])
+  }, [location.pathname, location.state])
 
-  // Refetch on invoice events; prepend new invoice for instant feedback
+  // Refetch on invoice events; update existing invoice or prepend new invoice for instant feedback
   useEffect(() => {
     const handleInvoiceUpdate = (e) => {
-      const newInvoice = e?.detail?.invoice
-      if (newInvoice && newInvoice.id) {
+      const updatedInvoice = e?.detail?.invoice
+      if (updatedInvoice && updatedInvoice.id) {
         setInvoices((prev) => {
-          const exists = prev.some((inv) => inv.id === newInvoice.id)
-          if (exists) return prev
-          return [normalizeInvoiceRow(newInvoice), ...prev]
+          const normalized = normalizeInvoiceRow(updatedInvoice)
+          const existsIndex = prev.findIndex((inv) => inv.id === updatedInvoice.id)
+          if (existsIndex >= 0) {
+            // Update existing invoice with new data (especially status)
+            const updated = [...prev]
+            updated[existsIndex] = normalized
+            return updated
+          }
+          // Prepend new invoice
+          return [normalized, ...prev]
         })
       }
+      // Always refresh from backend to ensure data consistency
       loadInvoices()
     }
     const handleInvoiceDeleted = () => loadInvoices()
@@ -164,18 +182,34 @@ function InvoiceIndex() {
   const handleDelete = async (invoiceId) => {
     const confirmed = await confirm({
       title: 'Delete invoice?',
-      message: 'This invoice will be permanently removed.',
+      message: 'This invoice will be permanently removed. This action cannot be undone.',
       confirmText: 'Delete invoice',
       tone: 'danger',
     })
     if (!confirmed) return
+    
     try {
       await invoiceService.deleteInvoice(invoiceId)
       showToast('Invoice deleted successfully', 'success')
+      // Service already triggers invoiceDeleted event, just reload the list
       loadInvoices()
     } catch (error) {
       console.error('Failed to delete invoice:', error)
-      showToast('Failed to delete invoice. Please try again.', 'error')
+      
+      // Show specific error messages based on error code
+      let errorMessage = 'Failed to delete invoice. Please try again.'
+      
+      if (error?.code === 'ERR_INVOICE_HAS_PAYMENTS') {
+        errorMessage = error?.message || 'Cannot delete invoice with existing payments. Please delete payments first.'
+      } else if (error?.code === 'ERR_NOT_FOUND') {
+        errorMessage = 'Invoice not found. It may have already been deleted.'
+      } else if (error?.message) {
+        errorMessage = error.message
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message
+      }
+      
+      showToast(errorMessage, 'error')
     }
   }
 
@@ -345,10 +379,25 @@ function InvoiceIndex() {
                       <span className="invoice-entry-index-po-tag">{invoice.key_id || invoice.po_number || 'N/A'}</span>
                     </td>
                     <td>{invoice.customer_name || 'N/A'}</td>
-                    <td>₹{parseFloat(invoice.total_invoice_value || invoice.totalInvoiceValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td>₹{parseFloat(invoice.total_amount || invoice.total_invoice_value || invoice.totalInvoiceValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td>
                       <span className={`invoice-entry-index-status-badge invoice-entry-index-status-badge-${(invoice.status || 'open').toLowerCase()}`}>
-                        {(invoice.status || 'Open').charAt(0).toUpperCase() + (invoice.status || 'Open').slice(1)}
+                        {(() => {
+                          const status = (invoice.status || 'open').toLowerCase()
+                          // Map status values to display labels
+                          const statusLabels = {
+                            'open': 'Open',
+                            'draft': 'Draft',
+                            'posted': 'Posted',
+                            'submitted': 'Posted',
+                            'active': 'Posted',
+                            'paid': 'Paid',
+                            'closed': 'Closed',
+                            'cancelled': 'Cancelled',
+                            'rejected': 'Cancelled',
+                          }
+                          return statusLabels[status] || status.charAt(0).toUpperCase() + status.slice(1)
+                        })()}
                       </span>
                     </td>
                     <td>

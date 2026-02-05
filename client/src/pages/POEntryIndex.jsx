@@ -70,8 +70,8 @@ function POEntryIndex() {
   const [poEntries, setPOEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  // Default to "Submitted" so list shows only submitted POs; user can change to All/Draft to see drafts
-  const [statusFilter, setStatusFilter] = useState('approved')
+  // Default to empty string to show all POs; user can filter by status if needed
+  const [statusFilter, setStatusFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [showFilters, setShowFilters] = useState(false)

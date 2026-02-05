@@ -99,5 +99,32 @@ const updateInvoice = async (req, res, next) => {
   }
 };
 
-module.exports = { listInvoices, getInvoice, listInvoiceLines, createInvoice, updateInvoice, getInvoicesByPONumber, getNextInvoiceNumber };
+const deleteInvoice = async (req, res, next) => {
+  try {
+    const result = await invoiceService.deleteInvoice(req.params.id, req.user.id);
+    res.json(apiSuccess(result, 'Invoice deleted successfully'));
+  } catch (err) {
+    if (err.message === 'INVOICE_NOT_FOUND') {
+      return res.status(404).json(apiError('Invoice not found', 'ERR_NOT_FOUND'));
+    }
+    if (err.message === 'INVOICE_HAS_PAYMENTS') {
+      return res.status(400).json(apiError(
+        'Cannot delete invoice with existing payments. Please delete payments first or contact administrator.',
+        'ERR_INVOICE_HAS_PAYMENTS'
+      ));
+    }
+    next(err);
+  }
+};
+
+module.exports = { 
+  listInvoices, 
+  getInvoice, 
+  listInvoiceLines, 
+  createInvoice, 
+  updateInvoice, 
+  deleteInvoice,
+  getInvoicesByPONumber, 
+  getNextInvoiceNumber 
+};
 

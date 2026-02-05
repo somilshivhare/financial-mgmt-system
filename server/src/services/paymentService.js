@@ -1,6 +1,51 @@
 const { v4: uuidv4 } = require('uuid');
 const { query, transaction } = require('../db/query');
 
+// Financial year uses April–March cycle and is formatted as 20252026 (no dash)
+const getFinancialYearConcat = (dateLike = null) => {
+  const d = dateLike ? new Date(dateLike) : new Date();
+  // If invalid date, fallback to now
+  const dt = Number.isNaN(d.getTime()) ? new Date() : d;
+  const year = dt.getFullYear();
+  const month = dt.getMonth() + 1; // 1-12
+  const startYear = month >= 4 ? year : year - 1;
+  const endYear = startYear + 1;
+  return `${startYear}${endYear}`;
+};
+
+/**
+ * Generate next payment number (transaction-safe)
+ * Format: PAY-{FY}-{NNNN}
+ */
+const generateNextPaymentNumber = async (paymentDateLike = null) => {
+  const fy = getFinancialYearConcat(paymentDateLike);
+
+  return transaction(async (conn) => {
+    const [rows] = await conn.execute(
+      'SELECT counter FROM payment_number_counter WHERE financial_year = ? FOR UPDATE',
+      [fy],
+    );
+
+    let counter = 0;
+    if (!rows || rows.length === 0) {
+      await conn.execute(
+        'INSERT INTO payment_number_counter (financial_year, counter) VALUES (?, 0)',
+        [fy],
+      );
+    } else {
+      counter = Number(rows[0].counter) || 0;
+    }
+
+    counter += 1;
+    await conn.execute(
+      'UPDATE payment_number_counter SET counter = ?, updated_at = NOW() WHERE financial_year = ?',
+      [counter, fy],
+    );
+
+    return `PAY-${fy}-${String(counter).padStart(4, '0')}`;
+  });
+};
+
 const listPayments = async ({ page = 1, pageSize = 20, invoiceId }) => {
   try {
     const offset = (page - 1) * pageSize;
@@ -29,12 +74,20 @@ const createPayment = async (payload, userId) =>
     const [[invoice]] = await conn.execute('SELECT * FROM invoices WHERE id = ?', [payload.invoiceId]);
     if (!invoice) throw new Error('INVOICE_NOT_FOUND');
 
+    // Generate payment number if not provided or contains XXXX
+    // Accept both paymentNumber and paymentID (from frontend) for compatibility
+    let paymentNumber = payload.paymentNumber || payload.paymentID;
+    if (!paymentNumber || paymentNumber.includes('XXXX')) {
+      paymentNumber = await generateNextPaymentNumber(payload.paidAt || payload.paymentReceiptDate || null);
+    }
+
     const paymentId = uuidv4();
     await conn.execute(
-      `INSERT INTO payments (id, invoice_id, amount, method, reference, paid_at, status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO payments (id, payment_number, invoice_id, amount, method, reference, paid_at, status, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         paymentId,
+        paymentNumber,
         payload.invoiceId,
         payload.amount,
         payload.method,
@@ -84,5 +137,39 @@ const createPayment = async (payload, userId) =>
     return payment;
   });
 
-module.exports = { listPayments, createPayment };
+/**
+ * Get next payment number without creating a payment
+ * Useful for frontend to display the next payment number before submission
+ */
+const getNextPaymentNumber = async (paymentDateLike = null) => {
+  try {
+    const fy = getFinancialYearConcat(paymentDateLike);
+    
+    const rows = await query(
+      'SELECT counter FROM payment_number_counter WHERE financial_year = ?',
+      [fy],
+    );
+
+    let counter = 0;
+    if (rows && rows.length > 0) {
+      counter = Number(rows[0].counter) || 0;
+    }
+
+    // Return next number (counter + 1) without incrementing
+    const nextCounter = counter + 1;
+    return `PAY-${fy}-${String(nextCounter).padStart(4, '0')}`;
+  } catch (err) {
+    console.error('[Payment Service] Error getting next payment number:', err.message);
+    // Fallback to current financial year with 0001
+    const fy = getFinancialYearConcat(paymentDateLike);
+    return `PAY-${fy}-0001`;
+  }
+};
+
+module.exports = { 
+  listPayments, 
+  createPayment, 
+  generateNextPaymentNumber,
+  getNextPaymentNumber 
+};
 

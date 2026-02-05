@@ -7,7 +7,8 @@ import { useToast } from '../contexts/ToastContext'
 import { usePersistedFormState } from '../hooks/usePersistedFormState'
 import * as paymentService from '../services/paymentService'
 import * as invoiceService from '../services/invoiceService'
-import { getPaymentById, updatePayment } from '../api/payment'
+import * as masterDataService from '../services/masterDataService'
+import { getPaymentById, updatePayment, getNextPaymentNumber } from '../api/payment'
 import '../styles/PaymentEntry.css'
 
 const INITIAL_PAYMENT_STATE = {
@@ -36,10 +37,12 @@ const INITIAL_PAYMENT_STATE = {
 function PaymentEntry() {
   const navigate = useNavigate()
   const { id } = useParams() // Get ID if editing existing payment
-  const { getCustomers } = useMasterData()
+  const { getCustomers, masterData } = useMasterData()
   const { showToast } = useToast()
   
   const [customers, setCustomers] = useState([])
+  const [customersLoading, setCustomersLoading] = useState(true)
+  const [paymentNumberLoading, setPaymentNumberLoading] = useState(false)
   const [openInvoices, setOpenInvoices] = useState([])
   const [selectedInvoices, setSelectedInvoices] = useState([])
   const [customerLocked, setCustomerLocked] = useState(false)
@@ -64,16 +67,160 @@ function PaymentEntry() {
     }))
   }, [setValues])
   
+  // Ensure new payments start with no customer pre-selected
   useEffect(() => {
-    // Load Master Data
-    setCustomers(getCustomers())
-    
-    // Auto-generate Payment ID only if not editing and not restored from draft
-    if (!id && !formData.paymentID) {
-      const generatedID = paymentService.generatePaymentID()
-      setFormData((prev) => ({ ...prev, paymentID: generatedID }))
+    if (!id) {
+      setFormData((prev) => ({
+        ...prev,
+        customerId: '',
+        customerName: '',
+        projectName: '',
+        packageName: '',
+      }))
+      setCustomerLocked(false)
+      setOpenInvoices([])
+      setSelectedInvoices([])
     }
-  }, [getCustomers, id])
+  }, [id, setFormData])
+  
+  // Update customers when master data loads
+  useEffect(() => {
+    const loadCustomers = async () => {
+      setCustomersLoading(true)
+      try {
+        // First try to get from context
+        let customersList = getCustomers()
+        
+        // If context doesn't have customers yet, fetch directly
+        if (!customersList || customersList.length === 0) {
+          console.log('[PaymentEntry] Customers not in context, fetching directly...')
+          customersList = await masterDataService.getCustomers()
+        }
+        
+        // Transform customers to ensure they have a name property
+        const transformedCustomers = customersList.map((customer) => {
+          // Extract name from values if it's a master data record
+          const values = customer.values || {}
+          const name = customer.name || values.customerName || values.name || 'Unnamed Customer'
+          
+          return {
+            ...customer,
+            id: customer.id,
+            name: name,
+            customerName: name,
+          }
+        })
+        
+        if (transformedCustomers && transformedCustomers.length > 0) {
+          console.log(`[PaymentEntry] Loaded ${transformedCustomers.length} customers`)
+          setCustomers(transformedCustomers)
+        } else {
+          console.warn('[PaymentEntry] No customers found')
+          setCustomers([])
+        }
+      } catch (error) {
+        console.error('[PaymentEntry] Failed to load customers:', error)
+        setCustomers([])
+        showToast('Failed to load customers. Please refresh the page.', 'error')
+      } finally {
+        setCustomersLoading(false)
+      }
+    }
+    
+    loadCustomers()
+  }, [getCustomers, masterData.customers, masterData.loading, showToast]) // React to changes in masterData.customers
+
+  // Fetch payment number from backend
+  useEffect(() => {
+    // Only fetch if not editing an existing payment
+    if (id) return
+    
+    // Fetch if paymentID is missing OR contains "XXXX" (placeholder)
+    const needsPaymentNumber = !formData.paymentID || formData.paymentID.includes('XXXX')
+    
+    if (needsPaymentNumber) {
+      const fetchPaymentNumber = async () => {
+        setPaymentNumberLoading(true)
+        try {
+          console.log('[PaymentEntry] Fetching payment number for date:', formData.paymentReceiptDate)
+          const response = await getNextPaymentNumber(formData.paymentReceiptDate || null)
+          
+          console.log('[PaymentEntry] Payment number API response:', response)
+          
+          // Handle different response structures
+          let paymentNumber = null
+          if (response?.data?.paymentNumber) {
+            paymentNumber = response.data.paymentNumber
+          } else if (response?.data?.data?.paymentNumber) {
+            paymentNumber = response.data.data.paymentNumber
+          } else if (response?.paymentNumber) {
+            paymentNumber = response.paymentNumber
+          } else if (typeof response?.data === 'string' && !response.data.includes('XXXX')) {
+            paymentNumber = response.data
+          }
+          
+          if (paymentNumber && !paymentNumber.includes('XXXX') && paymentNumber.startsWith('PAY-')) {
+            console.log('[PaymentEntry] ✓ Fetched payment number:', paymentNumber)
+            setFormData((prev) => ({ ...prev, paymentID: paymentNumber }))
+          } else {
+            console.warn('[PaymentEntry] Invalid payment number received:', paymentNumber, 'Full response:', response)
+            // Fallback to client-side generation
+            const generatedID = paymentService.generatePaymentID()
+            setFormData((prev) => ({ ...prev, paymentID: generatedID }))
+            showToast('Could not fetch payment number from server. Using placeholder.', 'warning')
+          }
+        } catch (error) {
+          console.error('[PaymentEntry] Failed to fetch payment number:', error)
+          // Fallback to client-side generation if backend fails
+          const generatedID = paymentService.generatePaymentID()
+          setFormData((prev) => ({ ...prev, paymentID: generatedID }))
+          showToast('Payment number will be generated when you save. Please ensure database migration is run.', 'warning')
+        } finally {
+          setPaymentNumberLoading(false)
+        }
+      }
+      
+      fetchPaymentNumber()
+    }
+  }, [id, showToast]) // Only run when editing mode changes (id changes)
+
+  // Refresh payment number when payment receipt date changes (for new payments only)
+  useEffect(() => {
+    // Only refresh if not editing and paymentID exists but contains XXXX
+    if (!id && formData.paymentID && formData.paymentID.includes('XXXX') && formData.paymentReceiptDate) {
+      const refreshPaymentNumber = async () => {
+        setPaymentNumberLoading(true)
+        try {
+          console.log('[PaymentEntry] Refreshing payment number for new date:', formData.paymentReceiptDate)
+          const response = await getNextPaymentNumber(formData.paymentReceiptDate)
+          
+          let paymentNumber = null
+          if (response?.data?.paymentNumber) {
+            paymentNumber = response.data.paymentNumber
+          } else if (response?.data?.data?.paymentNumber) {
+            paymentNumber = response.data.data.paymentNumber
+          } else if (response?.paymentNumber) {
+            paymentNumber = response.paymentNumber
+          } else if (typeof response?.data === 'string' && !response.data.includes('XXXX')) {
+            paymentNumber = response.data
+          }
+          
+          if (paymentNumber && !paymentNumber.includes('XXXX') && paymentNumber.startsWith('PAY-')) {
+            console.log('[PaymentEntry] ✓ Refreshed payment number:', paymentNumber)
+            setFormData((prev) => ({ ...prev, paymentID: paymentNumber }))
+          }
+        } catch (error) {
+          console.error('[PaymentEntry] Failed to refresh payment number:', error)
+        } finally {
+          setPaymentNumberLoading(false)
+        }
+      }
+      
+      // Debounce to avoid too many requests
+      const timeoutId = setTimeout(refreshPaymentNumber, 500)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [formData.paymentReceiptDate, id]) // Run when payment receipt date changes
   
   // Load existing payment data when editing (ID present)
   useEffect(() => {
@@ -89,7 +236,7 @@ function PaymentEntry() {
               const prevCharges = prev.charges ?? INITIAL_PAYMENT_STATE.charges
               const nextFormData = {
                 ...prevForm,
-                paymentID: payment.payment_id || payment.paymentID || payment.id || prevForm.paymentID,
+                paymentID: payment.payment_number || payment.payment_id || payment.paymentID || payment.id || prevForm.paymentID,
                 paymentReceiptDate: payment.paid_at?.split('T')[0] || payment.paymentReceiptDate || prevForm.paymentReceiptDate,
                 customerName: payment.customer_name || payment.customerName || '',
                 customerId: payment.customer_id || payment.customerId || '',
@@ -126,13 +273,19 @@ function PaymentEntry() {
   
   // Fetch open invoices when customer is selected
   useEffect(() => {
-    if (formData.customerId && customerLocked) {
+    if (formData.customerId && formData.customerName) {
       ;(async () => {
         try {
-          const invoices = await paymentService.getOpenInvoicesForCustomer(formData.customerId)
+          console.log('[PaymentEntry] Fetching invoices for customerId:', formData.customerId, 'customerName:', formData.customerName)
+          // Pass both customerId and customerName to ensure invoices are found by name match
+          const invoices = await paymentService.getOpenInvoicesForCustomer(formData.customerId, formData.customerName)
+          console.log('[PaymentEntry] Received', invoices?.length || 0, 'invoices:', invoices)
           setOpenInvoices(invoices || [])
+          if (invoices && invoices.length === 0) {
+            console.warn('[PaymentEntry] No invoices found for customer:', formData.customerId, formData.customerName)
+          }
         } catch (e) {
-          console.error('Failed to load open invoices:', e)
+          console.error('[PaymentEntry] Failed to load open invoices:', e)
           setOpenInvoices([])
         }
       })()
@@ -140,7 +293,7 @@ function PaymentEntry() {
       setOpenInvoices([])
       setSelectedInvoices([])
     }
-  }, [formData.customerId, customerLocked])
+  }, [formData.customerId, formData.customerName])
   
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -148,27 +301,54 @@ function PaymentEntry() {
   }
   
   const handleCustomerChange = (e) => {
-    if (customerLocked) return // Prevent changes once locked
-    
     const customerId = e.target.value
+    
+    // If "Select Customer" is selected, clear customer data
+    if (!customerId || customerId === '') {
+      setFormData((prev) => ({
+        ...prev,
+        customerId: '',
+        customerName: '',
+        projectName: '',
+        packageName: '',
+      }))
+      setOpenInvoices([])
+      setSelectedInvoices([])
+      return
+    }
+    
     const customer = customers.find((c) => c.id === customerId)
     
     if (customer) {
+      // Auto-populate all customer-related fields
       setFormData((prev) => ({
         ...prev,
         customerId,
         customerName: customer.name || customer.customerName || '',
+        // Auto-populate project name if available in customer data
+        projectName: customer.projectName || customer.values?.projectName || prev.projectName || '',
+        // Auto-populate package name if available in customer data
+        packageName: customer.packageName || customer.values?.packageName || prev.packageName || '',
       }))
-      setCustomerLocked(true) // Lock after selection
+      // Show toast notification
+      showToast(`Customer "${customer.name || customer.customerName}" selected. Customer details loaded.`, 'success')
     }
   }
   
   const handleInvoiceSelection = (e) => {
-    const invoiceIDs = Array.from(e.target.selectedOptions, (option) => option.value)
-    const selected = openInvoices.filter((inv) => invoiceIDs.includes(inv.invoiceID))
+    const invoiceID = e.target.value
+
+    if (!invoiceID) {
+      // If user clears selection, reset invoices/payment mappings
+      setSelectedInvoices([])
+      setFormData((prev) => ({ ...prev, invoicePayments: [] }))
+      return
+    }
+
+    const selected = openInvoices.filter((inv) => inv.invoiceID === invoiceID)
     setSelectedInvoices(selected)
     
-    // Initialize invoice payments
+    // Initialize invoice payments for the single selected invoice
     const invoicePayments = selected.map((inv) => ({
       invoiceID: inv.invoiceID,
       keyID: inv.keyID,
@@ -178,7 +358,29 @@ function PaymentEntry() {
       charges: { ...charges },
     }))
     
-    setFormData((prev) => ({ ...prev, invoicePayments }))
+    // Also auto-populate project and package name from the selected invoice when available,
+    // but keep any existing manual values if already entered.
+    const first = selected[0]
+    setFormData((prev) => {
+      const invoiceDetails = first?.invoice || {}
+      const autoProject =
+        invoiceDetails.projectName ||
+        invoiceDetails.project_name ||
+        prev.projectName ||
+        ''
+      const autoPackage =
+        invoiceDetails.packageName ||
+        invoiceDetails.package_name ||
+        prev.packageName ||
+        ''
+
+      return {
+        ...prev,
+        projectName: prev.projectName || autoProject,
+        packageName: prev.packageName || autoPackage,
+        invoicePayments,
+      }
+    })
   }
   
   const handleInvoicePaymentChange = (invoiceID, field, value) => {
@@ -283,7 +485,7 @@ function PaymentEntry() {
             // Update form with refreshed data
             setFormData(prev => ({
               ...prev,
-              paymentID: payment.payment_id || payment.paymentID || payment.id || prev.paymentID,
+              paymentID: payment.payment_number || payment.payment_id || payment.paymentID || payment.id || prev.paymentID,
               paymentReceiptDate: payment.paid_at?.split('T')[0] || payment.paymentReceiptDate || prev.paymentReceiptDate,
               paymentAmount: payment.amount || payment.paymentAmount || prev.paymentAmount,
             }))
@@ -350,11 +552,19 @@ function PaymentEntry() {
                 type="text"
                 id="paymentID"
                 name="paymentID"
-                value={formData.paymentID}
+                value={paymentNumberLoading ? 'Loading...' : (formData.paymentID || 'PAY-XXXX-XXXX')}
                 className="payment-entry-input payment-entry-input-readonly"
                 readOnly
+                disabled={paymentNumberLoading}
               />
-              <small className="payment-entry-hint">Auto-generated, immutable</small>
+              <small className="payment-entry-hint">
+                {paymentNumberLoading 
+                  ? 'Generating payment number...' 
+                  : formData.paymentID && formData.paymentID.includes('XXXX')
+                    ? 'Payment number will be generated when you save'
+                    : 'Auto-generated, immutable'
+                }
+              </small>
             </div>
             
             <div className="payment-entry-field">
@@ -387,17 +597,35 @@ function PaymentEntry() {
                 onChange={handleCustomerChange}
                 className="payment-entry-select"
                 required
-                disabled={customerLocked}
+                disabled={customersLoading}
               >
-                <option value="">Select Customer</option>
+                <option value="">
+                  {customersLoading ? 'Loading customers...' : customers.length === 0 ? 'No customers available' : 'Select Customer'}
+                </option>
                 {customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
-                    {customer.name || customer.customerName}
+                    {customer.name || customer.customerName || 'Unnamed Customer'}
                   </option>
                 ))}
               </select>
-              {customerLocked && (
-                <small className="payment-entry-hint">Customer selection is locked. Clear form to change.</small>
+              {/* Display selected customer name automatically */}
+              {formData.customerId && formData.customerName && (
+                <input
+                  type="text"
+                  readOnly
+                  value={formData.customerName}
+                  className="payment-entry-input payment-entry-input-readonly"
+                  style={{ marginTop: '8px', backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
+                  placeholder="Selected customer name"
+                />
+              )}
+              {customersLoading && (
+                <small className="payment-entry-hint">Loading customers...</small>
+              )}
+              {!customersLoading && customers.length === 0 && (
+                <small className="payment-entry-hint" style={{ color: '#ef4444' }}>
+                  No customers found. Please add customers in Master Data first.
+                </small>
               )}
             </div>
             
@@ -411,9 +639,8 @@ function PaymentEntry() {
                 name="projectName"
                 value={formData.projectName}
                 onChange={handleChange}
-                className="payment-entry-input payment-entry-input-readonly"
-                readOnly={customerLocked}
-                placeholder={customerLocked ? 'Locked after customer selection' : 'Enter project name'}
+                className="payment-entry-input"
+                placeholder="Enter project name"
               />
             </div>
             
@@ -427,49 +654,43 @@ function PaymentEntry() {
                 name="packageName"
                 value={formData.packageName}
                 onChange={handleChange}
-                className="payment-entry-input payment-entry-input-readonly"
-                readOnly={customerLocked}
-                placeholder={customerLocked ? 'Locked after customer selection' : 'Enter package name'}
+                className="payment-entry-input"
+                placeholder="Enter package name"
               />
             </div>
           </div>
         </div>
 
         {/* Invoice Selection Section */}
-        {customerLocked && openInvoices.length > 0 && (
+        {formData.customerId && openInvoices.length > 0 && (
           <div className="payment-entry-section">
             <h2 className="payment-entry-section-title">Invoice Selection</h2>
             <div className="payment-entry-form-grid">
               <div className="payment-entry-field payment-entry-field-full">
                 <label htmlFor="invoiceSelection" className="payment-entry-label">
-                  Select Invoices <span className="payment-entry-required">*</span>
+                  Select Invoice <span className="payment-entry-required">*</span>
                 </label>
                 <select
                   id="invoiceSelection"
                   name="invoiceSelection"
-                  multiple
                   onChange={handleInvoiceSelection}
-                  className="payment-entry-select payment-entry-select-multiple"
-                  size="5"
+                  className="payment-entry-select"
                   required
                 >
+                  <option value="">Select Invoice</option>
                   {openInvoices.map((invoice) => (
                     <option key={invoice.invoiceID} value={invoice.invoiceID}>
-                      {invoice.invoiceID} | PO: {invoice.keyID} | Date: {invoice.invoiceDate} | 
-                      Amount: ₹{invoice.totalInvoiceValue} | Balance: ₹{invoice.outstandingBalance} | 
-                      Due: {invoice.dueType}
+                      {invoice.invoiceID}
                     </option>
                   ))}
                 </select>
-                <small className="payment-entry-hint">
-                  Hold Ctrl/Cmd to select multiple invoices. Selected: {selectedInvoices.length}
-                </small>
+                <small className="payment-entry-hint">Choose the invoice number to allocate this payment.</small>
               </div>
             </div>
           </div>
         )}
 
-        {customerLocked && openInvoices.length === 0 && (
+        {formData.customerId && openInvoices.length === 0 && (
           <div className="payment-entry-section">
             <div className="payment-entry-info">
               <p>No open invoices found for this customer.</p>
@@ -507,6 +728,21 @@ function PaymentEntry() {
                     </div>
                     
                     <div className="payment-entry-field">
+                      <label className="payment-entry-label">
+                        Payment Amount (This Receipt) <span className="payment-entry-required">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={invoicePayment?.paymentAmount || formData.paymentAmount || ''}
+                        onChange={(e) => handleInvoicePaymentChange(invoice.invoiceID, 'paymentAmount', e.target.value)}
+                        className="payment-entry-input"
+                        step="0.01"
+                        placeholder="0.00"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="payment-entry-field">
                       <label className="payment-entry-label">Previous Received Amount</label>
                       <input
                         type="text"
@@ -517,27 +753,12 @@ function PaymentEntry() {
                     </div>
                     
                     <div className="payment-entry-field">
-                      <label className="payment-entry-label">Outstanding Amount</label>
+                      <label className="payment-entry-label">Outstanding Amount (Before This Payment)</label>
                       <input
                         type="text"
                         value={breakdown?.outstandingAmount || '0.00'}
                         className="payment-entry-input payment-entry-input-readonly"
                         readOnly
-                      />
-                    </div>
-                    
-                    <div className="payment-entry-field">
-                      <label className="payment-entry-label">
-                        Payment Amount <span className="payment-entry-required">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={invoicePayment?.paymentAmount || formData.paymentAmount || ''}
-                        onChange={(e) => handleInvoicePaymentChange(invoice.invoiceID, 'paymentAmount', e.target.value)}
-                        className="payment-entry-input"
-                        step="0.01"
-                        placeholder="0.00"
-                        required
                       />
                     </div>
                     

@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Plus,
   X,
+  Zap,
 } from 'lucide-react'
 import DatePicker from '../components/DatePicker'
 import { COUNTRIES, INDIA_STATES } from '../utils/indiaStates'
@@ -676,6 +677,655 @@ function MasterDataForm() {
       ? itemValues[countryField.key]
       : (entryIndex !== null ? values[`${countryField.key}_${entryIndex}`] : values[countryField.key])
     return selectedCountry === 'India' ? INDIA_STATES : []
+  }
+
+  // Generate sample value for a field based on its type and key
+  const generateSampleValue = (field, entryIndex = null) => {
+    const key = entryIndex !== null ? `${field.key}_${entryIndex}` : field.key
+    const baseValue = field.key.toLowerCase()
+    
+    // Skip file fields (logo, photo) - they need actual file uploads
+    if (field.type === 'file') {
+      return null // Don't auto-fill file fields
+    }
+    
+    // Generate values based on field key patterns
+    if (field.key.includes('Name') || field.key.includes('name')) {
+      if (field.key.includes('Customer') || field.key.includes('customer')) {
+        return 'ABC Corporation Pvt Ltd'
+      } else if (field.key.includes('Company') || field.key.includes('company')) {
+        return 'XYZ Industries Limited'
+      } else if (field.key.includes('Legal') || field.key.includes('legal')) {
+        return 'ABC Corporation Private Limited'
+      } else if (field.key.includes('Consignee') || field.key.includes('consignee')) {
+        return 'DEF Logistics Solutions'
+      } else if (field.key.includes('Payer') || field.key.includes('payer')) {
+        return 'GHI Trading Company'
+      } else if (field.key.includes('Employee') || field.key.includes('employee')) {
+        return 'Sarah Williams'
+      } else if (field.key.includes('Person') || field.key.includes('person')) {
+        return 'John Doe'
+      } else if (field.key.includes('Transporter') || field.key.includes('transporter')) {
+        return 'Fast Track Logistics'
+      }
+      return 'Sample Name'
+    }
+    
+    if (field.key.includes('Address') || field.key.includes('address')) {
+      if (field.key.includes('Corporate') || field.key.includes('corporate')) {
+        return '123 Business Park, Sector 5, Noida, Uttar Pradesh 201301'
+      } else if (field.key.includes('Correspondence') || field.key.includes('correspondence')) {
+        return '456 Corporate Tower, MG Road, Bangalore, Karnataka 560001'
+      } else if (field.key.includes('Consignee') || field.key.includes('consignee')) {
+        return '321 Warehouse Complex, Industrial Estate, Andheri East, Mumbai, Maharashtra 400093'
+      } else if (field.key.includes('Payer') || field.key.includes('payer')) {
+        return '654 Commercial Street, T Nagar, Chennai, Tamil Nadu 600017'
+      } else if (field.key.includes('Other') || field.key.includes('other')) {
+        return '999 Manufacturing Unit, Industrial Zone, Pune, Maharashtra 411014'
+      }
+      return '123 Sample Street, City, State 123456'
+    }
+    
+    if (field.key.includes('District') || field.key.includes('district')) {
+      if (field.key.includes('Corporate') || field.key.includes('corporate')) {
+        return 'Gurgaon'
+      } else if (field.key.includes('Correspondence') || field.key.includes('correspondence')) {
+        return 'Bangalore Urban'
+      }
+      return 'Sample District'
+    }
+    
+    if (field.key.includes('State') || field.key.includes('state')) {
+      if (field.key.includes('Corporate') || field.key.includes('corporate')) {
+        return 'Haryana'
+      } else if (field.key.includes('Correspondence') || field.key.includes('correspondence')) {
+        return 'Karnataka'
+      } else if (field.key.includes('Other') || field.key.includes('other')) {
+        return 'Maharashtra'
+      }
+      return 'Karnataka'
+    }
+    
+    if (field.key.includes('Country') || field.key.includes('country')) {
+      return 'India'
+    }
+    
+    if (field.key.includes('PinCode') || field.key.includes('pinCode') || field.key.includes('pin_code')) {
+      if (field.key.includes('Corporate') || field.key.includes('corporate')) {
+        return '122002'
+      } else if (field.key.includes('Correspondence') || field.key.includes('correspondence')) {
+        return '560001'
+      } else if (field.key.includes('Other') || field.key.includes('other')) {
+        return '411014'
+      }
+      return '560001'
+    }
+    
+    if (field.key.includes('GST') || field.key.includes('gst')) {
+      if (field.key.includes('Consignee') || field.key.includes('consignee')) {
+        return '27DEFLG1234L1Z5'
+      } else if (field.key.includes('Payer') || field.key.includes('payer')) {
+        return '33GHITC5678M2N6'
+      } else if (field.key.includes('Other') || field.key.includes('other')) {
+        return '27XYZIN7890P2Q3'
+      }
+      return '29AABCU9603R1ZX'
+    }
+    
+    if (field.key.includes('Email') || field.key.includes('email')) {
+      return 'sample@example.com'
+    }
+    
+    if (field.key.includes('Contact') || field.key.includes('contact') || field.key.includes('Phone') || field.key.includes('phone')) {
+      return '+91-9876543210'
+    }
+    
+    if (field.key.includes('Designation') || field.key.includes('designation')) {
+      return 'Manager'
+    }
+    
+    if (field.key.includes('Segment') || field.key.includes('segment')) {
+      return 'Domestic'
+    }
+    
+    if (field.key.includes('Role') || field.key.includes('role')) {
+      return 'Sales Manager'
+    }
+    
+    if (field.key.includes('Department') || field.key.includes('department')) {
+      return 'Sales & Marketing'
+    }
+    
+    if (field.key.includes('JobRole') || field.key.includes('jobRole') || field.key.includes('job_role')) {
+      return 'Regional Sales Manager'
+    }
+    
+    if (field.key.includes('City') || field.key.includes('city')) {
+      return 'Bangalore'
+    }
+    
+    if (field.type === 'select' && field.options && field.options.length > 0) {
+      return field.options[0]
+    }
+    
+    if (field.type === 'number') {
+      if (field.key.includes('Due') || field.key.includes('due')) {
+        if (field.key.includes('First') || field.key.includes('first') || field.key.includes('1st')) {
+          return '30'
+        } else if (field.key.includes('Second') || field.key.includes('second') || field.key.includes('2nd')) {
+          return '60'
+        } else if (field.key.includes('Third') || field.key.includes('third') || field.key.includes('3rd')) {
+          return '90'
+        } else if (field.key.includes('Final') || field.key.includes('final')) {
+          return '120'
+        }
+      }
+      if (field.key.includes('Basic') || field.key.includes('basic')) {
+        return '70'
+      } else if (field.key.includes('Freight') || field.key.includes('freight')) {
+        return '10'
+      } else if (field.key.includes('Tax') || field.key.includes('tax')) {
+        return '20'
+      }
+      return '100'
+    }
+    
+    if (field.type === 'textarea') {
+      if (field.key.includes('Description') || field.key.includes('description')) {
+        return 'Sample description: This is a test entry for development and testing purposes. All fields are filled with realistic sample data.'
+      }
+      return 'Sample text area content for testing purposes.'
+    }
+    
+    if (field.type === 'text') {
+      return 'Sample Text'
+    }
+    
+    return ''
+  }
+
+  // Auto-fill sample data for testing/development - fills ALL fields dynamically
+  const handleAutoFill = () => {
+    if (!def) return
+    
+    const sampleData = {}
+    const sampleLogoPreviews = {}
+    const updatedMultipleEntries = { ...multipleEntries }
+    
+    // Initialize multiple entries for allowMultiple groups if needed
+    def.groups.forEach((group, groupIndex) => {
+      if (group.allowMultiple && !updatedMultipleEntries[groupIndex]) {
+        updatedMultipleEntries[groupIndex] = [0]
+      }
+    })
+    
+    // Dynamically fill ALL fields from form definition
+    def.groups.forEach((group, groupIndex) => {
+      const entries = group.allowMultiple ? (updatedMultipleEntries[groupIndex] || [0]) : [0]
+      
+      entries.forEach((entryIndex) => {
+        group.fields.forEach((field) => {
+          // Skip file fields (logo, photo) - they need actual file uploads
+          if (field.type === 'file') {
+            return
+          }
+          
+          const fieldKey = group.allowMultiple ? `${field.key}_${entryIndex}` : field.key
+          const sampleValue = generateSampleValue(field, group.allowMultiple ? entryIndex : null)
+          
+          if (sampleValue !== null && sampleValue !== undefined && sampleValue !== '') {
+            sampleData[fieldKey] = sampleValue
+          }
+        })
+      })
+    })
+    
+    // Generate comprehensive sample data based on form type (override with specific values)
+    if (type === 'customer-profile') {
+      // Override with more specific values
+      sampleData.customerName = 'ABC Corporation Pvt Ltd'
+      sampleData.legalEntityName = 'ABC Corporation Private Limited'
+      sampleData.corporateOfficeAddress_0 = '123 Business Park, Sector 5, Noida, Uttar Pradesh 201301'
+      sampleData.correspondenceAddress_0 = '456 Corporate Tower, MG Road, Bangalore, Karnataka 560001'
+      sampleData.district_0 = 'Bangalore Urban'
+      sampleData.state_0 = 'Karnataka'
+      sampleData.country_0 = 'India'
+      sampleData.pinCode_0 = '560001'
+      sampleData.segment = 'Domestic'
+      sampleData.gstNo = '29AABCU9603R1ZX'
+      sampleData.poIssuingAuthority = 'John Doe'
+      sampleData.designation = 'Purchase Manager'
+      sampleData.contactPersonContactNo = '+91-9876543210'
+      sampleData.emailId = 'john.doe@abccorp.com'
+      
+    } else if (type === 'company-profile') {
+      // Override with more specific values
+      sampleData.companyName = 'XYZ Industries Limited'
+      sampleData.corporateOfficeAddress_0 = '789 Industrial Area, Phase 2, Gurgaon, Haryana 122002'
+      sampleData.corporateDistrict_0 = 'Gurgaon'
+      sampleData.corporateState_0 = 'Haryana'
+      sampleData.corporateCountry_0 = 'India'
+      sampleData.corporatePinCode_0 = '122002'
+      sampleData.correspondenceAddress_0 = '789 Industrial Area, Phase 2, Gurgaon, Haryana 122002'
+      sampleData.correspondenceDistrict_0 = 'Gurgaon'
+      sampleData.correspondenceState_0 = 'Haryana'
+      sampleData.correspondenceCountry_0 = 'India'
+      sampleData.correspondencePinCode_0 = '122002'
+      sampleData.officeType_0 = 'Plant Address'
+      sampleData.otherOfficeAddress_0 = '999 Manufacturing Unit, Industrial Zone, Pune, Maharashtra 411014'
+      sampleData.otherOfficeGST_0 = '27XYZIN7890P2Q3'
+      sampleData.otherOfficeDistrict_0 = 'Pune'
+      sampleData.otherOfficeState_0 = 'Maharashtra'
+      sampleData.otherOfficeCountry_0 = 'India'
+      sampleData.otherOfficePinCode_0 = '411014'
+      sampleData.contactPersonName = 'Michael Chen'
+      sampleData.contactNumber = '+91-9876543214'
+      sampleData.emailId = 'michael.chen@xyzindustries.com'
+      
+    } else if (type === 'consignee-profile') {
+      // Sample data templates for multiple entries
+      const sampleConsigneeTemplates = [
+        {
+          consigneeName: 'DEF Logistics Solutions',
+          consigneeAddress: '321 Warehouse Complex, Industrial Estate, Andheri East, Mumbai, Maharashtra 400093',
+          customerName: 'ABC Corporation Pvt Ltd',
+          legalEntityName: 'ABC Corporation Private Limited',
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          country: 'India',
+          consigneeGSTNo: '27DEFLG1234L1Z5',
+          contactPersonName: 'Jane Smith',
+          designation: 'Warehouse Manager',
+          contactPersonContactNo: '+91-9876543211',
+          emailId: 'jane.smith@deflogistics.com',
+        },
+        {
+          consigneeName: 'JKL Distribution Hub',
+          consigneeAddress: '789 Freight Terminal, Sector 18, Noida, Uttar Pradesh 201301',
+          customerName: 'ABC Corporation Pvt Ltd',
+          legalEntityName: 'ABC Corporation Private Limited',
+          city: 'Noida',
+          state: 'Uttar Pradesh',
+          country: 'India',
+          consigneeGSTNo: '09JKLDH5678M3N7',
+          contactPersonName: 'Michael Brown',
+          designation: 'Operations Manager',
+          contactPersonContactNo: '+91-9876543215',
+          emailId: 'michael.brown@jkldistribution.com',
+        },
+        {
+          consigneeName: 'MNO Storage Facilities',
+          consigneeAddress: '456 Cold Storage Complex, Whitefield, Bangalore, Karnataka 560066',
+          customerName: 'ABC Corporation Pvt Ltd',
+          legalEntityName: 'ABC Corporation Private Limited',
+          city: 'Bangalore',
+          state: 'Karnataka',
+          country: 'India',
+          consigneeGSTNo: '29MNOST9012P4Q8',
+          contactPersonName: 'Emily Davis',
+          designation: 'Logistics Coordinator',
+          contactPersonContactNo: '+91-9876543216',
+          emailId: 'emily.davis@mnostorage.com',
+        },
+        {
+          consigneeName: 'PQR Freight Services',
+          consigneeAddress: '123 Transport Yard, Sector 63, Noida, Uttar Pradesh 201301',
+          customerName: 'ABC Corporation Pvt Ltd',
+          legalEntityName: 'ABC Corporation Private Limited',
+          city: 'Noida',
+          state: 'Uttar Pradesh',
+          country: 'India',
+          consigneeGSTNo: '09PQRFS3456Q5R9',
+          contactPersonName: 'Thomas Lee',
+          designation: 'Transport Manager',
+          contactPersonContactNo: '+91-9876543221',
+          emailId: 'thomas.lee@pqrfreight.com',
+        },
+        {
+          consigneeName: 'VWX Cargo Solutions',
+          consigneeAddress: '789 Logistics Park, Hinjewadi, Pune, Maharashtra 411057',
+          customerName: 'ABC Corporation Pvt Ltd',
+          legalEntityName: 'ABC Corporation Private Limited',
+          city: 'Pune',
+          state: 'Maharashtra',
+          country: 'India',
+          consigneeGSTNo: '27VWXCS7890R6S0',
+          contactPersonName: 'Rachel Green',
+          designation: 'Cargo Coordinator',
+          contactPersonContactNo: '+91-9876543222',
+          emailId: 'rachel.green@vwxcargo.com',
+        },
+      ]
+      
+      // Fill ALL existing entries, or create minimum 3 if none exist
+      const currentCount = consignees.length
+      const targetCount = Math.max(currentCount, 3)
+      const maxId = consignees.length > 0 ? Math.max(...consignees.map(item => item.id), -1) : -1
+      
+      const filledConsignees = Array.from({ length: targetCount }, (_, idx) => {
+        const existingItem = consignees[idx]
+        const templateIndex = idx % sampleConsigneeTemplates.length
+        const sampleData = sampleConsigneeTemplates[templateIndex]
+        
+        const filledValues = {}
+        
+        // Fill all fields from form definition first
+        def.groups.forEach((group) => {
+          group.fields.forEach((field) => {
+            if (field.type !== 'file') {
+              const sampleValue = generateSampleValue(field)
+              if (sampleValue !== null && sampleValue !== undefined && sampleValue !== '') {
+                filledValues[field.key] = sampleValue
+              }
+            }
+          })
+        })
+        
+        // Override with specific sample data for this entry
+        Object.assign(filledValues, sampleData)
+        
+        // Preserve existing ID and recordId if updating existing entry
+        if (existingItem) {
+          return {
+            ...existingItem,
+            values: filledValues,
+            logoPreviews: existingItem.logoPreviews || {},
+          }
+        }
+        
+        // Create new entry
+        return {
+          id: maxId + 1 + idx,
+          recordId: null,
+          values: filledValues,
+          logoPreviews: {},
+        }
+      })
+      
+      setConsignees(filledConsignees)
+      setStatus({ kind: 'idle', message: `Filled ${filledConsignees.length} consignee entries with sample data!` })
+      return
+      
+    } else if (type === 'payer-profile') {
+      // Sample data templates for multiple entries
+      const samplePayerTemplates = [
+        {
+          payerName: 'GHI Trading Company',
+          payerAddress: '654 Commercial Street, T Nagar, Chennai, Tamil Nadu 600017',
+          customerName: 'ABC Corporation Pvt Ltd',
+          legalEntityName: 'ABC Corporation Private Limited',
+          city: 'Chennai',
+          state: 'Tamil Nadu',
+          country: 'India',
+          payerGSTNo: '33GHITC5678M2N6',
+          contactPersonName: 'Robert Johnson',
+          designation: 'Accounts Manager',
+          contactPersonContactNo: '+91-9876543212',
+          emailId: 'robert.j@ghitrading.com',
+        },
+        {
+          payerName: 'PQR Enterprises Limited',
+          payerAddress: '123 Business Center, Salt Lake, Kolkata, West Bengal 700091',
+          customerName: 'ABC Corporation Pvt Ltd',
+          legalEntityName: 'ABC Corporation Private Limited',
+          city: 'Kolkata',
+          state: 'West Bengal',
+          country: 'India',
+          payerGSTNo: '19PQREL2345N3O9',
+          contactPersonName: 'David Wilson',
+          designation: 'Finance Manager',
+          contactPersonContactNo: '+91-9876543217',
+          emailId: 'david.wilson@pqrenterprises.com',
+        },
+        {
+          payerName: 'STU Commerce Pvt Ltd',
+          payerAddress: '789 Trade Tower, Banjara Hills, Hyderabad, Telangana 500034',
+          customerName: 'ABC Corporation Pvt Ltd',
+          legalEntityName: 'ABC Corporation Private Limited',
+          city: 'Hyderabad',
+          state: 'Telangana',
+          country: 'India',
+          payerGSTNo: '36STUCP6789O4P0',
+          contactPersonName: 'Lisa Anderson',
+          designation: 'Payment Coordinator',
+          contactPersonContactNo: '+91-9876543218',
+          emailId: 'lisa.anderson@stcommerce.com',
+        },
+        {
+          payerName: 'VWX Financial Services',
+          payerAddress: '456 Banking Square, MG Road, Bangalore, Karnataka 560001',
+          customerName: 'ABC Corporation Pvt Ltd',
+          legalEntityName: 'ABC Corporation Private Limited',
+          city: 'Bangalore',
+          state: 'Karnataka',
+          country: 'India',
+          payerGSTNo: '29VWXFS0123T7U1',
+          contactPersonName: 'Mark Thompson',
+          designation: 'Payment Manager',
+          contactPersonContactNo: '+91-9876543223',
+          emailId: 'mark.thompson@vwxfinancial.com',
+        },
+        {
+          payerName: 'YZA Billing Solutions',
+          payerAddress: '789 Accounts Plaza, Connaught Place, New Delhi, Delhi 110001',
+          customerName: 'ABC Corporation Pvt Ltd',
+          legalEntityName: 'ABC Corporation Private Limited',
+          city: 'New Delhi',
+          state: 'Delhi',
+          country: 'India',
+          payerGSTNo: '07YZABS4567U8V2',
+          contactPersonName: 'Nancy White',
+          designation: 'Billing Coordinator',
+          contactPersonContactNo: '+91-9876543224',
+          emailId: 'nancy.white@yzabilling.com',
+        },
+      ]
+      
+      // Fill ALL existing entries, or create minimum 3 if none exist
+      const currentCount = payers.length
+      const targetCount = Math.max(currentCount, 3)
+      const maxId = payers.length > 0 ? Math.max(...payers.map(item => item.id), -1) : -1
+      
+      const filledPayers = Array.from({ length: targetCount }, (_, idx) => {
+        const existingItem = payers[idx]
+        const templateIndex = idx % samplePayerTemplates.length
+        const sampleData = samplePayerTemplates[templateIndex]
+        
+        const filledValues = {}
+        
+        // Fill all fields from form definition first
+        def.groups.forEach((group) => {
+          group.fields.forEach((field) => {
+            if (field.type !== 'file') {
+              const sampleValue = generateSampleValue(field)
+              if (sampleValue !== null && sampleValue !== undefined && sampleValue !== '') {
+                filledValues[field.key] = sampleValue
+              }
+            }
+          })
+        })
+        
+        // Override with specific sample data for this entry
+        Object.assign(filledValues, sampleData)
+        
+        // Preserve existing ID and recordId if updating existing entry
+        if (existingItem) {
+          return {
+            ...existingItem,
+            values: filledValues,
+            logoPreviews: existingItem.logoPreviews || {},
+          }
+        }
+        
+        // Create new entry
+        return {
+          id: maxId + 1 + idx,
+          recordId: null,
+          values: filledValues,
+          logoPreviews: {},
+        }
+      })
+      
+      setPayers(filledPayers)
+      setStatus({ kind: 'idle', message: `Filled ${filledPayers.length} payer entries with sample data!` })
+      return
+      
+    } else if (type === 'employee-profile') {
+      // Sample data templates for multiple entries
+      const sampleEmployeeTemplates = [
+        {
+          role: 'Sales Manager',
+          nameOfEmployee: 'Sarah Williams',
+          designation: 'Senior Sales Manager',
+          transporterName: 'Fast Track Logistics',
+          contactNo: '+91-9876543213',
+          emailId: 'sarah.williams@company.com',
+          department: 'Sales & Marketing',
+          jobRole: 'Regional Sales Manager',
+        },
+        {
+          role: 'Business Head',
+          nameOfEmployee: 'James Taylor',
+          designation: 'Business Development Head',
+          transporterName: 'Express Cargo Services',
+          contactNo: '+91-9876543219',
+          emailId: 'james.taylor@company.com',
+          department: 'Business Development',
+          jobRole: 'Head of Business Development',
+        },
+        {
+          role: 'Collection Agent',
+          nameOfEmployee: 'Priya Sharma',
+          designation: 'Senior Collection Agent',
+          transporterName: 'Reliable Transport Co',
+          contactNo: '+91-9876543220',
+          emailId: 'priya.sharma@company.com',
+          department: 'Finance & Collections',
+          jobRole: 'Collection Specialist',
+        },
+        {
+          role: 'Project Manager',
+          nameOfEmployee: 'Rajesh Kumar',
+          designation: 'Senior Project Manager',
+          transporterName: 'Swift Delivery Services',
+          contactNo: '+91-9876543225',
+          emailId: 'rajesh.kumar@company.com',
+          department: 'Project Management',
+          jobRole: 'Project Lead',
+        },
+        {
+          role: 'Sales Agent',
+          nameOfEmployee: 'Anita Patel',
+          designation: 'Sales Executive',
+          transporterName: 'Quick Transport',
+          contactNo: '+91-9876543226',
+          emailId: 'anita.patel@company.com',
+          department: 'Sales & Marketing',
+          jobRole: 'Field Sales Executive',
+        },
+      ]
+      
+      // Fill ALL existing entries, or create minimum 3 if none exist
+      const currentCount = employees.length
+      const targetCount = Math.max(currentCount, 3)
+      const maxId = employees.length > 0 ? Math.max(...employees.map(item => item.id), -1) : -1
+      
+      const filledEmployees = Array.from({ length: targetCount }, (_, idx) => {
+        const existingItem = employees[idx]
+        const templateIndex = idx % sampleEmployeeTemplates.length
+        const sampleData = sampleEmployeeTemplates[templateIndex]
+        
+        const filledValues = {}
+        
+        // Fill all fields from form definition first
+        def.groups.forEach((group) => {
+          group.fields.forEach((field) => {
+            if (field.type !== 'file') {
+              const sampleValue = generateSampleValue(field)
+              if (sampleValue !== null && sampleValue !== undefined && sampleValue !== '') {
+                filledValues[field.key] = sampleValue
+              }
+            }
+          })
+        })
+        
+        // Override with specific sample data for this entry
+        Object.assign(filledValues, sampleData)
+        
+        // Preserve existing ID and recordId if updating existing entry
+        if (existingItem) {
+          return {
+            ...existingItem,
+            values: filledValues,
+            logoPreviews: existingItem.logoPreviews || {},
+          }
+        }
+        
+        // Create new entry
+        return {
+          id: maxId + 1 + idx,
+          recordId: null,
+          values: filledValues,
+          logoPreviews: {},
+        }
+      })
+      
+      setEmployees(filledEmployees)
+      setStatus({ kind: 'idle', message: `Filled ${filledEmployees.length} employee entries with sample data!` })
+      return
+    } else if (type === 'payment-terms') {
+      if (paymentTerms.length > 0) {
+        const updatedPaymentTerms = paymentTerms.map((item, idx) => {
+          if (idx === 0) {
+            const filledValues = { ...item.values }
+            
+            // Fill all fields from form definition
+            def.groups.forEach((group) => {
+              group.fields.forEach((field) => {
+                if (field.type !== 'file') {
+                  const sampleValue = generateSampleValue(field)
+                  if (sampleValue !== null && sampleValue !== undefined && sampleValue !== '') {
+                    filledValues[field.key] = sampleValue
+                  }
+                }
+              })
+            })
+            
+            // Override with specific values
+            filledValues.basic = '70'
+            filledValues.freight = '10'
+            filledValues.taxes = '20'
+            filledValues.firstDue = '30'
+            filledValues.secondDue = '60'
+            filledValues.thirdDue = '90'
+            filledValues.finalDue = '120'
+            filledValues.paymentTermsDescription = 'Payment terms: 30% advance, 40% on delivery, 20% after 30 days, 10% retention after 90 days. All payments subject to GST as applicable.'
+            
+            return {
+              ...item,
+              values: filledValues
+            }
+          }
+          return item
+        })
+        setPaymentTerms(updatedPaymentTerms)
+        setStatus({ kind: 'idle', message: 'Sample data filled! You can modify any field as needed.' })
+        return
+      }
+    }
+    
+    // For regular forms, set values directly
+    if (Object.keys(sampleData).length > 0) {
+      setValues(sampleData)
+      if (Object.keys(sampleLogoPreviews).length > 0) {
+        setLogoPreviews(sampleLogoPreviews)
+      }
+      // Update multiple entries if initialized
+      if (Object.keys(updatedMultipleEntries).length > 0) {
+        setMultipleEntries(updatedMultipleEntries)
+      }
+      setStatus({ kind: 'idle', message: 'Sample data filled! You can modify any field as needed.' })
+    }
   }
   
   // Generic render function for array-based forms
@@ -1568,27 +2218,47 @@ function MasterDataForm() {
             </h1>
             <p className="md-form-description">{description}</p>
           </div>
-          {isArrayBasedForm && !isLocked && !isEditMode && (
-            <button
-              type="button"
-              className="md-form-button md-form-button-primary"
-              onClick={() => {
-                if (isConsigneeProfile) handleAddConsignee()
-                else if (isPayerProfile) handleAddPayer()
-                else if (isEmployeeProfile) handleAddEmployee()
-                else if (isPaymentTerms) handleAddPaymentTerm()
-              }}
-              style={{ marginTop: '0.5rem', whiteSpace: 'nowrap' }}
-            >
-              <Plus className="md-form-button-icon" />
-              <span>
-                {isConsigneeProfile && 'Add Consignee'}
-                {isPayerProfile && 'Add Payer'}
-                {isEmployeeProfile && 'Add Employee'}
-                {isPaymentTerms && 'Add Payment Term'}
-              </span>
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+            {/* Auto-fill button for testing - only show when creating new records */}
+            {!isLocked && !isEditMode && (
+              <button
+                type="button"
+                className="md-form-button"
+                onClick={handleAutoFill}
+                style={{ 
+                  backgroundColor: '#f3f4f6', 
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  whiteSpace: 'nowrap'
+                }}
+                title="Fill form with sample data for testing"
+              >
+                <Zap className="md-form-button-icon" style={{ width: '16px', height: '16px' }} />
+                <span>Auto-Fill Sample Data</span>
+              </button>
+            )}
+            {isArrayBasedForm && !isLocked && !isEditMode && (
+              <button
+                type="button"
+                className="md-form-button md-form-button-primary"
+                onClick={() => {
+                  if (isConsigneeProfile) handleAddConsignee()
+                  else if (isPayerProfile) handleAddPayer()
+                  else if (isEmployeeProfile) handleAddEmployee()
+                  else if (isPaymentTerms) handleAddPaymentTerm()
+                }}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                <Plus className="md-form-button-icon" />
+                <span>
+                  {isConsigneeProfile && 'Add Consignee'}
+                  {isPayerProfile && 'Add Payer'}
+                  {isEmployeeProfile && 'Add Employee'}
+                  {isPaymentTerms && 'Add Payment Term'}
+                </span>
+              </button>
+            )}
+          </div>
           {isLocked && (
             <div style={{ marginTop: '0.5rem', padding: '0.75rem 1rem', backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '6px', color: '#92400e' }}>
               <strong>Step Locked:</strong> This step has been completed. Data is view-only.

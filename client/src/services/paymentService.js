@@ -65,12 +65,59 @@ export const getPaymentsByCustomer = async (customerId) => {
 }
 
 // Get open invoices for a customer
-export const getOpenInvoicesForCustomer = async (customerId) => {
+// NOTE: We fetch invoices via the invoices API and filter on the client side.
+// This avoids backend route issues and keeps logic consistent with the Invoice list page.
+export const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
   try {
-    const response = await paymentApi.getOpenInvoicesForCustomer(customerId)
-    return response.data || []
+    const name = (customerName || '').trim().toLowerCase()
+
+    // Load a reasonable number of invoices (same as InvoiceIndex)
+    const allInvoices = await invoiceService.getAllInvoices()
+    const invoicesArray = Array.isArray(allInvoices) ? allInvoices : []
+
+    // Filter invoices for this customer by name and status, and only those with outstanding balance
+    const filtered = invoicesArray.filter((inv) => {
+      const invName = (inv.customer_name || inv.customerName || '').toLowerCase()
+      if (name && !invName.includes(name)) return false
+
+      const status = (inv.status || 'open').toLowerCase()
+      if (!['open', 'posted', 'active', 'submitted', 'draft'].includes(status)) return false
+
+      const total = parseFloat(inv.total_amount ?? inv.totalInvoiceValue ?? inv.total_invoice_value ?? 0)
+      const paid = parseFloat(inv.amount_paid ?? 0)
+      const balance = inv.balance != null ? parseFloat(inv.balance) : total - paid
+
+      return Number.isFinite(balance) && balance > 0
+    })
+
+    // Map to the shape expected by PaymentEntry.jsx
+    return filtered.map((inv) => {
+      const invoiceID = inv.invoice_number || inv.internal_invoice_no || inv.internalInvoiceNo || ''
+      const keyID = inv.key_id || inv.po_number || ''
+      const rawDate = inv.issue_date || inv.gst_tax_invoice_date || inv.created_at || null
+      const invoiceDate =
+        rawDate && typeof rawDate === 'string'
+          ? rawDate.split('T')[0]
+          : rawDate
+          ? new Date(rawDate).toISOString().split('T')[0]
+          : ''
+
+      const total = parseFloat(inv.total_amount ?? inv.totalInvoiceValue ?? inv.total_invoice_value ?? 0)
+      const paid = parseFloat(inv.amount_paid ?? 0)
+      const balance = inv.balance != null ? parseFloat(inv.balance) : total - paid
+
+      return {
+        invoiceID,
+        keyID,
+        invoiceDate,
+        totalInvoiceValue: total.toFixed(2),
+        outstandingBalance: balance.toFixed(2),
+        dueType: 'Final',
+        invoice: inv,
+      }
+    })
   } catch (error) {
-    console.error(`Failed to load open invoices for customer ${customerId}:`, error)
+    console.error(`Failed to load open invoices for customer ${customerId} (${customerName}):`, error)
     return []
   }
 }

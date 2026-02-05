@@ -356,6 +356,22 @@
 }
 
 /* ============================================
+   PAYMENT & CHARGES LAYOUT / NUMERIC FIELDS
+   ============================================ */
+
+/* Make all numeric fields in Payment & Charges right-aligned and use tabular figures */
+.payment-entry-invoice-breakdown .payment-entry-input[type='number'],
+.payment-entry-invoice-breakdown .payment-entry-input-readonly {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Slightly tighter spacing between label and numeric input for compact look */
+.payment-entry-invoice-breakdown .payment-entry-field {
+  gap: var(--space-1);
+}
+
+/* ============================================
    INVOICE BREAKDOWN
    ============================================ */
 
