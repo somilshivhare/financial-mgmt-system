@@ -19,8 +19,8 @@ export default function ForgotPassword() {
     try {
       const res = await requestPasswordReset(email)
       setMessage(res.message || 'If the email exists, a reset link has been generated.')
-      // In non-production backend returns token to help local testing
-      if (res.data?.token) setDevToken(res.data.token)
+      // Only in development: backend may return token for local testing; never show in production
+      if (import.meta.env.DEV && res.data?.token) setDevToken(res.data.token)
     } catch (err) {
       setError('Unable to process request. Please try again.')
       console.error(err)
@@ -76,9 +76,9 @@ export default function ForgotPassword() {
               </button>
             </form>
 
-            {devToken && (
+            {import.meta.env.DEV && devToken && (
               <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 12, opacity: 0.8 }}>Dev token (non-production):</div>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>Dev token (development only):</div>
                 <div style={{ fontFamily: 'monospace', wordBreak: 'break-all', fontSize: 12 }}>{devToken}</div>
                 <div style={{ marginTop: 8 }}>
                   <Link to={`/reset-password?token=${encodeURIComponent(devToken)}`} className="auth-link">

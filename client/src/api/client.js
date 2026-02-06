@@ -38,7 +38,7 @@ client.interceptors.response.use(
       try {
         response.data = JSON.parse(response.data)
       } catch (e) {
-        console.error('[API Client] Invalid JSON response:', response.data)
+        if (import.meta.env.DEV) console.error('[API Client] Invalid JSON response:', response.data)
         return Promise.reject({
           message: 'Invalid server response format',
           code: 'ERR_INVALID_RESPONSE',
@@ -51,14 +51,11 @@ client.interceptors.response.use(
   (error) => {
     // Handle network errors first (no response = can't use server message)
     if (error.code === 'ERR_NETWORK' || !error.response) {
-      // Only log detailed errors in development or when authenticated
-      const isAuthenticated = !!localStorage.getItem('token')
-      if (import.meta.env.DEV || isAuthenticated) {
+      if (import.meta.env.DEV) {
         console.error('Network error:', error.message)
         console.error('Request URL:', error.config?.url)
         console.error('Base URL:', API_BASE_URL)
       }
-      
       return Promise.reject({
         message: 'Network error: Unable to connect to server. Please check your connection.',
         code: 'NETWORK_ERROR',
@@ -76,7 +73,7 @@ client.interceptors.response.use(
       try {
         data = JSON.parse(data)
       } catch (e) {
-        console.error('[API Client] Invalid JSON in error response:', data)
+        if (import.meta.env.DEV) console.error('[API Client] Invalid JSON in error response:', data)
         data = {
           message: 'Server returned an invalid response',
           code: 'ERR_INVALID_RESPONSE',
@@ -104,8 +101,11 @@ client.interceptors.response.use(
     }
 
     if (status === 404) {
+      const safeMessage = data?.message || (import.meta.env.DEV
+        ? `API endpoint not found: ${error.config?.url || 'Unknown'}. Please check if the server is running and the endpoint exists.`
+        : 'The requested resource was not found.')
       return Promise.reject({
-        message: data?.message || `API endpoint not found: ${error.config?.url || 'Unknown'}. Please check if the server is running and the endpoint exists.`,
+        message: safeMessage,
         code: data?.code || 'NOT_FOUND',
         status,
         isNotFound: true,
