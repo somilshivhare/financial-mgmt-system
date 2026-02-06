@@ -12,6 +12,9 @@ const ensureMigrationsTable = async () => {
   `);
 };
 
+// Error codes to ignore when re-running idempotent migrations (e.g. column/index already exists)
+const IGNORABLE_DDL_ERRORS = new Set([1060, 1061]); // ER_DUP_FIELDNAME, ER_DUP_KEYNAME
+
 const runMigrations = async () => {
   const migrationsDir = path.join(__dirname, 'migrations');
   const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
@@ -24,11 +27,30 @@ const runMigrations = async () => {
     }
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
     console.log(`Running migration ${file}`);
-    // Run each migration in a transaction and mark as applied (idempotent migrations still recommended)
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
-      await conn.query(sql);
+      // Split into statements (semicolon at end of line) so we can ignore duplicate column/index errors
+      const statements = sql
+        .split(/\s*;\s*\n/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      if (statements.length === 0) {
+        await conn.query(sql);
+      } else {
+        for (const stmt of statements) {
+          const toRun = stmt.endsWith(';') ? stmt : stmt + ';';
+          try {
+            await conn.query(toRun);
+          } catch (err) {
+            if (IGNORABLE_DDL_ERRORS.has(err.errno)) {
+              console.log(`  (skipping: ${err.sqlMessage || err.message})`);
+            } else {
+              throw err;
+            }
+          }
+        }
+      }
       await conn.query('INSERT INTO schema_migrations (filename) VALUES (?)', [file]);
       await conn.commit();
     } catch (err) {

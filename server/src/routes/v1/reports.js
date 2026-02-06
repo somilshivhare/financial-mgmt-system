@@ -23,8 +23,8 @@ const router = express.Router();
 // All routes require authentication
 router.use(requireAuth);
 
-// Role-based access: Finance, Admin, Operations, Sales can view reports
-const canViewReports = requireRole('admin', 'finance', 'operations', 'sales');
+// Role-based access: Admin and User can view reports (user sees only their own data)
+const canViewReports = requireRole('admin', 'user');
 
 // KPIs endpoint
 router.get('/kpis', canViewReports, getKPIs);
@@ -43,8 +43,8 @@ router.get('/tax-gst', canViewReports, getTaxGSTReport);
 router.get('/commissions', canViewReports, getCommissionReport);
 router.get('/reconciliation', canViewReports, getReconciliationReport);
 
-// Audit log - Admin and Finance only
-router.get('/audit-log', requireRole('admin', 'finance'), getAuditLogReport);
+// Audit log - Admin only
+router.get('/audit-log', requireRole('admin'), getAuditLogReport);
 
 module.exports = router;
 

@@ -7,16 +7,15 @@ export const login = async (email, password) => {
   return data
 }
 
-// Default role for new registrations: 5 = viewer (NOT admin).
-// Roles: 1=admin, 2=finance, 3=operations, 4=sales, 5=viewer
-const DEFAULT_REGISTRATION_ROLE_ID = 5
-
+// All new registrations automatically get 'user' role (role_id=2)
+// Admin role cannot be assigned via public registration
+// Backend will assign default role if roleId is not provided
 export const register = async (email, password, name, additionalData = {}) => {
   const payload = {
     fullName: name,
     email,
     password,
-    roleId: additionalData.roleId ?? DEFAULT_REGISTRATION_ROLE_ID,
+    // roleId is not sent - backend will default to 'user' role (role_id=2)
   }
   const { data } = await client.post('/auth/register', payload)
   return data

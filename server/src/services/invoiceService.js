@@ -6,7 +6,7 @@ const { query, transaction } = require('../db/query');
  * without line items are always included. Line items are fetched only on the
  * invoice detail view via listInvoiceLines().
  */
-const listInvoices = async ({ page = 1, pageSize = 20, status, q, keyId }) => {
+const listInvoices = async ({ page = 1, pageSize = 20, status, q, keyId, userId = null, userRole = null }) => {
   try {
     // Ensure page and pageSize are valid integers
     const pageInt = parseInt(page, 10);
@@ -18,6 +18,12 @@ const listInvoices = async ({ page = 1, pageSize = 20, status, q, keyId }) => {
     // Build WHERE clause and params array conditionally
     const where = [];
     const params = [];
+    
+    // User role filtering: 'user' can only see their own invoices, 'admin' sees all
+    if (userRole === 'user' && userId) {
+      where.push('i.created_by = ?');
+      params.push(userId);
+    }
     
     if (status && typeof status === 'string' && status.trim()) {
       where.push('i.status = ?');
@@ -73,15 +79,21 @@ const listInvoices = async ({ page = 1, pageSize = 20, status, q, keyId }) => {
   }
 };
 
-const getInvoice = async (id) => {
-  const rows = await query(
-    `SELECT i.*, c.name AS customer_name, p.po_number
+const getInvoice = async (id, userId = null, userRole = null) => {
+  let sql = `SELECT i.*, c.name AS customer_name, p.po_number
      FROM invoices i
      LEFT JOIN customers c ON c.id = i.customer_id
      LEFT JOIN purchase_orders p ON p.id = i.po_id
-     WHERE i.id = ?`,
-    [id],
-  );
+     WHERE i.id = ?`;
+  const params = [id];
+  
+  // User role filtering: 'user' can only see their own invoices
+  if (userRole === 'user' && userId) {
+    sql += ' AND i.created_by = ?';
+    params.push(userId);
+  }
+  
+  const rows = await query(sql, params);
   return rows[0] || null;
 };
 
@@ -177,8 +189,11 @@ const createInvoice = async (payload, userId) =>
       throw err;
     }
     let resolvedCustomerId = customerId.trim();
-    const [[customerRow]] = await conn.execute('SELECT id FROM customers WHERE id = ? LIMIT 1', [resolvedCustomerId]);
-    if (!customerRow) {
+    let resolvedCustomerName = payload.customer_name || payload.customerName || null;
+    const [[customerRow]] = await conn.execute('SELECT id, name FROM customers WHERE id = ? LIMIT 1', [resolvedCustomerId]);
+    if (customerRow) {
+      if (!resolvedCustomerName) resolvedCustomerName = customerRow.name || null;
+    } else {
       // PO may store master_data id (e.g. after migration 017). Resolve to customers.id by name from master_data.
       const [mdRows] = await conn.execute(
         "SELECT id, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(`values`, '$.customerName')), JSON_UNQUOTE(JSON_EXTRACT(`values`, '$.companyName'))) AS name FROM master_data WHERE id = ? AND type IN ('company-profile', 'customer-profile') LIMIT 1",
@@ -186,7 +201,8 @@ const createInvoice = async (payload, userId) =>
       );
       if (mdRows && mdRows.length > 0 && mdRows[0].name) {
         const custName = String(mdRows[0].name).trim();
-        const [custByName] = await conn.execute('SELECT id FROM customers WHERE name = ? AND status = ? LIMIT 1', [custName, 'active']);
+        resolvedCustomerName = resolvedCustomerName || custName;
+        const [custByName] = await conn.execute('SELECT id FROM customers WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND status = ? LIMIT 1', [custName, 'active']);
         if (custByName && custByName.length > 0) {
           resolvedCustomerId = custByName[0].id;
         } else {
@@ -319,7 +335,7 @@ const createInvoice = async (payload, userId) =>
       payload.internal_invoice_no || payload.internalInvoiceNo || invoiceNumber,
       payload.invoice_type || payload.invoiceType || null,
       payload.business_unit || payload.businessUnit || null,
-      payload.customer_name || payload.customerName || null,
+      payload.customer_name || payload.customerName || resolvedCustomerName || null,
       payload.segment || null,
       payload.region || null,
       payload.zone || null,
@@ -477,14 +493,19 @@ const resolvePOAndCustomer = async (conn, payload) => {
   return { poId: po.id, customerId: resolvedCustomerId };
 };
 
-const updateInvoice = async (invoiceId, payload, userId) =>
+const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
   transaction(async (conn) => {
     // Load existing core fields so we can preserve non-null constraints like due_date
     const [[existing]] = await conn.execute(
-      'SELECT id, po_id, customer_id, status, due_date, first_due_date FROM invoices WHERE id = ?',
+      'SELECT id, po_id, customer_id, status, due_date, first_due_date, created_by FROM invoices WHERE id = ?',
       [invoiceId]
     );
     if (!existing) return null;
+    
+    // User role check: 'user' can only update their own invoices
+    if (userRole === 'user' && existing.created_by !== userId) {
+      throw new Error('FORBIDDEN');
+    }
 
     let poId = payload.poId || existing.po_id;
     let customerId = payload.customerId || payload.customer_id || existing.customer_id;
@@ -626,12 +647,17 @@ const updateInvoice = async (invoiceId, payload, userId) =>
  * Delete an invoice and its related records
  * Checks for payments and prevents deletion if payments exist (or deletes them based on business rules)
  */
-const deleteInvoice = async (invoiceId, userId) => {
+const deleteInvoice = async (invoiceId, userId, userRole = null) => {
   return transaction(async (conn) => {
     // Check if invoice exists
     const [[invoice]] = await conn.execute('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
     if (!invoice) {
       throw new Error('INVOICE_NOT_FOUND');
+    }
+    
+    // User role check: 'user' can only delete their own invoices
+    if (userRole === 'user' && invoice.created_by !== userId) {
+      throw new Error('FORBIDDEN');
     }
 
     // Check for related payments
@@ -662,31 +688,25 @@ const deleteInvoice = async (invoiceId, userId) => {
  */
 const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
   try {
-    if (!customerId && !customerName) {
-      console.log('[InvoiceService] getOpenInvoicesForCustomer called with empty customerId and customerName');
-      return [];
-    }
-    
-    console.log('[InvoiceService] Getting open invoices for customerId:', customerId, 'customerName:', customerName);
+    if (!customerId && !customerName) return [];
     
     let customerNameToSearch = customerName;
     let resolvedCustomerIds = [];
     
     // First, try to resolve the customer ID - it might be from master_data or customers table
+    // Note: query() returns the rows array directly (not [rows, fields])
     if (customerId) {
       // Check if it exists in customers table
-      const [customerRows] = await query('SELECT id, name FROM customers WHERE id = ? LIMIT 1', [customerId]);
+      const customerRows = await query('SELECT id, name FROM customers WHERE id = ? LIMIT 1', [customerId]);
       
       if (customerRows && customerRows.length > 0) {
         resolvedCustomerIds.push(customerId);
         if (!customerNameToSearch) {
           customerNameToSearch = customerRows[0].name;
         }
-        console.log('[InvoiceService] Found customer in customers table:', customerRows[0].name);
       } else {
         // If not found in customers table, it might be a master_data ID
-        console.log('[InvoiceService] Customer ID not found in customers table, checking master_data...');
-        const [mdRows] = await query(
+        const mdRows = await query(
           `SELECT id, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(\`values\`, '$.customerName')), JSON_UNQUOTE(JSON_EXTRACT(\`values\`, '$.companyName'))) AS name 
            FROM master_data 
            WHERE id = ? AND type IN ('company-profile', 'customer-profile') 
@@ -699,28 +719,26 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
           if (!customerNameToSearch) {
             customerNameToSearch = custName;
           }
-          // Find matching customer in customers table by name
-          const [custByName] = await query(
-            'SELECT id FROM customers WHERE name = ? AND status = ?',
+          // Find matching customer in customers table by name (case-insensitive, trimmed)
+          const custByName = await query(
+            'SELECT id FROM customers WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND status = ?',
             [custName, 'active']
           );
           if (custByName && custByName.length > 0) {
             resolvedCustomerIds = custByName.map(c => c.id);
-            console.log('[InvoiceService] Resolved master_data ID to customers table IDs:', resolvedCustomerIds);
           }
         }
       }
     }
     
-    // If we have a customer name but no IDs, search by name
+    // If we have a customer name but no IDs, search by name (case-insensitive, trimmed)
     if (customerNameToSearch && resolvedCustomerIds.length === 0) {
-      const [custByName] = await query(
-        'SELECT id FROM customers WHERE name = ? AND status = ?',
+      const custByName = await query(
+        'SELECT id FROM customers WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND status = ?',
         [customerNameToSearch.trim(), 'active']
       );
       if (custByName && custByName.length > 0) {
         resolvedCustomerIds = custByName.map(c => c.id);
-        console.log('[InvoiceService] Found customers by name:', resolvedCustomerIds);
       }
     }
     
@@ -736,47 +754,22 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
     }
     
     // Also search by customer_name field in invoices table (stored directly)
-    // Use TRIM and case-insensitive comparison for better matching
+    // Use TRIM and case-insensitive comparison for production-ready matching
     if (customerNameToSearch) {
       const trimmedName = customerNameToSearch.trim();
-      // Try exact match first
-      whereConditions.push(`TRIM(i.customer_name) = ?`);
+      whereConditions.push(`LOWER(TRIM(i.customer_name)) = LOWER(?)`);
       params.push(trimmedName);
-      // Also try LIKE for partial matches (in case of extra spaces or slight variations)
       whereConditions.push(`i.customer_name LIKE ?`);
       params.push(`%${trimmedName}%`);
     }
     
-    if (whereConditions.length === 0) {
-      console.log('[InvoiceService] No search criteria available');
-      return [];
-    }
+    if (whereConditions.length === 0) return [];
     
     const whereClause = whereConditions.join(' OR ');
     
-    // First, let's check what invoices exist for debugging
-    const debugQuery = `SELECT i.id, i.customer_id, i.customer_name, i.status, i.total_amount, i.balance, i.amount_paid 
-                        FROM invoices i 
-                        WHERE (${whereClause}) 
-                        LIMIT 10`;
-    const debugInvoices = await query(debugQuery, params);
-    console.log('[InvoiceService] Debug - Found invoices matching criteria:', debugInvoices?.length || 0);
-    if (debugInvoices && debugInvoices.length > 0) {
-      console.log('[InvoiceService] Debug - Sample invoices:', debugInvoices.map(inv => ({
-        id: inv.id,
-        customer_id: inv.customer_id,
-        customer_name: inv.customer_name,
-        status: inv.status,
-        total_amount: inv.total_amount,
-        balance: inv.balance,
-        amount_paid: inv.amount_paid,
-        calculatedBalance: inv.total_amount - (inv.amount_paid || 0)
-      })));
-    }
-    
     // Get invoices for customer with statuses that allow payments
-    // Include 'open', 'posted', 'active', 'submitted' - these are invoices that can receive payments
-    // Note: We check balance > 0, but also include invoices where balance might be NULL (new invoices)
+    // Include 'open', 'posted', 'active', 'submitted', 'draft' - these can receive payments
+    // Open = has outstanding balance OR not fully paid (production-ready: include even if balance column is 0)
     const invoices = await query(
       `SELECT 
         COALESCE(i.internal_invoice_no, i.invoice_number) AS invoiceID,
@@ -806,27 +799,11 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
          AND (
            COALESCE(i.balance, i.total_amount - COALESCE(i.amount_paid, 0)) > 0
            OR (i.balance IS NULL AND i.amount_paid IS NULL)
+           OR COALESCE(i.amount_paid, 0) < i.total_amount
          )
        ORDER BY i.issue_date DESC, i.created_at DESC`,
       params
     );
-    
-    console.log('[InvoiceService] Found', invoices?.length || 0, 'open invoices for customer', customerId, customerNameToSearch);
-    if (invoices && invoices.length > 0) {
-      console.log('[InvoiceService] Sample invoice:', {
-        invoiceID: invoices[0].invoiceID,
-        totalInvoiceValue: invoices[0].totalInvoiceValue,
-        outstandingBalance: invoices[0].outstandingBalance,
-        status: 'checking...'
-      });
-    } else {
-      console.log('[InvoiceService] No invoices found. Search criteria:', {
-        customerId,
-        customerNameToSearch,
-        resolvedCustomerIds,
-        whereClause
-      });
-    }
     
     return invoices || [];
   } catch (err) {

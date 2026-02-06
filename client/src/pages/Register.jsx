@@ -14,7 +14,6 @@ function Register({ onRegister }) {
     mobileNumber: '',
     password: '',
     confirmPassword: '',
-    role: '',
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -25,6 +24,29 @@ function Register({ onRegister }) {
   const [fieldErrors, setFieldErrors] = useState({})
   const submitTimeoutRef = useRef(null)
   const isSubmittingRef = useRef(false)
+  const submitButtonClickedRef = useRef(false)
+
+  // Prevent form submission on Enter key press in input fields
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && e.target.type !== 'submit' && e.target.tagName !== 'BUTTON') {
+      e.preventDefault()
+      e.stopPropagation()
+      // Focus on submit button to indicate user should click it
+      const submitButton = e.target.form?.querySelector('button[type="submit"]')
+      if (submitButton && !loading) {
+        submitButton.focus()
+      }
+    }
+  }
+
+  // Track when submit button is clicked
+  const handleSubmitButtonClick = (e) => {
+    submitButtonClickedRef.current = true
+    // Reset after form submission completes
+    setTimeout(() => {
+      submitButtonClickedRef.current = false
+    }, 1000)
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -98,6 +120,12 @@ function Register({ onRegister }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    e.stopPropagation()
+    
+    // Only allow submission if submit button was clicked
+    if (!submitButtonClickedRef.current) {
+      return
+    }
     
     // Prevent double submission
     if (isSubmittingRef.current || loading) {
@@ -120,17 +148,8 @@ function Register({ onRegister }) {
     setLoading(true)
 
     try {
-      // Map UI role selection to backend roleId.
-      // Backend roles: 1=admin, 2=finance, 3=operations, 4=sales, 5=viewer.
-      // Public registration is restricted server-side to 4 (sales) and 5 (viewer).
-      const roleKey = (formData.role || '').toLowerCase()
-      const roleIdByKey = {
-        manager: 4,    // treat Manager as a sales/manager role
-        user: 5,       // basic user -> viewer
-        accountant: 5, // accountant still gets viewer-level backend role by default
-      }
-      const roleId = roleIdByKey[roleKey]
-
+      // All new registrations automatically get 'user' role (role_id=2)
+      // Admin role cannot be assigned via public registration
       const response = await register(
         formData.email,
         formData.password,
@@ -138,10 +157,6 @@ function Register({ onRegister }) {
         {
           companyName: formData.companyName,
           mobileNumber: formData.mobileNumber,
-          role: formData.role,
-          // Pass numeric roleId to backend; auth API will still
-          // fall back to a safe default if this is missing/invalid.
-          roleId,
         }
       )
       
@@ -367,10 +382,10 @@ function Register({ onRegister }) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="auth-form auth-form--register" noValidate>
+          <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="auth-form auth-form--register" noValidate>
             <div className="auth-form-grid" role="group" aria-label="Registration details">
               {/* Left column: Company, Full Name, Mobile (Desktop) */}
-              {/* Mobile order: Company, Full Name, Email, Mobile, Password, Confirm Password, Role */}
+              {/* Mobile order: Company, Full Name, Email, Mobile, Password, Confirm Password */}
               <div className="auth-form-col">
                 {/* 1. Company Name */}
                 <div className="auth-form-group">
@@ -383,6 +398,7 @@ function Register({ onRegister }) {
                     type="text"
                     value={formData.companyName}
                     onChange={handleChange}
+                    onKeyDown={handleKeyDown}
                     className={`auth-input ${fieldErrors.companyName ? 'auth-input-error' : ''}`}
                     placeholder="Enter company name"
                     required
@@ -408,6 +424,7 @@ function Register({ onRegister }) {
                     type="text"
                     value={formData.fullName}
                     onChange={handleChange}
+                    onKeyDown={handleKeyDown}
                     className={`auth-input ${fieldErrors.fullName ? 'auth-input-error' : ''}`}
                     placeholder="Enter your full name"
                     required
@@ -433,6 +450,7 @@ function Register({ onRegister }) {
                     type="tel"
                     value={formData.mobileNumber}
                     onChange={handleChange}
+                    onKeyDown={handleKeyDown}
                     className={`auth-input ${fieldErrors.mobileNumber ? 'auth-input-error' : ''}`}
                     placeholder="Enter 10-digit mobile number"
                     maxLength="10"
@@ -462,6 +480,7 @@ function Register({ onRegister }) {
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
+                    onKeyDown={handleKeyDown}
                     className={`auth-input ${fieldErrors.email ? 'auth-input-error' : ''}`}
                     placeholder="Enter your email"
                     autoComplete="email"
@@ -488,6 +507,7 @@ function Register({ onRegister }) {
                       type={showPassword ? 'text' : 'password'}
                       value={formData.password}
                       onChange={handleChange}
+                      onKeyDown={handleKeyDown}
                       onFocus={() => setIsPasswordFocused(true)}
                       onBlur={() => setIsPasswordFocused(false)}
                       className={`auth-input auth-input-password ${fieldErrors.password ? 'auth-input-error' : ''}`}
@@ -561,6 +581,7 @@ function Register({ onRegister }) {
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={formData.confirmPassword}
                       onChange={handleChange}
+                      onKeyDown={handleKeyDown}
                       className={`auth-input auth-input-password ${fieldErrors.confirmPassword ? 'auth-input-error' : ''}`}
                       placeholder="Confirm your password"
                       autoComplete="new-password"
@@ -592,26 +613,6 @@ function Register({ onRegister }) {
               </div>
             </div>
 
-            {/* 7. Role (Optional) - Single row below grid */}
-            <div className="auth-form-group auth-form-group--span">
-              <label htmlFor="role" className="auth-label">
-                Role (Optional)
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className="auth-input auth-select"
-                disabled={loading}
-              >
-                <option value="">Select a role</option>
-                <option value="manager">Manager</option>
-                <option value="user">User</option>
-                <option value="accountant">Accountant</option>
-              </select>
-            </div>
-
             {/* Remember me checkbox */}
             <div className="auth-form-options">
               <label className="auth-checkbox-label">
@@ -630,6 +631,7 @@ function Register({ onRegister }) {
               type="submit"
               className="auth-button auth-button-primary"
               disabled={loading}
+              onClick={handleSubmitButtonClick}
             >
               {loading ? 'Creating account...' : 'Create Account'}
             </button>

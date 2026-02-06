@@ -7,7 +7,7 @@ const router = express.Router();
 
 // All dashboard routes require authentication and appropriate role
 router.use(requireAuth);
-router.use(requireRole('admin', 'finance', 'operations', 'sales'));
+router.use(requireRole('admin', 'user'));
 
 // Main dashboard endpoint
 router.get('/', getDashboard);

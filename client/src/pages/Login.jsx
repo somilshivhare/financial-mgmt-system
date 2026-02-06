@@ -22,6 +22,29 @@ function Login({ onLogin }) {
   const [fieldErrors, setFieldErrors] = useState({})
   const submitTimeoutRef = useRef(null)
   const isSubmittingRef = useRef(false)
+  const submitButtonClickedRef = useRef(false)
+
+  // Prevent form submission on Enter key press in input fields
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && e.target.type !== 'submit' && e.target.tagName !== 'BUTTON') {
+      e.preventDefault()
+      e.stopPropagation()
+      // Focus on submit button to indicate user should click it
+      const submitButton = e.target.form?.querySelector('button[type="submit"]')
+      if (submitButton && !loading) {
+        submitButton.focus()
+      }
+    }
+  }
+
+  // Track when submit button is clicked
+  const handleSubmitButtonClick = (e) => {
+    submitButtonClickedRef.current = true
+    // Reset after form submission completes
+    setTimeout(() => {
+      submitButtonClickedRef.current = false
+    }, 1000)
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -36,6 +59,20 @@ function Login({ onLogin }) {
 
   const validateForm = () => {
     const errors = {}
+    
+    // Require "Remember me" checkbox to be checked FIRST
+    // Show red error bar if not checked
+    if (!rememberMe) {
+      setError('You must check "Remember me" to sign in')
+      // Scroll to error message to make it visible
+      setTimeout(() => {
+        const errorElement = document.querySelector('.auth-error-message')
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+      }, 100)
+      return false
+    }
     
     if (!formData.email) {
       errors.email = 'Email is required'
@@ -53,6 +90,12 @@ function Login({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    e.stopPropagation()
+    
+    // Only allow submission if submit button was clicked
+    if (!submitButtonClickedRef.current) {
+      return
+    }
     
     // Prevent double submission
     if (isSubmittingRef.current || loading) {
@@ -64,11 +107,17 @@ function Login({ onLogin }) {
       clearTimeout(submitTimeoutRef.current)
     }
     
-    setError('')
+    // Clear previous errors first
+    setFieldErrors({})
     
+    // Validate form - this will set error if "Remember me" is not checked
     if (!validateForm()) {
+      // Error message is already set by validateForm() - it will show in red bar
       return
     }
+    
+    // Clear error if validation passes
+    setError('')
 
     // Set submitting flag and loading state
     isSubmittingRef.current = true
@@ -275,7 +324,7 @@ function Login({ onLogin }) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="auth-form" noValidate>
+          <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="auth-form" noValidate>
             <div className="auth-form-group">
               <label htmlFor="email" className="auth-label">
                 Email Address <span className="auth-required">*</span>
@@ -286,6 +335,7 @@ function Login({ onLogin }) {
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
+                onKeyDown={handleKeyDown}
                 className={`auth-input ${fieldErrors.email ? 'auth-input-error' : ''}`}
                 placeholder="Enter your email"
                 autoComplete="email"
@@ -312,6 +362,7 @@ function Login({ onLogin }) {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={handleChange}
+                  onKeyDown={handleKeyDown}
                   className={`auth-input auth-input-password ${fieldErrors.password ? 'auth-input-error' : ''}`}
                   placeholder="Enter your password"
                   autoComplete="current-password"
@@ -346,11 +397,19 @@ function Login({ onLogin }) {
                 <input
                   type="checkbox"
                   checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  onChange={(e) => {
+                    setRememberMe(e.target.checked)
+                    // Clear error when checkbox is checked
+                    if (e.target.checked && error) {
+                      setError('')
+                    }
+                  }}
                   className="auth-checkbox"
                   disabled={loading}
+                  required
+                  aria-required="true"
                 />
-                <span>Remember me</span>
+                <span>Remember me <span className="auth-required">*</span></span>
               </label>
               <Link to="/forgot-password" className="auth-link">
                 Forgot Password?
@@ -361,6 +420,7 @@ function Login({ onLogin }) {
               type="submit"
               className="auth-button auth-button-primary"
               disabled={loading}
+              onClick={handleSubmitButtonClick}
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </button>

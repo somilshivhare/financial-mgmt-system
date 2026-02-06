@@ -34,11 +34,11 @@ ALTER TABLE meeting_minutes
 ALTER TABLE meeting_minutes
   MODIFY COLUMN status ENUM('pending', 'in_progress', 'completed', 'cancelled') DEFAULT 'pending';
 
--- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_meetings_date ON meetings(meeting_date);
-CREATE INDEX IF NOT EXISTS idx_meetings_status ON meetings(status);
-CREATE INDEX IF NOT EXISTS idx_meetings_type ON meetings(meeting_type);
-CREATE INDEX IF NOT EXISTS idx_meeting_participants_meeting ON meeting_participants(meeting_id);
-CREATE INDEX IF NOT EXISTS idx_meeting_participants_participant ON meeting_participants(participant_id);
-CREATE INDEX IF NOT EXISTS idx_meeting_minutes_meeting ON meeting_minutes(meeting_id);
-CREATE INDEX IF NOT EXISTS idx_meeting_minutes_status ON meeting_minutes(status);
+-- Create indexes for better query performance (MySQL does not support IF NOT EXISTS for indexes)
+CREATE INDEX idx_meetings_date ON meetings(meeting_date);
+CREATE INDEX idx_meetings_status ON meetings(status);
+CREATE INDEX idx_meetings_type ON meetings(meeting_type);
+CREATE INDEX idx_meeting_participants_meeting ON meeting_participants(meeting_id);
+CREATE INDEX idx_meeting_participants_participant ON meeting_participants(participant_id);
+CREATE INDEX idx_meeting_minutes_meeting ON meeting_minutes(meeting_id);
+CREATE INDEX idx_meeting_minutes_status ON meeting_minutes(status);

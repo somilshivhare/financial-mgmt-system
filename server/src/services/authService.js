@@ -6,20 +6,22 @@ const { query, transaction } = require('../db/query');
 const { env } = require('../config/env');
 const userService = require('./userService');
 
-// Roles: 1=admin, 2=finance, 3=operations, 4=sales, 5=viewer
-const DEFAULT_REGISTRATION_ROLE_ID = 5;
-const ALLOWED_PUBLIC_REGISTRATION_ROLE_IDS = [4, 5]; // sales, viewer only
+// Roles: 1=admin, 2=user
+// Note: Old roles (finance=2, operations=3, sales=4, viewer=5) are deprecated
+// All new registrations default to 'user' role (role_id=2)
+const DEFAULT_REGISTRATION_ROLE_ID = 2; // user role
+const ALLOWED_PUBLIC_REGISTRATION_ROLE_IDS = [2]; // user only - admin cannot be registered publicly
 
 /**
  * Return a role ID safe for public registration.
- * Admin (1), finance (2), operations (3) are never assigned via public signup.
+ * Admin (1) is never assigned via public signup - only 'user' (2) can be registered.
  */
 const getSafeRegistrationRoleId = (roleId) => {
   const id = roleId != null ? Number(roleId) : NaN;
   if (Number.isInteger(id) && ALLOWED_PUBLIC_REGISTRATION_ROLE_IDS.includes(id)) {
     return id;
   }
-  return DEFAULT_REGISTRATION_ROLE_ID;
+  return DEFAULT_REGISTRATION_ROLE_ID; // Always defaults to 'user' (2)
 };
 
 const register = async (fullName, email, password, roleId) => {

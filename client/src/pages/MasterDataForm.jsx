@@ -549,17 +549,34 @@ function MasterDataForm() {
           : item
       ))
       
-      // Create preview for logo/photo files
-      if (file && (key === 'logo' || key === 'photo')) {
+      // Create preview for ALL file uploads - convert to base64 data URL for database storage
+      if (file && file instanceof File) {
         const reader = new FileReader()
         reader.onloadend = () => {
+          // Store base64 data URL in logoPreviews for database saving
           setItems(prev => prev.map(item => 
             item.id === itemId 
               ? { ...item, logoPreviews: { ...item.logoPreviews, [key]: reader.result } }
               : item
           ))
         }
+        reader.onerror = () => {
+          console.error('[MasterDataForm] Failed to read file:', key)
+          setStatus({ kind: 'error', message: `Failed to process ${key}. Please try again.` })
+        }
         reader.readAsDataURL(file)
+      } else if (!file) {
+        // Remove preview if file is cleared
+        setItems(prev => prev.map(item => 
+          item.id === itemId 
+            ? { 
+                ...item, 
+                logoPreviews: Object.fromEntries(
+                  Object.entries(item.logoPreviews || {}).filter(([k]) => k !== key)
+                )
+              }
+            : item
+        ))
       }
       setStatus({ kind: 'idle', message: '' })
     }
@@ -652,13 +669,26 @@ function MasterDataForm() {
     setValues((prev) => ({ ...prev, [finalKey]: file }))
     setStatus({ kind: 'idle', message: '' })
     
-    // Create preview for logo/photo files
-    if (file && (key === 'logo' || key === 'photo')) {
+    // Create preview for ALL file uploads (logo, photo, profilePhoto, etc.)
+    // Convert to base64 data URL for database storage
+    if (file && file instanceof File) {
       const reader = new FileReader()
       reader.onloadend = () => {
+        // Store base64 data URL in logoPreviews for database saving
         setLogoPreviews((prev) => ({ ...prev, [finalKey]: reader.result }))
       }
+      reader.onerror = () => {
+        console.error('[MasterDataForm] Failed to read file:', key)
+        setStatus({ kind: 'error', message: `Failed to process ${key}. Please try again.` })
+      }
       reader.readAsDataURL(file)
+    } else if (!file) {
+      // Remove preview if file is cleared
+      setLogoPreviews((prev) => {
+        const newPreviews = { ...prev }
+        delete newPreviews[finalKey]
+        return newPreviews
+      })
     }
   }
 

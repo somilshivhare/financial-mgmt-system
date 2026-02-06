@@ -239,20 +239,35 @@ const saveMasterDataRecord = async (type, { values, logoPreviews, companyId, sta
     if (s !== undefined) acc[key] = s;
     return acc;
   }, {});
+  // Process logoPreviews - ensure all image data URLs are properly stored
   const cleanLogoPreviews = typeof safeLogoPreviews === 'object' && safeLogoPreviews !== null
     ? toSerializable(safeLogoPreviews)
     : {};
 
+  // Ensure logoPreviews is properly merged into combinedData
   const combinedData = {
     ...cleanValues,
     logoPreviews: cleanLogoPreviews || {},
   };
 
+  // Log for debugging (remove in production if needed)
+  if (Object.keys(cleanLogoPreviews).length > 0) {
+    console.log('[MasterDataService] Saving logoPreviews:', Object.keys(cleanLogoPreviews).join(', '))
+  }
+
   const nextStatus = normalizeStatus(status);
   const coreCols = mapValuesToColumns(combinedData);
 
   try {
+    // Ensure logoPreviews are properly included in the JSON
     const valuesJson = JSON.stringify(combinedData);
+    
+    // Verify logoPreviews are included (for debugging)
+    const parsedCheck = JSON.parse(valuesJson);
+    if (parsedCheck.logoPreviews && Object.keys(parsedCheck.logoPreviews).length > 0) {
+      console.log('[MasterDataService] Saving record with logoPreviews:', Object.keys(parsedCheck.logoPreviews).join(', '));
+    }
+    
     await query(
       `INSERT INTO master_data (
         id, type, company_id, status, \`values\`, created_by, updated_by,
@@ -310,11 +325,27 @@ const updateMasterDataRecord = async (type, id, { values, logoPreviews, companyI
   }
 
   const updatedValues = { ...existing.values, ...values };
-  if (logoPreviews) {
-    updatedValues.logoPreviews = { ...(existing.values.logoPreviews || {}), ...logoPreviews };
+  // Merge logoPreviews properly - ensure images are preserved
+  if (logoPreviews && typeof logoPreviews === 'object') {
+    const existingLogoPreviews = existing.values?.logoPreviews || {};
+    updatedValues.logoPreviews = { ...existingLogoPreviews, ...logoPreviews };
+    
+    // Log for debugging (remove in production if needed)
+    if (Object.keys(logoPreviews).length > 0) {
+      console.log('[MasterDataService] Updating logoPreviews:', Object.keys(logoPreviews).join(', '))
+    }
+  } else if (existing.values?.logoPreviews) {
+    // Preserve existing logoPreviews if no new ones provided
+    updatedValues.logoPreviews = existing.values.logoPreviews;
   }
   
   const valuesJson = JSON.stringify(updatedValues);
+  
+  // Verify logoPreviews are included (for debugging)
+  const parsedCheck = JSON.parse(valuesJson);
+  if (parsedCheck.logoPreviews && Object.keys(parsedCheck.logoPreviews).length > 0) {
+    console.log('[MasterDataService] Updating record with logoPreviews:', Object.keys(parsedCheck.logoPreviews).join(', '));
+  }
   
   const nextStatus = status ? normalizeStatus(status) : existing.status || 'published';
   const coreCols = mapValuesToColumns(updatedValues);
@@ -437,11 +468,20 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
     return acc;
   }, {});
   
-  // Combine values and logoPreviews
+  // Combine values and logoPreviews - ensure images are properly stored
+  const processedLogoPreviews = typeof safeLogoPreviews === 'object' && safeLogoPreviews !== null
+    ? toSerializable(safeLogoPreviews)
+    : {};
+  
   const combinedData = {
     ...cleanValues,
-    logoPreviews: safeLogoPreviews,
+    logoPreviews: processedLogoPreviews || {},
   };
+
+  // Log for debugging (remove in production if needed)
+  if (Object.keys(processedLogoPreviews).length > 0) {
+    console.log('[MasterDataService] Upserting logoPreviews:', Object.keys(processedLogoPreviews).join(', '))
+  }
   
   const valuesJson = JSON.stringify(combinedData);
   const nextStatus = normalizeStatus(status);

@@ -5,10 +5,7 @@ CREATE TABLE IF NOT EXISTS roles (
 
 INSERT IGNORE INTO roles (id, name) VALUES
   (1, 'admin'),
-  (2, 'finance'),
-  (3, 'operations'),
-  (4, 'sales'),
-  (5, 'viewer');
+  (2, 'user');
 
 CREATE TABLE IF NOT EXISTS users (
   id CHAR(36) NOT NULL PRIMARY KEY,

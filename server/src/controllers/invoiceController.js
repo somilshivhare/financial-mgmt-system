@@ -10,7 +10,9 @@ const listInvoices = async (req, res, next) => {
       pageSize: pageSize ? parseInt(pageSize, 10) : 20, 
       status, 
       q,
-      keyId
+      keyId,
+      userId: req.user.id,
+      userRole: req.user.role
     });
     res.json(apiSuccess(result));
   } catch (err) {
@@ -20,7 +22,7 @@ const listInvoices = async (req, res, next) => {
 
 const getInvoice = async (req, res, next) => {
   try {
-    const invoice = await invoiceService.getInvoice(req.params.id);
+    const invoice = await invoiceService.getInvoice(req.params.id, req.user.id, req.user.role);
     if (!invoice) return res.status(404).json(apiError('Invoice not found'));
     res.json(apiSuccess(invoice));
   } catch (err) {
@@ -88,10 +90,13 @@ const createInvoice = async (req, res, next) => {
 
 const updateInvoice = async (req, res, next) => {
   try {
-    const invoice = await invoiceService.updateInvoice(req.params.id, req.body, req.user.id);
+    const invoice = await invoiceService.updateInvoice(req.params.id, req.body, req.user.id, req.user.role);
     if (!invoice) return res.status(404).json(apiError('Invoice not found'));
     res.json(apiSuccess(invoice, 'Invoice updated'));
   } catch (err) {
+    if (err.message === 'FORBIDDEN') {
+      return res.status(403).json(apiError('You can only update your own invoices', 'ERR_FORBIDDEN'));
+    }
     if (err.code === 'ER_DUP_ENTRY') {
       return res.status(400).json(apiError('Invoice number already exists', 'ERR_DUPLICATE'));
     }
@@ -101,9 +106,12 @@ const updateInvoice = async (req, res, next) => {
 
 const deleteInvoice = async (req, res, next) => {
   try {
-    const result = await invoiceService.deleteInvoice(req.params.id, req.user.id);
+    const result = await invoiceService.deleteInvoice(req.params.id, req.user.id, req.user.role);
     res.json(apiSuccess(result, 'Invoice deleted successfully'));
   } catch (err) {
+    if (err.message === 'FORBIDDEN') {
+      return res.status(403).json(apiError('You can only delete your own invoices', 'ERR_FORBIDDEN'));
+    }
     if (err.message === 'INVOICE_NOT_FOUND') {
       return res.status(404).json(apiError('Invoice not found', 'ERR_NOT_FOUND'));
     }

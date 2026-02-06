@@ -276,14 +276,8 @@ function PaymentEntry() {
     if (formData.customerId && formData.customerName) {
       ;(async () => {
         try {
-          console.log('[PaymentEntry] Fetching invoices for customerId:', formData.customerId, 'customerName:', formData.customerName)
-          // Pass both customerId and customerName to ensure invoices are found by name match
           const invoices = await paymentService.getOpenInvoicesForCustomer(formData.customerId, formData.customerName)
-          console.log('[PaymentEntry] Received', invoices?.length || 0, 'invoices:', invoices)
           setOpenInvoices(invoices || [])
-          if (invoices && invoices.length === 0) {
-            console.warn('[PaymentEntry] No invoices found for customer:', formData.customerId, formData.customerName)
-          }
         } catch (e) {
           console.error('[PaymentEntry] Failed to load open invoices:', e)
           setOpenInvoices([])

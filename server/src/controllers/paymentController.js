@@ -37,16 +37,12 @@ const getNextPaymentNumber = async (req, res, next) => {
 const getOpenInvoicesForCustomer = async (req, res, next) => {
   try {
     const { customerId } = req.params;
-    const { customerName } = req.query; // Accept customerName as query parameter
-    
-    console.log('[PaymentController] getOpenInvoicesForCustomer called with:', { customerId, customerName, params: req.params, query: req.query });
-    
+    const { customerName } = req.query;
     if (!customerId && !customerName) {
       return res.status(400).json(apiError('Customer ID or Customer Name is required'));
     }
     
     const invoices = await invoiceService.getOpenInvoicesForCustomer(customerId || null, customerName || null);
-    console.log('[PaymentController] Returning', invoices?.length || 0, 'invoices');
     res.json(apiSuccess(invoices));
   } catch (err) {
     console.error('[PaymentController] Error in getOpenInvoicesForCustomer:', err);

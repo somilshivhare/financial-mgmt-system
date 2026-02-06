@@ -26,7 +26,7 @@ router.get('/invoice/:invoiceId', requireAuth, (req, res, next) => {
   req.query.invoiceId = req.params.invoiceId;
   return listPayments(req, res, next);
 });
-router.post('/', requireAuth, requireRole('admin', 'finance'), validate(paymentSchema), createPayment);
+router.post('/', requireAuth, requireRole('admin', 'user'), validate(paymentSchema), createPayment);
 
 module.exports = router;
 

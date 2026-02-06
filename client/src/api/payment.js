@@ -37,49 +37,22 @@ export const deletePayment = async (id) => {
 }
 
 export const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
-  if (!customerId) {
-    console.error('[PaymentAPI] customerId is required but was:', customerId)
-    throw new Error('Customer ID is required')
+  if (!customerId && !(customerName && String(customerName).trim())) {
+    throw new Error('Customer ID or Customer Name is required')
   }
-  
-  // Ensure customerId is a string and properly encoded
-  const safeCustomerId = String(customerId).trim()
-  if (!safeCustomerId) {
-    throw new Error('Customer ID cannot be empty')
-  }
-  
-  // Properly encode the customerId in the URL path
+  const safeCustomerId = (customerId && String(customerId).trim()) || '_'
   const encodedCustomerId = encodeURIComponent(safeCustomerId)
-  
-  // Build query parameters for customerName
   const params = new URLSearchParams()
   if (customerName && String(customerName).trim()) {
     params.append('customerName', String(customerName).trim())
   }
   const queryString = params.toString()
-  
-  // Construct the full URL
   const url = `/payments/open-invoices/${encodedCustomerId}${queryString ? '?' + queryString : ''}`
-  
-  console.log('[PaymentAPI] Fetching invoices:', {
-    originalCustomerId: customerId,
-    encodedCustomerId,
-    customerName,
-    url,
-    fullUrl: `${client.defaults.baseURL || ''}${url}`
-  })
-  
   try {
     const response = await client.get(url)
-    console.log('[PaymentAPI] Successfully fetched invoices:', response.data?.data?.length || 0)
     return response.data
   } catch (error) {
-    console.error('[PaymentAPI] Error fetching invoices:', {
-      url,
-      error: error.message,
-      status: error.response?.status,
-      data: error.response?.data
-    })
+    console.error('[PaymentAPI] Error fetching open invoices:', error.message, error.response?.status)
     throw error
   }
 }

@@ -28,27 +28,27 @@ const {
 const router = express.Router();
 
 router.get('/customers', requireAuth, listCustomers);
-router.post('/customers', requireAuth, requireRole('admin', 'sales', 'operations'), validate(customerSchema), createCustomer);
-router.put('/customers/:id', requireAuth, requireRole('admin', 'sales', 'operations'), validate(customerSchema), updateCustomer);
+router.post('/customers', requireAuth, requireRole('admin', 'user'), validate(customerSchema), createCustomer);
+router.put('/customers/:id', requireAuth, requireRole('admin', 'user'), validate(customerSchema), updateCustomer);
 
 router.get('/products', requireAuth, listProducts);
-router.post('/products', requireAuth, requireRole('admin', 'operations'), validate(productSchema), createProduct);
-router.put('/products/:id', requireAuth, requireRole('admin', 'operations'), validate(productSchema), updateProduct);
+router.post('/products', requireAuth, requireRole('admin', 'user'), validate(productSchema), createProduct);
+router.put('/products/:id', requireAuth, requireRole('admin', 'user'), validate(productSchema), updateProduct);
 
 // Generic Master Data endpoints
 // IMPORTANT: More specific routes must come before parameterized routes
 router.get('/aggregated', requireAuth, getAggregatedMasterData);
 router.get('/draft', requireAuth, getDraftMasterData);
-router.post('/draft/from-published', requireAuth, requireRole('admin', 'operations', 'sales'), createDraftFromPublished);
-router.post('/draft/publish', requireAuth, requireRole('admin', 'operations', 'sales'), publishDraftMasterData);
+router.post('/draft/from-published', requireAuth, requireRole('admin', 'user'), createDraftFromPublished);
+router.post('/draft/publish', requireAuth, requireRole('admin', 'user'), publishDraftMasterData);
 router.get('/latest', requireAuth, getLatestMasterDataByType);
 router.get('/search', requireAuth, searchMasterData);
 router.get('/', requireAuth, getMasterDataByType);
-router.post('/:type/upsert', requireAuth, requireRole('admin', 'operations', 'sales'), upsertMasterDataRecord);
+router.post('/:type/upsert', requireAuth, requireRole('admin', 'user'), upsertMasterDataRecord);
 router.get('/:type/:id', requireAuth, getMasterDataById);
-router.post('/:type', requireAuth, requireRole('admin', 'operations', 'sales'), saveMasterDataRecord);
-router.put('/:type/:id', requireAuth, requireRole('admin', 'operations', 'sales'), updateMasterDataRecord);
-router.delete('/:type/:id', requireAuth, requireRole('admin', 'operations'), deleteMasterDataRecord);
+router.post('/:type', requireAuth, requireRole('admin', 'user'), saveMasterDataRecord);
+router.put('/:type/:id', requireAuth, requireRole('admin', 'user'), updateMasterDataRecord);
+router.delete('/:type/:id', requireAuth, requireRole('admin', 'user'), deleteMasterDataRecord);
 
 module.exports = router;
 
