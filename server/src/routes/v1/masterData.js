@@ -35,8 +35,6 @@ router.get('/products', requireAuth, listProducts);
 router.post('/products', requireAuth, requireRole('admin', 'user'), validate(productSchema), createProduct);
 router.put('/products/:id', requireAuth, requireRole('admin', 'user'), validate(productSchema), updateProduct);
 
-// Generic Master Data endpoints
-// IMPORTANT: More specific routes must come before parameterized routes
 router.get('/aggregated', requireAuth, getAggregatedMasterData);
 router.get('/draft', requireAuth, getDraftMasterData);
 router.post('/draft/from-published', requireAuth, requireRole('admin', 'user'), createDraftFromPublished);

@@ -28,34 +28,27 @@ export const AIAssistantProvider = ({ children }) => {
   const [pageData, setPageData] = useState(null)
   const [conversation, setConversation] = useState([])
 
-  // Load dashboard data for context - with retry limit and error handling
   const loadDashboardData = useCallback(async () => {
-    // Don't load if already loading to prevent duplicate requests
     if (isLoading) return
     
     try {
       setIsLoading(true)
       const response = await dashboardApi.getDashboardData({})
       
-      // Validate response structure
       if (response && typeof response === 'object') {
         setDashboardData(response.data || response)
       } else {
         console.warn('[AIAssistant] Invalid dashboard data response:', response)
       }
     } catch (error) {
-      // Silently fail - don't block the app if dashboard data fails
       console.error('[AIAssistant] Failed to load dashboard data (non-critical):', error)
-      // Set to null so components can handle gracefully
       setDashboardData(null)
     } finally {
       setIsLoading(false)
     }
   }, [isLoading])
 
-  // Load dashboard data on mount and periodically - with error boundary
   useEffect(() => {
-    // Only load if authenticated
     const token = localStorage.getItem('token')
     if (!token) {
       return
@@ -69,7 +62,6 @@ export const AIAssistantProvider = ({ children }) => {
       
       try {
         await loadDashboardData()
-        // Only set up interval after successful load
         if (mounted && attempt === 0) {
           intervalId = setInterval(() => {
             if (mounted) {
@@ -81,7 +73,6 @@ export const AIAssistantProvider = ({ children }) => {
         }
       } catch (error) {
         console.error('[AIAssistant] Failed to load dashboard data:', error)
-        // Don't retry - just fail silently
       }
     }
     
@@ -95,19 +86,15 @@ export const AIAssistantProvider = ({ children }) => {
     }
   }, []) // Empty deps - only run on mount
 
-  // Check if user has seen introduction (on Dashboard)
   useEffect(() => {
     if (location.pathname === '/dashboard' && !hasSeenIntroduction) {
-      // Show introduction on Dashboard after a short delay
       const timer = setTimeout(() => {
         setIsOpen(true)
         setHasSeenIntroduction(true)
         try {
           localStorage.setItem('aiAssistant_introductionSeen', 'true')
         } catch {
-          // Ignore localStorage errors
         }
-        // Add welcome message
         setConversation([{
           id: 'welcome',
           type: 'assistant',
@@ -119,11 +106,9 @@ export const AIAssistantProvider = ({ children }) => {
     }
   }, [location.pathname, hasSeenIntroduction])
 
-  // Handle user query
   const handleQuery = useCallback(async (query) => {
     if (!query.trim()) return
 
-    // Add user message to conversation
     const userMessage = {
       id: Date.now().toString(),
       type: 'user',
@@ -132,7 +117,6 @@ export const AIAssistantProvider = ({ children }) => {
     }
     setConversation(prev => [...prev, userMessage])
 
-    // Generate response
     setIsLoading(true)
     try {
       const context = {
@@ -143,7 +127,6 @@ export const AIAssistantProvider = ({ children }) => {
 
       const response = generateResponse(query, context)
       
-      // Add assistant response to conversation
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
@@ -168,7 +151,6 @@ export const AIAssistantProvider = ({ children }) => {
     }
   }, [location.pathname, dashboardData, pageData])
 
-  // Get quick summary
   const getQuickSummary = useCallback(() => {
     if (!dashboardData) {
       return {
@@ -180,12 +162,10 @@ export const AIAssistantProvider = ({ children }) => {
     return generateBusinessSummary(dashboardData, location.pathname)
   }, [dashboardData, location.pathname])
 
-  // Get page guidance
   const getPageGuidance = useCallback(() => {
     return generatePageContext(location.pathname, pageData)
   }, [location.pathname, pageData])
 
-  // Clear conversation
   const clearConversation = useCallback(() => {
     setConversation([])
   }, [])

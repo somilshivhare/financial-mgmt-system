@@ -1,4 +1,3 @@
-// India States and Union Territories
 export const INDIA_STATES = [
   'Andhra Pradesh',
   'Arunachal Pradesh',

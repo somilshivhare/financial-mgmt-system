@@ -32,14 +32,12 @@ export default function AIAssistant() {
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (isOpen && !isMinimized) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [conversation, isOpen, isMinimized])
 
-  // Focus input when opened
   useEffect(() => {
     if (isOpen && !isMinimized) {
       setTimeout(() => inputRef.current?.focus(), 100)
@@ -62,16 +60,12 @@ export default function AIAssistant() {
   }
 
   const formatMessage = (message) => {
-    // Convert markdown-style formatting to HTML
     let formatted = message
-      // Bold text (handle multiple occurrences per line)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      // Split by newlines
       .split('\n')
       .map((line) => {
         line = line.trim()
         if (!line) return '<br>'
-        // Bullet points
         if (line.startsWith('•')) {
           return `<div class="ai-message-bullet">${line}</div>`
         }

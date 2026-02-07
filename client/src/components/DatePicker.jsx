@@ -26,15 +26,12 @@ const DatePicker = ({
         onChange={(date) => {
           if (date) {
             if (showTimeSelect) {
-              // ISO string for datetime
               onChange({ target: { name, value: date.toISOString() } });
             } else if (showMonthYearPicker) {
-              // Format back to YYYY-MM for consistency with month inputs
               const yyyy = date.getFullYear();
               const mm = String(date.getMonth() + 1).padStart(2, '0');
               onChange({ target: { name, value: `${yyyy}-${mm}` } });
             } else {
-              // Format back to YYYY-MM-DD for consistency
               const yyyy = date.getFullYear();
               const mm = String(date.getMonth() + 1).padStart(2, '0');
               const dd = String(date.getDate()).padStart(2, '0');

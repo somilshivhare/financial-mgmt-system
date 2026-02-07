@@ -52,7 +52,6 @@ export const uploadProfilePhoto = async (photoFile) => {
   const formData = new FormData()
   formData.append('photo', photoFile)
   
-  // Don't set Content-Type header - let browser set it with boundary for multipart/form-data
   const response = await client.post('/user/profile/photo', formData, {
     headers: {
       'Content-Type': undefined, // Let browser set the Content-Type with boundary

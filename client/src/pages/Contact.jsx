@@ -7,7 +7,7 @@ export default function Contact() {
     document.title = 'Contact NB Aurum Solutions – Get in Touch'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Contact NB Aurum Solutions for sales, support, or questions about our finance platform. Invoicing, receivables, collections, and PO management. Get in touch.')
+      metaDescription.setAttribute('content', 'Contact NB Aurum Solutions for payment collections, consultancy, or platform demo. Power, Solar, Telecom, Railways, PSUs & Government – PAN India. Get in touch.')
     }
   }, [])
 
@@ -24,7 +24,7 @@ export default function Contact() {
           <div className="mkt-page-head">
             <h1 id="contact-heading" className="mkt-section-heading">Contact</h1>
             <p className="mkt-lead">
-              Share your current finance and collections workflow—we'll respond with next steps and a tailored demo plan.
+              Ready to secure your cash flow? Share your collections and payment challenges—we'll respond with next steps and a tailored plan. Zero risk performance model · Sector expertise · Your Dues. Our Duty.
             </p>
           </div>
 
@@ -32,7 +32,7 @@ export default function Contact() {
             <div className="mkt-card">
               <h2 style={{ marginTop: 0, marginBottom: 16 }}>How to reach us</h2>
               <p className="mkt-body">
-                If you're evaluating NB Aurum Solutions or planning a rollout, use the form or contact us directly. Existing customers can also raise requests from inside the product.
+                Whether you need platform demo, collection engagement, or consultancy for Power, Solar, Telecom, Railways, PSUs or Government projects—use the form or contact us directly.
               </p>
               <div className="mkt-contact-meta">
                 <div className="mkt-contact-line">
@@ -135,7 +135,7 @@ export default function Contact() {
                     id="contact-message"
                     name="message"
                     rows={5}
-                    placeholder="Share context about your invoicing, receivables, and collections challenges."
+                    placeholder="Share your collections, payment realization, or platform requirements (e.g. sector, outstanding amounts, need for liaison or dispute support)."
                     required
                     aria-required="true"
                   />

@@ -105,9 +105,7 @@ export default function ContactSupport() {
       setUserRole(storedUser.role || 'viewer')
     }
     
-    // Load support channels from settings
     loadSupportChannels()
-    // Load user's tickets
     loadTickets()
   }, [])
 
@@ -165,7 +163,6 @@ export default function ContactSupport() {
     else if (ticket.description.trim().length < 20) next.description = 'Provide at least 20 characters'
     else if (ticket.description.trim().length > 5000) next.description = 'Description must be 5000 characters or less'
 
-    // Attachments: allow common docs/images, max 10MB total
     const maxTotal = 10 * 1024 * 1024
     if (totalAttachmentBytes > maxTotal) next.attachments = 'Attachments must be 10MB total or smaller'
 
@@ -207,8 +204,6 @@ export default function ContactSupport() {
 
     setSubmitting(true)
     try {
-      // Convert files to base64 for now (or we can upload separately)
-      // For MVP, we'll send file metadata and handle uploads separately
       const ticketData = {
         category: ticket.category,
         priority: ticket.priority,
@@ -217,7 +212,6 @@ export default function ContactSupport() {
         attachments: [], // Files will be handled via multer in the backend
       }
 
-      // Create FormData for file upload
       const formData = new FormData()
       formData.append('category', ticketData.category)
       formData.append('priority', ticketData.priority)
@@ -228,7 +222,6 @@ export default function ContactSupport() {
         formData.append('attachments', file)
       })
 
-      // Use fetch for FormData upload
       const token = localStorage.getItem('token')
       const API_BASE_URL = getApiUrl()
       const response = await fetch(`${API_BASE_URL}/support-tickets`, {
@@ -252,9 +245,7 @@ export default function ContactSupport() {
         setAttachments([])
         if (fileRef.current) fileRef.current.value = ''
         setErrors({})
-        // Reload tickets
         await loadTickets()
-        // Switch to history tab
         setActiveTab('history')
       } else {
         throw new Error(data.message || 'Failed to create ticket')
@@ -275,9 +266,7 @@ export default function ContactSupport() {
       const response = await addReply(ticketId, replyMessage.trim(), false)
       if (response.success) {
         setReplyMessage('')
-        // Reload ticket details
         await loadTicketDetails(ticketId)
-        // Reload tickets list
         await loadTickets()
       } else {
         throw new Error(response.message || 'Failed to add reply')

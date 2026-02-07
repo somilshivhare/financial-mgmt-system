@@ -1,15 +1,8 @@
-/**
- * Centralized Master Data Service
- * Single source of truth for all Master Data across the application
- */
 
 import * as masterDataApi from '../api/masterData'
 
-// Get all master data
 export const getAllMasterData = async () => {
   try {
-    // Fetch all types in parallel for better performance
-    // This makes 6 requests simultaneously instead of sequentially
     const [companies, customers, consignees, payers, employees, paymentTerms] = await Promise.allSettled([
       masterDataApi.getMasterDataByType('company-profile', { status: 'published' }),
       masterDataApi.getMasterDataByType('customer-profile', { status: 'published' }),
@@ -19,21 +12,17 @@ export const getAllMasterData = async () => {
       masterDataApi.getMasterDataByType('payment-terms', { status: 'published' }),
     ])
 
-    // Extract values from Promise.allSettled results, handling failures gracefully
-    // Transform records to include title and submittedAt for the listing page
     const transformRecords = (records) => {
       if (!Array.isArray(records)) return []
       return records.map(record => {
         const values = record.values || {}
         const logoPreviews = values.logoPreviews || {}
         
-        // Extract logoPreviews from values if nested
         const cleanValues = { ...values }
         if (cleanValues.logoPreviews) {
           delete cleanValues.logoPreviews
         }
         
-        // Determine title based on type
         let title = 'Master Data'
         if (record.type === 'company-profile') title = 'Company Profile'
         else if (record.type === 'customer-profile') title = 'Customer Profile'
@@ -75,7 +64,6 @@ export const getAllMasterData = async () => {
   }
 }
 
-// Get records by type
 export const getMasterDataByType = async (type, options = {}) => {
   try {
     const response = await masterDataApi.getMasterDataByType(type, { status: 'published', ...options })
@@ -86,7 +74,6 @@ export const getMasterDataByType = async (type, options = {}) => {
   }
 }
 
-// Get a single record by ID
 export const getMasterDataById = async (type, id) => {
   try {
     const response = await masterDataApi.getMasterDataById(type, id)
@@ -97,12 +84,10 @@ export const getMasterDataById = async (type, id) => {
   }
 }
 
-// Save a master data record
 export const saveMasterDataRecord = async (type, recordData) => {
   try {
     const response = await masterDataApi.saveMasterDataRecord(type, recordData)
 
-    // Trigger custom event for real-time updates
     window.dispatchEvent(new CustomEvent('masterDataUpdated', { detail: { type, record: response } }))
 
     return response
@@ -112,12 +97,10 @@ export const saveMasterDataRecord = async (type, recordData) => {
   }
 }
 
-// Delete a master data record
 export const deleteMasterDataRecord = async (type, id) => {
   try {
     const response = await masterDataApi.deleteMasterDataRecord(type, id)
 
-    // Trigger custom event
     window.dispatchEvent(new CustomEvent('masterDataUpdated', { detail: { type, id, deleted: true } }))
 
     return response
@@ -127,8 +110,6 @@ export const deleteMasterDataRecord = async (type, id) => {
   }
 }
 
-// Get customers (for dropdowns)
-// Returns all customer records from Master Data with complete field mapping
 export const getCustomers = async () => {
   try {
     const records = await getMasterDataByType('customer-profile')
@@ -167,7 +148,6 @@ export const getCustomers = async () => {
   }
 }
 
-// Get companies
 export const getCompanies = async () => {
   try {
     const records = await getMasterDataByType('company-profile')
@@ -184,7 +164,6 @@ export const getCompanies = async () => {
   }
 }
 
-// Get consignees
 export const getConsignees = async () => {
   try {
     const records = await getMasterDataByType('consignee-profile')
@@ -200,7 +179,6 @@ export const getConsignees = async () => {
   }
 }
 
-// Get payers
 export const getPayers = async () => {
   try {
     const records = await getMasterDataByType('payer-profile')
@@ -217,7 +195,6 @@ export const getPayers = async () => {
   }
 }
 
-// Get employees
 export const getEmployees = async () => {
   try {
     const records = await getMasterDataByType('employee-profile')
@@ -236,7 +213,6 @@ export const getEmployees = async () => {
   }
 }
 
-// Get payment terms
 export const getPaymentTerms = async () => {
   try {
     const records = await getMasterDataByType('payment-terms')
@@ -255,7 +231,6 @@ export const getPaymentTerms = async () => {
   }
 }
 
-// Search master data across all types
 export const searchMasterData = async (query) => {
   try {
     const response = await masterDataApi.searchMasterData(query)
@@ -266,11 +241,9 @@ export const searchMasterData = async (query) => {
   }
 }
 
-// Get aggregated master data (all steps combined) - returns array of master data sets
 export const getAggregatedMasterData = async () => {
   try {
     const response = await masterDataApi.getAggregatedMasterData()
-    // Extract data from API response - should be an array
     const data = response?.data
     return Array.isArray(data) ? data : (data ? [data] : [])
   } catch (error) {

@@ -1,10 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../db/query');
 
-/**
- * Parse values column from DB - may be string (JSON), Buffer, or already an object (e.g. MySQL JSON column).
- * Avoids "SyntaxError: [object Object] is not valid JSON" in production when driver returns object or invalid string.
- */
 const parseJson = (value) => {
   if (value == null) return null;
   if (typeof value === 'object' && value !== null && !Buffer.isBuffer(value)) return value;
@@ -63,9 +59,6 @@ const normalizeStatus = (status) => {
   return ['draft', 'published', 'archived'].includes(normalized) ? normalized : 'published';
 };
 
-/**
- * Extract core fields from values JSON to populate dedicated columns
- */
 const mapValuesToColumns = (values) => {
   if (!values || typeof values !== 'object') return {};
   
@@ -149,7 +142,6 @@ const updateProduct = async (id, payload) => {
   return product;
 };
 
-// Generic Master Data Service Methods
 const getMasterDataByType = async (type, userId, { companyId = null, status = null } = {}) => {
   if (!type) return [];
   if (!userId) {
@@ -213,11 +205,9 @@ const saveMasterDataRecord = async (type, { values, logoPreviews, companyId, sta
   const needsCompany = type && type !== 'company-profile';
   const validatedCompanyId = needsCompany ? await assertCompanyAccess(companyId, safeUserId) : null;
   
-  // Ensure values is an object and handle null/undefined safely
   const safeValues = values || {};
   const safeLogoPreviews = logoPreviews || {};
 
-  // Keep only JSON-serializable values (strip File, function, undefined; avoid circular refs)
   const toSerializable = (val) => {
     if (val === null || val === undefined) return undefined;
     if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return val;
@@ -239,18 +229,15 @@ const saveMasterDataRecord = async (type, { values, logoPreviews, companyId, sta
     if (s !== undefined) acc[key] = s;
     return acc;
   }, {});
-  // Process logoPreviews - ensure all image data URLs are properly stored
   const cleanLogoPreviews = typeof safeLogoPreviews === 'object' && safeLogoPreviews !== null
     ? toSerializable(safeLogoPreviews)
     : {};
 
-  // Ensure logoPreviews is properly merged into combinedData
   const combinedData = {
     ...cleanValues,
     logoPreviews: cleanLogoPreviews || {},
   };
 
-  // Log for debugging (remove in production if needed)
   if (Object.keys(cleanLogoPreviews).length > 0) {
     console.log('[MasterDataService] Saving logoPreviews:', Object.keys(cleanLogoPreviews).join(', '))
   }
@@ -259,10 +246,8 @@ const saveMasterDataRecord = async (type, { values, logoPreviews, companyId, sta
   const coreCols = mapValuesToColumns(combinedData);
 
   try {
-    // Ensure logoPreviews are properly included in the JSON
     const valuesJson = JSON.stringify(combinedData);
     
-    // Verify logoPreviews are included (for debugging)
     const parsedCheck = JSON.parse(valuesJson);
     if (parsedCheck.logoPreviews && Object.keys(parsedCheck.logoPreviews).length > 0) {
       console.log('[MasterDataService] Saving record with logoPreviews:', Object.keys(parsedCheck.logoPreviews).join(', '));
@@ -286,7 +271,6 @@ const saveMasterDataRecord = async (type, { values, logoPreviews, companyId, sta
       throw createHttpError(400, 'ERR_USER_NOT_FOUND', 'User not found. Please log out and log in again.');
     }
     
-    // Specifically log bad field errors which indicate missing migrations
     if (error.code === 'ER_BAD_FIELD_ERROR') {
       console.error('[MasterDataService] MISSING MIGRATION DETECTED:', error.message);
       throw createHttpError(500, 'ERR_DATABASE_SCHEMA', `Database schema is outdated. Missing column in master_data table. Original error: ${error.message}`);
@@ -313,9 +297,6 @@ const updateMasterDataRecord = async (type, id, { values, logoPreviews, companyI
   const existing = await getMasterDataById(type, id, safeUserId);
   if (!existing) return null;
   
-  // Company linkage rules:
-  // - company-profile has no companyId
-  // - other types must keep a stable companyId (cannot be moved between companies via update)
   const needsCompany = type && type !== 'company-profile';
   if (needsCompany) {
     const validatedCompanyId = await assertCompanyAccess(companyId || existing.companyId, safeUserId);
@@ -325,23 +306,19 @@ const updateMasterDataRecord = async (type, id, { values, logoPreviews, companyI
   }
 
   const updatedValues = { ...existing.values, ...values };
-  // Merge logoPreviews properly - ensure images are preserved
   if (logoPreviews && typeof logoPreviews === 'object') {
     const existingLogoPreviews = existing.values?.logoPreviews || {};
     updatedValues.logoPreviews = { ...existingLogoPreviews, ...logoPreviews };
     
-    // Log for debugging (remove in production if needed)
     if (Object.keys(logoPreviews).length > 0) {
       console.log('[MasterDataService] Updating logoPreviews:', Object.keys(logoPreviews).join(', '))
     }
   } else if (existing.values?.logoPreviews) {
-    // Preserve existing logoPreviews if no new ones provided
     updatedValues.logoPreviews = existing.values.logoPreviews;
   }
   
   const valuesJson = JSON.stringify(updatedValues);
   
-  // Verify logoPreviews are included (for debugging)
   const parsedCheck = JSON.parse(valuesJson);
   if (parsedCheck.logoPreviews && Object.keys(parsedCheck.logoPreviews).length > 0) {
     console.log('[MasterDataService] Updating record with logoPreviews:', Object.keys(parsedCheck.logoPreviews).join(', '));
@@ -408,22 +385,16 @@ const searchMasterData = async (queryString, userId) => {
   return records.map(normalizeMasterDataRecord);
 };
 
-/**
- * Get the latest/master record for a type (useful for single-record types like company-profile)
- * Returns the most recently created or updated record
- */
 const getLatestMasterDataByType = async (type, userId = null, companyId = null, status = null) => {
   try {
     let sql = 'SELECT id, type, company_id AS companyId, status, `values`, created_by, updated_by, created_at, updated_at FROM master_data WHERE type = ?';
     const params = [type];
 
-    // Optionally filter by user
     if (userId) {
       sql += ' AND (created_by = ? OR updated_by = ?)';
       params.push(userId, userId);
     }
 
-    // Optionally filter by company (for non-company types)
     if (companyId && type !== 'company-profile') {
       sql += ' AND company_id = ?';
       params.push(companyId);
@@ -444,11 +415,6 @@ const getLatestMasterDataByType = async (type, userId = null, companyId = null, 
   }
 };
 
-/**
- * Upsert master data record - Insert if new, Update if exists
- * For single-record types (like company-profile), updates existing or creates new
- * For multi-record types, always creates new unless id is provided
- */
 const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyId, status }, userId) => {
   const safeValues = values || {};
   const safeLogoPreviews = logoPreviews || {};
@@ -460,7 +426,6 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
   const needsCompany = type && type !== 'company-profile';
   const validatedCompanyId = needsCompany ? await assertCompanyAccess(companyId, safeUserId) : null;
   
-  // Clean up undefined values
   const cleanValues = Object.entries(safeValues).reduce((acc, [key, value]) => {
     if (value !== undefined) {
       acc[key] = value;
@@ -468,7 +433,6 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
     return acc;
   }, {});
   
-  // Combine values and logoPreviews - ensure images are properly stored
   const processedLogoPreviews = typeof safeLogoPreviews === 'object' && safeLogoPreviews !== null
     ? toSerializable(safeLogoPreviews)
     : {};
@@ -478,7 +442,6 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
     logoPreviews: processedLogoPreviews || {},
   };
 
-  // Log for debugging (remove in production if needed)
   if (Object.keys(processedLogoPreviews).length > 0) {
     console.log('[MasterDataService] Upserting logoPreviews:', Object.keys(processedLogoPreviews).join(', '))
   }
@@ -486,17 +449,13 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
   const valuesJson = JSON.stringify(combinedData);
   const nextStatus = normalizeStatus(status);
   
-  // Single-record types: update existing or create new
-  // Note: company-profile is NOT in this list - it always creates new records to allow multiple master data entries
   const singleRecordTypes = ['customer-profile']; // Only customer-profile updates existing
   const isSingleRecordType = singleRecordTypes.includes(type);
   
   if (isSingleRecordType) {
-    // Single per company: update existing record for this company, else create new
     const existing = await getLatestMasterDataByType(type, safeUserId, validatedCompanyId, nextStatus);
     
     if (existing) {
-      // Update existing record
       const updatedValues = { ...existing.values, ...combinedData };
       const updatedJson = JSON.stringify(updatedValues);
       const coreCols = mapValuesToColumns(updatedValues);
@@ -525,7 +484,6 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
   const coreCols = mapValuesToColumns(combinedData);
 
   try {
-    // If id provided, try to update
     if (id) {
       const existing = await getMasterDataById(type, id, safeUserId);
       if (existing) {
@@ -557,7 +515,6 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
       }
     }
     
-    // Create new record
     const newId = id || uuidv4();
     await query(
       `INSERT INTO master_data (
@@ -581,16 +538,11 @@ const upsertMasterDataRecord = async (type, { values, logoPreviews, id, companyI
   }
 };
 
-/**
- * Get aggregated master data for a specific company profile
- * Groups all steps (customer, consignee, payer, etc.) under one company
- */
 const getAggregatedMasterDataByCompany = async (companyId, userId, { status = 'published' } = {}) => {
   if (!companyId || !userId) {
     return null;
   }
   
-  // Get the company profile
   const companyRecord = await getMasterDataById('company-profile', companyId, userId);
   if (!companyRecord) {
     return null;
@@ -681,29 +633,22 @@ const getAggregatedMasterDataByCompany = async (companyId, userId, { status = 'p
   };
 };
 
-/**
- * Get all aggregated master data sets for a user
- * Returns an array of consolidated records, one per company-profile
- */
 const getAllAggregatedMasterData = async (userId) => {
   if (!userId) {
     return [];
   }
   
   try {
-    // Get all company profiles for this user (published + draft)
     const userCompanies = await getMasterDataByType('company-profile', userId);
     
     if (userCompanies.length === 0) {
       return [];
     }
     
-    // Get aggregated data for each company
     const aggregatedSets = await Promise.all(
       userCompanies.map(company => getAggregatedMasterDataByCompany(company.id, userId, { status: company.status }))
     );
     
-    // Filter out null results and sort by last updated (newest first)
     return aggregatedSets
       .filter(set => set !== null)
       .sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
@@ -836,7 +781,6 @@ const publishDraftSet = async (draftCompanyId, userId) => {
 
   const publishedCompanyId = draftCompany.companyId || null;
 
-  // Archive existing published set when editing a published company
   if (publishedCompanyId) {
     await query(
       `UPDATE master_data
@@ -848,7 +792,6 @@ const publishDraftSet = async (draftCompanyId, userId) => {
     );
   }
 
-  // Publish all draft records for this draft company id (company profile + linked steps)
   await query(
     `UPDATE master_data
      SET status = 'published', company_id = NULL, updated_by = ?, updated_at = NOW()

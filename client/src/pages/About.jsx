@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 
 export default function About() {
   useEffect(() => {
-    document.title = 'About NB Aurum Solutions – Mission, Vision & Values'
+    document.title = 'About NB Aurum Solutions – Payment Collections & Consultancy'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Learn about NB Aurum Solutions: mission to bring discipline and transparency to finance operations, product philosophy, compliance, and enterprise reliability. Invoicing, receivables, collections software.')
+      metaDescription.setAttribute('content', 'Your trusted partner in payment collections & consultancy. Specialization in Power, Solar, Telecom, Railways, PSU\'s & Government Projects – PAN India. 20+ years expertise, integrity first.')
     }
   }, [])
 
@@ -17,7 +17,7 @@ export default function About() {
           <div className="mkt-page-head">
             <h1 id="about-heading" className="mkt-section-heading">About NB Aurum Solutions</h1>
             <p className="mkt-lead">
-              We build an enterprise SaaS platform for finance and operations teams—so receivables, payments, and collections behave like one system, not scattered spreadsheets.
+              Your trusted partner in payment collections and consultancy—specializing in Power, Solar, Telecom, Railways, PSU's and Government projects across India.
             </p>
           </div>
 
@@ -25,11 +25,11 @@ export default function About() {
             <div>
               <h2 style={{ marginTop: 0 }}>Our mission</h2>
               <p className="mkt-body">
-                Our mission is to bring discipline, transparency, and calm to day-to-day finance operations. We believe teams should see exactly where every rupee is in the journey from PO to invoice to payment to collection.
+                We bring discipline, transparency, and results to payment realization and collections. We believe in set processes right the first time, strong customer relationships, full policy and document compliance, and a "Never say No" attitude—so your cash flow is secure and your contracts close cleanly.
               </p>
-              <h3 style={{ marginTop: 32 }}>Product philosophy</h3>
+              <h3 style={{ marginTop: 32 }}>What we stand for</h3>
               <p className="mkt-body">
-                NB Aurum Solutions is intentionally focused. We concentrate on receivables, collections, and operational reporting—so the product stays opinionated, reliable, and easy to adopt across finance and operations.
+                NB Aurum Solutions is built on 20+ years of expertise. We focus on strategic liaison, aggressive payment realization, dispute management, and MIS-led compliance—so you get end-to-end service from a single point of contact while your team focuses on growth.
               </p>
               <Link to="/who-we-are" className="mkt-btn mkt-btn-ghost" style={{ marginTop: 24 }}>
                 Who we are
@@ -37,7 +37,7 @@ export default function About() {
             </div>
             <div className="mkt-image-placeholder caption" aria-hidden="true">
               <span>Mission</span>
-              <div className="mkt-image-caption">Focused solutions for finance teams</div>
+              <div className="mkt-image-caption">Integrity first · Proven results</div>
             </div>
           </div>
         </div>
@@ -46,28 +46,28 @@ export default function About() {
       <section className="mkt-section-full muted" aria-labelledby="compliance-heading">
         <div className="mkt-container mkt-container-wide">
           <div className="mkt-page-head">
-            <h2 id="compliance-heading" className="mkt-section-heading">Compliance, security & scalability</h2>
+            <h2 id="compliance-heading" className="mkt-section-heading">Compliance, security & transparency</h2>
             <p className="mkt-lead">
-              Enterprise-grade infrastructure built for reliability, security, and growth.
+              Full policy and document compliance, ethical recovery practices, and data transparency—so you can trust every step.
             </p>
           </div>
           <div className="mkt-grid-3" style={{ marginTop: 48 }}>
             <div className="mkt-card">
               <h3>Compliance & controls</h3>
               <p className="mkt-body">
-                The platform keeps a clear audit trail: who created which PO, who approved which invoice, and which payments affected which balances. Every critical action is timestamped and traceable.
+                Activities adhere strictly to policy, documentation standards, and ethical recovery practices. Regular MIS reports, invoice trackers, aging analysis, and reconciliation statements keep everything audit-ready.
               </p>
             </div>
             <div className="mkt-card">
-              <h3>Data security</h3>
+              <h3>Data & confidentiality</h3>
               <p className="mkt-body">
-                Hardened authentication, hashed credentials, and role-based access. Separation between auth, business logic, and data layers keeps the system maintainable as you scale.
+                Your business data stays confidential. We use hardened processes, clear authorization, and a single point of contact so internal resources can focus on growth while we manage liaison and recovery.
               </p>
             </div>
             <div className="mkt-card">
               <h3>Scalability</h3>
               <p className="mkt-body">
-                Stateless API, normalized schema and indexes, and a frontend that talks only through versioned REST APIs—built to grow with you.
+                PAN-India capability with a nationwide network of professionals. We scale with your project footprint—Power, Solar, Telecom, Railways, PSUs and Government—without compromising on relationship management or compliance.
               </p>
             </div>
           </div>
@@ -79,51 +79,46 @@ export default function About() {
           <div className="mkt-page-head">
             <h2 id="values-heading" className="mkt-section-heading">Our journey and values</h2>
             <p className="mkt-lead">
-              From foundation to future—how we build and what we stand for.
+              From foundation to today—how we work and what we stand for.
             </p>
           </div>
           <div className="mkt-grid-2" style={{ marginTop: 48 }}>
             <div className="mkt-card">
-              <h3>Timeline & roadmap</h3>
+              <h3>How we deliver</h3>
               <ul className="mkt-timeline">
                 <li>
                   <span className="mkt-timeline-dot" aria-hidden="true" />
                   <div>
-                    <strong>Foundation</strong>
-                    <p>
-                      We started by mapping real-world finance workflows—how POs, invoices, payments, and collections are actually managed in teams.
-                    </p>
+                    <strong>Strategic liaison</strong>
+                    <p>Utility and authority coordination, technical submission, and operational streamlining so projects don't delay.</p>
                   </div>
                 </li>
                 <li>
                   <span className="mkt-timeline-dot" aria-hidden="true" />
                   <div>
-                    <strong>Core platform</strong>
-                    <p>We built Master Data, PO, Invoice, Payments, and Collection modules on a single schema.</p>
+                    <strong>Payment realization</strong>
+                    <p>Lifecycle billing, asset recovery (retention, EMD, BGs), and risk-free collection on a No Collection, No Fee basis.</p>
                   </div>
                 </li>
                 <li>
                   <span className="mkt-timeline-dot" aria-hidden="true" />
                   <div>
-                    <strong>Next</strong>
-                    <p>
-                      Expanding advanced reporting, configurable approval flows, and deeper integrations with your financial stack.
-                    </p>
+                    <strong>Dispute & closure</strong>
+                    <p>Dispute resolution, diplomatic negotiation, and support until full contract closure with reconciliation and certification.</p>
                   </div>
                 </li>
               </ul>
             </div>
-
             <div className="mkt-card">
               <h3>Core values</h3>
               <ul className="mkt-benefit-list">
-                <li>Respect for finance and operations work—no gimmicks, no noisy dashboards.</li>
-                <li>Opinionated defaults that work out of the box for growing organizations.</li>
-                <li>Honest, transparent communication with customers and partners.</li>
-                <li>Reliability over vanity features: stable APIs, predictable behavior.</li>
+                <li>Integrity first—process-driven compliance and ethical recovery.</li>
+                <li>Set processes right the first time; no shortcuts.</li>
+                <li>Diplomatic yet firm negotiation to preserve long-term relationships.</li>
+                <li>Full transparency through MIS and regular reporting.</li>
               </ul>
               <div className="mkt-image-placeholder" style={{ marginTop: 24, aspectRatio: '16/9' }} aria-hidden="true">
-                <span>Reliability</span>
+                <span>Values</span>
               </div>
             </div>
           </div>
@@ -135,26 +130,26 @@ export default function About() {
           <div className="mkt-page-head">
             <h2 className="mkt-section-heading">What differentiates NB Aurum Solutions</h2>
             <p className="mkt-lead">
-              We focus on a few things and do them well—so you get clarity, not complexity.
+              Unmatched domain expertise, nationwide capability, and a reputation-preserving approach.
             </p>
           </div>
           <div className="mkt-grid-3" style={{ marginTop: 48 }}>
             <div className="mkt-card">
-              <h3>Focused scope</h3>
+              <h3>Domain expertise</h3>
               <p className="mkt-body">
-                We don’t try to be an ERP. We solve receivables, invoicing, and collections with depth—so the product stays understandable and maintainable.
+                Targeted sector experience in government companies, railways and PSUs. Deep process knowledge that improves internal reporting and MIS accuracy.
               </p>
             </div>
             <div className="mkt-card">
-              <h3>Single source of truth</h3>
+              <h3>PAN-India capability</h3>
               <p className="mkt-body">
-                One database, one workflow. Master Data, POs, Invoices, and Payments are connected—no sync issues, no duplicate data.
+                Nationwide network of professionals and strong relationship management to resolve complex payment bottlenecks—wherever your projects are.
               </p>
             </div>
             <div className="mkt-card">
-              <h3>Enterprise-ready from day one</h3>
+              <h3>Risk-free model</h3>
               <p className="mkt-body">
-                Audit trails, role-based access, and clear ownership are built in—so you can adopt with confidence at any scale.
+                Outcome-based pricing, zero upfront cost, and performance-driven recovery. You pay when we deliver—so adoption is seamless and low-risk.
               </p>
             </div>
           </div>

@@ -16,7 +16,6 @@ const {
 
 const router = express.Router();
 
-// Subscription page endpoints (authenticated users)
 router.get('/', requireAuth, getMySubscription);
 router.put('/', requireAuth, validate(subscriptionSchema), upsertSubscription); // legacy-ish: allow UI to save subscription payloads
 router.post('/', requireAuth, validate(subscriptionSchema), upsertSubscription); // backward compatibility

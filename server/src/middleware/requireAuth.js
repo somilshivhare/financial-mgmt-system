@@ -16,8 +16,6 @@ const requireAuth = async (req, res, next) => {
     if (!userId) {
       return res.status(401).json(apiError('User not found. Please log out and log in again.', 'ERR_USER_NOT_FOUND'));
     }
-    // PRODUCTION FIX: Fetch current user role from database to ensure it's up-to-date
-    // This prevents stale role data in JWT tokens
     const rows = await query(
       `SELECT u.id, u.status, r.name as role 
        FROM users u 
@@ -30,14 +28,12 @@ const requireAuth = async (req, res, next) => {
       return res.status(401).json(apiError('User not found. Please log out and log in again.', 'ERR_USER_NOT_FOUND'));
     }
     
-    // Use current role from database, not from JWT token (which might be stale)
     req.user = {
       id: payload.id,
       email: payload.email,
       role: rows[0].role, // Use fresh role from database
     };
     
-    // PRODUCTION DEBUG: Log authentication for PO requests
     if (req.path && req.path.includes('/pos')) {
       console.log('[Auth] PO request authenticated:', {
         userId: userId.substring(0, 8) + '...',

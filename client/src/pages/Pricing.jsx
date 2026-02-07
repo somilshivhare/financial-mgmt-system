@@ -6,8 +6,8 @@ const tiers = [
     name: 'Trial',
     price: '₹0',
     period: '/month',
-    note: 'Evaluate with a limited but complete workflow',
-    features: ['Up to 3 users', 'Core platform modules', 'Email support'],
+    note: 'Evaluate the platform with core modules',
+    features: ['Up to 3 users', 'Master Data, PO, Invoice, Payments', 'Basic collections & dashboards', 'Email support'],
     cta: 'Start trial',
     href: '/register',
     featured: false,
@@ -16,8 +16,8 @@ const tiers = [
     name: 'Starter',
     price: '₹4,999',
     period: '/month',
-    note: 'For small teams formalizing finance operations',
-    features: ['Up to 10 users', 'Master Data, PO, Invoice', 'Basic collections & dashboards'],
+    note: 'For small teams managing receivables and collections',
+    features: ['Up to 10 users', 'Full platform modules', 'Collections planning & reporting', 'MIS & aging analysis'],
     cta: 'Start trial',
     href: '/register',
     featured: false,
@@ -26,8 +26,8 @@ const tiers = [
     name: 'Growth',
     price: '₹14,999',
     period: '/month',
-    note: 'For growing organizations with multiple units',
-    features: ['Up to 30 users', 'Advanced workflows & approvals', 'Collections planning & reporting', 'Priority support'],
+    note: 'For growing organizations with multiple units and compliance needs',
+    features: ['Up to 30 users', 'Advanced workflows & approvals', 'Priority support', 'Dedicated liaison support options'],
     cta: 'Get started',
     href: '/register',
     featured: true,
@@ -36,9 +36,9 @@ const tiers = [
     name: 'Enterprise',
     price: 'Custom',
     period: '',
-    note: 'For large organizations with specific needs',
-    features: ['Unlimited users', 'Custom security & SSO', 'Dedicated success & SLAs', 'On-premise options'],
-    cta: 'Contact sales',
+    note: 'Collections consultancy + platform for large deployments',
+    features: ['Unlimited users', 'Custom security & SSO', 'Performance-based collection engagement', 'Dedicated success & SLAs'],
+    cta: 'Contact us',
     href: '/contact',
     featured: false,
   },
@@ -46,10 +46,10 @@ const tiers = [
 
 export default function Pricing() {
   useEffect(() => {
-    document.title = 'Pricing – NB Aurum Solutions Plans & Features'
+    document.title = 'Pricing & Engagement – NB Aurum Solutions'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'NB Aurum Solutions pricing: Trial, Starter, Growth, Enterprise. Finance software, invoicing, collections, and receivables management. Transparent pricing, no hidden fees.')
+      metaDescription.setAttribute('content', 'NB Aurum Solutions: Platform plans and engagement options. Payment collections & consultancy—performance-based, No Collection No Fee. Trial, Starter, Growth, Enterprise.')
     }
   }, [])
 
@@ -58,9 +58,9 @@ export default function Pricing() {
       <section className="mkt-section-full" aria-labelledby="pricing-heading">
         <div className="mkt-container mkt-container-wide">
           <div className="mkt-page-head">
-            <h1 id="pricing-heading" className="mkt-section-heading">Pricing</h1>
+            <h1 id="pricing-heading" className="mkt-section-heading">Pricing & engagement</h1>
             <p className="mkt-lead">
-              Choose a plan aligned with your finance workflows. Start small, then scale into more advanced controls and reporting as your usage grows.
+              Choose a platform plan for your team, or engage us for performance-based collections and consultancy. Start small, scale as you grow—with zero upfront risk where it matters.
             </p>
           </div>
 
@@ -106,7 +106,7 @@ export default function Pricing() {
           <div className="mkt-page-head">
             <h2 id="compare-heading" className="mkt-section-heading">Compare plans</h2>
             <p className="mkt-lead">
-              Feature comparison to help you choose the right plan.
+              Platform capabilities and engagement options to match your scale.
             </p>
           </div>
           <div className="mkt-card" style={{ marginTop: 48 }}>
@@ -138,11 +138,11 @@ export default function Pricing() {
                     <td>✓</td>
                   </tr>
                   <tr>
-                    <td>Collections planning & dashboards</td>
+                    <td>Collections planning & MIS</td>
                     <td>Basic</td>
-                    <td>Basic</td>
+                    <td>Full</td>
                     <td>Advanced</td>
-                    <td>Advanced</td>
+                    <td>Advanced + consultancy</td>
                   </tr>
                   <tr>
                     <td>Security & RBAC</td>
@@ -155,7 +155,7 @@ export default function Pricing() {
                     <td>Support</td>
                     <td>Email</td>
                     <td>Email</td>
-                    <td>Priority email & calls</td>
+                    <td>Priority</td>
                     <td>Dedicated success</td>
                   </tr>
                 </tbody>
@@ -170,40 +170,40 @@ export default function Pricing() {
           <div className="mkt-page-head">
             <h2 id="faq-heading" className="mkt-section-heading">Questions? We're here to help</h2>
             <p className="mkt-lead">
-              Common questions and custom enterprise solutions.
+              Platform plans, collection engagement, and custom enterprise solutions.
             </p>
           </div>
           <div className="mkt-grid-2" style={{ marginTop: 48 }}>
             <div className="mkt-card">
-              <h3>Frequently asked questions</h3>
+              <h3>Frequently asked</h3>
               <ul className="mkt-benefit-list">
                 <li>
                   <strong>Can we start in Trial and move to Growth?</strong>
                   <br />
-                  Yes. Your data, users, and workflows remain intact; we apply the new limits and capabilities.
+                  Yes. Your data, users, and workflows stay intact; we apply the new limits and capabilities.
+                </li>
+                <li>
+                  <strong>How does "No Collection, No Fee" work for consultancy?</strong>
+                  <br />
+                  Payment only upon successful recovery. Zero upfront cost, outcome-based pricing.
                 </li>
                 <li>
                   <strong>Where is my data stored?</strong>
                   <br />
-                  Data is stored in a dedicated database for your environment. Access is governed by roles.
-                </li>
-                <li>
-                  <strong>Do you support on-premise or private cloud?</strong>
-                  <br />
-                  Enterprise plans can be deployed to your preferred environment. Contact us to discuss.
+                  Data is stored in a dedicated database for your environment. Access is governed by roles; we maintain full confidentiality.
                 </li>
               </ul>
             </div>
             <div className="mkt-card">
-              <h3>Custom enterprise pricing</h3>
+              <h3>Custom enterprise & consultancy</h3>
               <p className="mkt-body">
-                For large deployments, complex approvals, or strict compliance environments, we work with you to define a plan that covers security, SLAs, and roll-out support.
+                For large deployments, performance-based collection engagement, or strict compliance environments, we work with you to define a plan—platform, liaison, recovery, and support—tailored to your sector and geography.
               </p>
               <p className="mkt-body" style={{ marginTop: 12 }}>
-                Share your architecture, regions, and timeline—we'll respond with a detailed proposal.
+                Share your requirements, regions, and timeline—we'll respond with a detailed proposal.
               </p>
               <Link to="/contact" className="mkt-btn mkt-btn-primary" style={{ marginTop: 20 }}>
-                Contact sales
+                Contact us
               </Link>
             </div>
           </div>

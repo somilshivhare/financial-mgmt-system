@@ -69,7 +69,6 @@ function MasterDataIndex() {
     }
   }, [navigate, queryParams.draftId])
 
-  // Sync URL with current draft when we load the latest draft without draftId in query (so bookmarking and back work)
   useEffect(() => {
     if (loadingDraft || !draftData?.companyId || queryParams.draftId) return
     const expected = `${window.location.pathname}?draftId=${draftData.companyId}`

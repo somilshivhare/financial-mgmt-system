@@ -1,11 +1,7 @@
-/* NB Aurum Solutions Marketing – Premium Corporate Design System
-   Trust · Innovation · Long-term credibility
-   Refined palette, strong typography, balanced spacing, subtle animations */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* Core palette – elegant, corporate */
   --mkt-bg: #fafbfc;
   --mkt-surface: #ffffff;
   --mkt-surface-2: #f1f5f9;
@@ -16,28 +12,23 @@
   --mkt-line: rgba(15, 23, 42, 0.08);
   --mkt-line-strong: rgba(15, 23, 42, 0.12);
 
-  /* Primary – deep blue for trust & stability */
   --mkt-primary: #0f4c81;
   --mkt-primary-hover: #0d3d6b;
   --mkt-primary-soft: rgba(15, 76, 129, 0.08);
   --mkt-primary-soft-hover: rgba(15, 76, 129, 0.14);
 
-  /* Accent – refined gold (Aurum) for premium feel */
   --mkt-accent: #b8860b;
   --mkt-accent-soft: rgba(184, 134, 11, 0.12);
   --mkt-accent-soft-hover: rgba(184, 134, 11, 0.18);
 
-  /* Semantic */
   --mkt-success: #0d9488;
   --mkt-warning: #b45309;
   --mkt-error: #b91c1c;
 
-  /* Typography */
   --mkt-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mkt-letter-tight: -0.02em;
   --mkt-letter-tighter: -0.03em;
 
-  /* Spacing scale */
   --mkt-space-xs: 6px;
   --mkt-space-sm: 12px;
   --mkt-space-md: 20px;
@@ -46,27 +37,23 @@
   --mkt-space-2xl: 64px;
   --mkt-space-3xl: 96px;
 
-  /* Radius */
   --mkt-radius-sm: 8px;
   --mkt-radius-md: 12px;
   --mkt-radius-lg: 16px;
   --mkt-radius-xl: 20px;
   --mkt-radius-2xl: 24px;
 
-  /* Shadows */
   --mkt-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
   --mkt-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
   --mkt-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.10);
   --mkt-shadow-xl: 0 20px 48px rgba(15, 23, 42, 0.12);
 
-  /* Transitions */
   --mkt-ease: cubic-bezier(0.4, 0, 0.2, 1);
   --mkt-duration-fast: 150ms;
   --mkt-duration: 250ms;
   --mkt-duration-slow: 400ms;
 }
 
-/* Base page – scrollable when body has overflow:hidden (app shell) */
 .mkt-page {
   position: relative;
   min-height: 100vh;
@@ -88,7 +75,6 @@
   overflow-x: hidden;
 }
 
-/* Marketing page scrollbar – match app scrollbar style */
 .mkt-page::-webkit-scrollbar {
   width: 10px;
 }
@@ -106,7 +92,6 @@
   background: var(--mkt-muted);
 }
 
-/* Skip link – visible on focus for accessibility */
 .mkt-skip-link {
   position: absolute;
   top: -100px;
@@ -147,7 +132,6 @@
   padding: 0 24px;
 }
 
-/* ---- Animations (respect reduced motion) ---- */
 @keyframes mkt-fade-in-up {
   from {
     opacity: 0;
@@ -187,7 +171,6 @@
 .mkt-animate-in-delay-3 { animation-delay: 240ms; }
 .mkt-animate-in-delay-4 { animation-delay: 320ms; }
 
-/* ---- Navbar ---- */
 .mkt-nav {
   position: sticky;
   top: 0;
@@ -236,8 +219,8 @@
 }
 
 .mkt-brand-mark {
-  width: 42px;
-  height: 42px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--mkt-radius-md);
   background: var(--mkt-surface);
   box-shadow: var(--mkt-shadow-md);
@@ -249,8 +232,8 @@
 }
 
 .mkt-brand-logo {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   object-fit: contain;
   display: block;
 }
@@ -439,7 +422,6 @@
   font-size: 0.95rem;
 }
 
-/* ---- Buttons ---- */
 .mkt-btn {
   display: inline-flex;
   align-items: center;
@@ -495,7 +477,6 @@
   transform: translateY(0);
 }
 
-/* ---- Typography ---- */
 .mkt-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -562,22 +543,22 @@
   line-height: 1.7;
 }
 
-/* ---- Hero ---- */
 .mkt-hero {
   padding-top: var(--mkt-space-2xl);
   padding-bottom: var(--mkt-space-3xl);
   position: relative;
   overflow: hidden;
+  background-image: url('/hero.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .mkt-hero::before {
   content: '';
   position: absolute;
-  top: -20%;
-  right: -10%;
-  width: 60%;
-  height: 80%;
-  background: radial-gradient(ellipse at center, var(--mkt-primary-soft) 0%, transparent 70%);
+  inset: 0;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.75) 50%, rgba(255, 255, 255, 0.5) 100%);
   pointer-events: none;
 }
 
@@ -766,7 +747,6 @@
   color: var(--mkt-success);
 }
 
-/* ---- Sections & cards ---- */
 .mkt-section-full {
   width: 100%;
   padding: var(--mkt-space-3xl) 0;
@@ -869,7 +849,6 @@
   font-size: 0.9375rem;
 }
 
-/* Image placeholders */
 .mkt-image-placeholder {
   width: 100%;
   aspect-ratio: 16/9;
@@ -910,7 +889,6 @@
   margin-top: var(--mkt-space-lg);
 }
 
-/* Lists */
 .mkt-benefit-list {
   list-style: none;
   margin: 0;
@@ -956,7 +934,6 @@
   font-size: 0.9375rem;
 }
 
-/* Workflow */
 .mkt-workflow-diagram {
   display: flex;
   flex-direction: column;
@@ -1044,7 +1021,6 @@
   color: var(--mkt-text-secondary);
 }
 
-/* CTA footer */
 .mkt-cta-footer {
   padding: var(--mkt-space-xl);
   border-radius: var(--mkt-radius-xl);
@@ -1092,7 +1068,6 @@
   color: #fff;
 }
 
-/* ---- Pricing ---- */
 .mkt-pricing-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1191,7 +1166,6 @@
   justify-content: center;
 }
 
-/* Pricing table */
 .mkt-pricing-table-wrapper {
   margin-top: var(--mkt-space-md);
   overflow-x: auto;
@@ -1226,7 +1200,6 @@
   border-bottom: none;
 }
 
-/* ---- Contact ---- */
 .mkt-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1327,7 +1300,6 @@
   font-weight: 600;
 }
 
-/* Video thumb */
 .mkt-video-thumb {
   margin-top: var(--mkt-space-md);
   width: 100%;
@@ -1381,7 +1353,6 @@
   font-weight: 500;
 }
 
-/* ---- Footer ---- */
 .mkt-footer {
   border-top: 1px solid var(--mkt-line);
   background: var(--mkt-surface);
@@ -1438,8 +1409,8 @@
 }
 
 .mkt-footer-brand-section .mkt-footer-logo {
-  width: 48px;
-  height: 48px;
+  width: 80px;
+  height: 80px;
   border-radius: var(--mkt-radius-md);
   background: var(--mkt-surface-2);
   border: 1px solid var(--mkt-line);
@@ -1450,8 +1421,8 @@
 }
 
 .mkt-footer-logo-img {
-  width: 32px;
-  height: 32px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
   display: block;
 }
@@ -1533,7 +1504,421 @@
   color: var(--mkt-primary);
 }
 
-/* ---- Responsive ---- */
+/* Home: Showcase – work in action */
+.home-showcase {
+  background: var(--mkt-surface-2);
+}
+
+.home-showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--mkt-space-lg);
+  margin-top: var(--mkt-space-xl);
+}
+
+.home-showcase-item {
+  margin: 0;
+  border-radius: var(--mkt-radius-xl);
+  overflow: hidden;
+  background: var(--mkt-surface);
+  border: 1px solid var(--mkt-line);
+  box-shadow: var(--mkt-shadow-sm);
+  transition: box-shadow var(--mkt-duration), transform var(--mkt-duration);
+}
+
+.home-showcase-item:hover {
+  box-shadow: var(--mkt-shadow-lg);
+  transform: translateY(-4px);
+}
+
+.home-showcase-image-wrap {
+  aspect-ratio: 800 / 520;
+  overflow: hidden;
+  background: var(--mkt-surface-2);
+}
+
+.home-showcase-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-showcase-caption {
+  padding: var(--mkt-space-md) var(--mkt-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--mkt-text-secondary);
+  font-size: 0.9375rem;
+}
+
+.home-showcase-caption strong {
+  color: var(--mkt-text);
+  font-size: 1rem;
+}
+
+/* Home: Video placeholder – project / story */
+.home-video-section {
+  background: var(--mkt-surface);
+}
+
+.home-video-wrapper {
+  margin-top: var(--mkt-space-xl);
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.home-video-placeholder {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--mkt-radius-xl);
+  overflow: hidden;
+  background: linear-gradient(145deg, var(--mkt-surface-2) 0%, var(--mkt-line) 100%);
+  border: 2px dashed var(--mkt-line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-video-placeholder iframe,
+.home-video-placeholder video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-video-placeholder-inner {
+  text-align: center;
+  padding: var(--mkt-space-xl);
+  z-index: 0;
+}
+
+.home-video-play-icon {
+  margin: 0 auto var(--mkt-space-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-video-play-icon svg {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
+  transition: transform var(--mkt-duration);
+}
+
+.home-video-placeholder:hover .home-video-play-icon svg {
+  transform: scale(1.05);
+}
+
+.home-video-placeholder-text {
+  margin: 0 0 var(--mkt-space-sm);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--mkt-text);
+}
+
+.home-video-placeholder-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--mkt-text-secondary);
+}
+
+/* Home: FAQ - modern centered */
+.home-faq {
+  text-align: center;
+}
+
+.home-faq-inner {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.home-faq-head {
+  margin-bottom: var(--mkt-space-xl);
+}
+
+.home-faq-title {
+  margin: 0 0 var(--mkt-space-sm);
+  font-size: clamp(1.75rem, 4vw, 2rem);
+  font-weight: 700;
+  color: var(--mkt-text);
+  letter-spacing: var(--mkt-letter-tight);
+}
+
+.home-faq-subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--mkt-text-secondary);
+  line-height: 1.5;
+}
+
+.home-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.home-faq-item {
+  background: var(--mkt-surface);
+  border: 1px solid var(--mkt-line);
+  border-radius: var(--mkt-radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--mkt-duration), box-shadow var(--mkt-duration);
+}
+
+.home-faq-item:hover {
+  border-color: var(--mkt-line-strong);
+  box-shadow: var(--mkt-shadow-sm);
+}
+
+.home-faq-item.is-open {
+  border-color: var(--mkt-primary);
+  box-shadow: 0 0 0 1px var(--mkt-primary);
+}
+
+.home-faq-question {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--mkt-text);
+}
+
+.home-faq-q-label {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--mkt-primary-soft);
+  color: var(--mkt-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.home-faq-q-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-faq-icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--mkt-surface-2);
+  color: var(--mkt-text-secondary);
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 1;
+  transition: transform var(--mkt-duration), background var(--mkt-duration);
+}
+
+.home-faq-item.is-open .home-faq-icon {
+  background: var(--mkt-primary);
+  color: #fff;
+}
+
+.home-faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--mkt-duration-slow) var(--mkt-ease);
+}
+
+.home-faq-item.is-open .home-faq-answer {
+  max-height: 200px;
+}
+
+.home-faq-answer p {
+  margin: 0;
+  padding: 0 20px 18px 60px;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--mkt-text-secondary);
+}
+
+@media (max-width: 640px) {
+  .home-faq-answer p {
+    padding-left: 20px;
+  }
+}
+
+/* Home: Our Seamless Onboarding Process - flow design */
+.home-onboarding {
+  background: var(--mkt-surface);
+  text-align: left;
+}
+
+.home-onboarding-inner {
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.home-onboarding-title {
+  margin: 0 0 var(--mkt-space-xl);
+  font-size: clamp(1.5rem, 3.5vw, 1.875rem);
+  font-weight: 700;
+  color: var(--mkt-text);
+  letter-spacing: var(--mkt-letter-tight);
+}
+
+.home-onboarding-flow {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+  margin-bottom: var(--mkt-space-lg);
+}
+
+.home-onboarding-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 180px;
+}
+
+.home-onboarding-path {
+  stroke: var(--mkt-primary);
+}
+
+.home-onboarding-flow-steps {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0;
+  pointer-events: none;
+}
+
+.home-onboarding-flow-steps > * {
+  pointer-events: auto;
+}
+
+.home-onboarding-flow-box {
+  background: var(--mkt-surface);
+  border: 2px solid var(--mkt-primary);
+  border-radius: 10px;
+  padding: 14px 18px;
+  text-align: center;
+  box-shadow: var(--mkt-shadow-sm);
+  min-width: 0;
+}
+
+.home-onboarding-flow-box h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--mkt-text);
+  line-height: 1.2;
+}
+
+.home-onboarding-flow-box p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--mkt-text-secondary);
+  line-height: 1.35;
+}
+
+/* Position boxes along the flow path */
+.home-onboarding-flow-box--1 {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
+  justify-self: start;
+  max-width: 200px;
+  margin-left: 2%;
+  margin-bottom: 8px;
+}
+
+.home-onboarding-flow-box--2 {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  justify-self: center;
+  max-width: 220px;
+  margin-top: 0;
+}
+
+.home-onboarding-flow-box--3 {
+  grid-column: 3;
+  grid-row: 2;
+  align-self: end;
+  justify-self: end;
+  max-width: 200px;
+  margin-right: 2%;
+  margin-bottom: 8px;
+}
+
+.home-onboarding-desc {
+  margin: 0 0 var(--mkt-space-xl);
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--mkt-text-secondary);
+  max-width: 640px;
+}
+
+.home-onboarding-cta {
+  padding-top: var(--mkt-space-md);
+}
+
+.home-onboarding-cta-btns {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .home-onboarding-flow {
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .home-onboarding-svg {
+    display: none;
+  }
+
+  .home-onboarding-flow-steps {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 280px;
+    margin: 0 auto;
+  }
+
+  .home-onboarding-flow-box--1,
+  .home-onboarding-flow-box--2,
+  .home-onboarding-flow-box--3 {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    justify-self: stretch;
+  }
+}
+
 @media (max-width: 1200px) {
   .mkt-pricing-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1559,13 +1944,13 @@
   }
 
   .mkt-brand-mark {
-    width: 38px;
-    height: 38px;
+    width: 48px;
+    height: 48px;
   }
 
   .mkt-brand-logo {
-    width: 24px;
-    height: 24px;
+    width: 36px;
+    height: 36px;
   }
 
   .mkt-nav-links {
@@ -1680,6 +2065,19 @@
     padding: var(--mkt-space-md);
   }
 
+  .home-showcase-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--mkt-space-md);
+  }
+
+  .home-video-placeholder-text {
+    font-size: 1rem;
+  }
+
+  .home-video-placeholder-hint {
+    font-size: 0.8125rem;
+  }
+
   .mkt-pricing-table-wrapper {
     margin-left: -20px;
     margin-right: -20px;
@@ -1708,5 +2106,9 @@
   .mkt-hero-actions .mkt-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .home-showcase-grid {
+    grid-template-columns: 1fr;
   }
 }

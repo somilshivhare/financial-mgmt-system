@@ -8,7 +8,6 @@ const invoiceLineSchema = z.object({
   unitPrice: z.number().nonnegative(),
 });
 
-// Form payload: key_id (PO number) or poId (UUID), invoice_number/internalInvoiceNo, issue_date/gstTaxInvoiceDate; lines optional
 const invoiceSchema = z
   .object({
     poId: z.string().uuid().optional(),

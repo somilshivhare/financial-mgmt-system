@@ -31,10 +31,8 @@ const listPlans = async ({ page = 1, pageSize = 20, status, invoiceId }) => {
 const createPlan = async (payload, userId) => {
   const id = uuidv4();
   
-  // If invoice_id not provided, try to find by customer_id and month
   let invoiceId = payload.invoiceId;
   if (!invoiceId && payload.customerId) {
-    // Find invoice for this customer
     const invoices = await query(
       `SELECT id FROM invoices WHERE customer_id = ? AND status NOT IN ('cancelled') ORDER BY issue_date DESC LIMIT 1`,
       [payload.customerId]
@@ -48,9 +46,7 @@ const createPlan = async (payload, userId) => {
     throw new Error('INVOICE_ID_OR_CUSTOMER_ID_REQUIRED');
   }
   
-  // If customerId provided but no invoiceId, find or create plans for customer's invoices
   if (!invoiceId && payload.customerId) {
-    // Find all invoices for this customer
     const invoices = await query(
       `SELECT id FROM invoices 
        WHERE customer_id = ? 
@@ -66,7 +62,6 @@ const createPlan = async (payload, userId) => {
       throw new Error('NO_INVOICES_FOUND');
     }
     
-    // Update or create plans for all invoices
     const results = [];
     for (const inv of invoices) {
       const existing = await query(
@@ -105,14 +100,12 @@ const createPlan = async (payload, userId) => {
     return results[0]; // Return first plan
   }
   
-  // Check if plan already exists for this invoice
   const existing = await query(
     'SELECT id FROM collection_plans WHERE invoice_id = ?',
     [invoiceId]
   );
   
   if (existing.length > 0) {
-    // Update existing plan
     await query(
       `UPDATE collection_plans 
        SET expected_amount = ?, target_date = COALESCE(?, target_date), updated_at = NOW()
@@ -122,7 +115,6 @@ const createPlan = async (payload, userId) => {
     const [plan] = await query('SELECT * FROM collection_plans WHERE invoice_id = ?', [invoiceId]);
     return plan[0];
   } else {
-    // Create new plan
     await query(
       `INSERT INTO collection_plans (id, invoice_id, target_date, expected_amount, status, owner_user_id, notes)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -162,14 +154,11 @@ const addAction = async (planId, payload, userId) => {
   return action;
 };
 
-// Get collection plan data for grid (aggregated by customer, person, etc.)
 const getCollectionPlanData = async (filters = {}) => {
   const { personId, businessUnit, month } = filters;
   const where = [];
   const params = [];
   
-  // Build query to get invoices with payment and collection plan data
-  // Note: Using actual invoice table columns
   const currentDate = month ? new Date(month) : new Date();
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth() + 1;
@@ -214,20 +203,13 @@ const getCollectionPlanData = async (filters = {}) => {
   params.push(currentYear, currentMonth);
   
   if (personId) {
-    // Note: collection_incharge_id doesn't exist yet, skip for now
-    // where.push('i.collection_incharge_id = ?');
-    // params.push(personId);
   }
   
   if (businessUnit) {
-    // Note: business_unit column may not exist in base invoice table
-    // where.push('i.business_unit = ?');
-    // params.push(businessUnit);
   }
   
   if (month) {
     try {
-      // Handle month format: "YYYY-MM" or Date object
       const monthDate = typeof month === 'string' && month.includes('-') 
         ? new Date(month + '-01')
         : new Date(month);
@@ -266,13 +248,11 @@ const getCollectionPlanData = async (filters = {}) => {
   }));
 };
 
-// Get collection analytics
 const getCollectionAnalytics = async (filters = {}) => {
   const { personId, businessUnit, month } = filters;
   const where = [];
   const params = [];
   
-  // Get all invoices with payment data
   let querySql = `
     SELECT 
       COALESCE(SUM(cp.expected_amount), 0) as planned,
@@ -295,7 +275,6 @@ const getCollectionAnalytics = async (filters = {}) => {
   
   if (month) {
     try {
-      // Handle month format: "YYYY-MM" or Date object
       const monthDate = typeof month === 'string' && month.includes('-') 
         ? new Date(month + '-01')
         : new Date(month);
@@ -310,15 +289,10 @@ const getCollectionAnalytics = async (filters = {}) => {
     querySql += ' AND ' + where.join(' AND ');
   }
   
-  // Overall totals
   const [overall] = await query(querySql, params);
   
-  // By person - simplified since we don't have collection_incharge_id yet
-  // For now, return empty or use a placeholder
   const targetByPerson = {};
   
-  // If we have personId filter, we can still calculate for that person
-  // For now, return overall data as "All Persons"
   if (overall && parseFloat(overall.planned || 0) > 0) {
     targetByPerson['All Persons'] = {
       planned: parseFloat(overall.planned || 0),

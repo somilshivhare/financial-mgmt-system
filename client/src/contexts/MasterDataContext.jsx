@@ -24,15 +24,12 @@ export const MasterDataProvider = ({ children }) => {
     lastUpdated: null,
   })
   
-  // Aggregated master data (array of consolidated records - multiple cards)
   const [aggregatedDataList, setAggregatedDataList] = useState([])
   const [aggregatedLoading, setAggregatedLoading] = useState(false)
 
   const loadMasterData = useCallback(async () => {
-    // Only load master data if user is authenticated
     const token = localStorage.getItem('token')
     if (!token) {
-      // Not authenticated, skip loading
       return
     }
 
@@ -50,7 +47,6 @@ export const MasterDataProvider = ({ children }) => {
         lastUpdated: data.lastUpdated,
       })
     } catch (error) {
-      // Only log errors if authenticated (suppress errors on login page)
       if (token) {
         console.error('Failed to load master data:', error)
       }
@@ -58,7 +54,6 @@ export const MasterDataProvider = ({ children }) => {
     }
   }, [])
   
-  // Load aggregated master data (array of consolidated records - multiple cards)
   const loadAggregatedMasterData = useCallback(async () => {
     const token = localStorage.getItem('token')
     if (!token) {
@@ -68,7 +63,6 @@ export const MasterDataProvider = ({ children }) => {
     setAggregatedLoading(true)
     try {
       const dataList = await masterDataService.getAggregatedMasterData()
-      // Ensure it's an array
       setAggregatedDataList(Array.isArray(dataList) ? dataList : (dataList ? [dataList] : []))
     } catch (error) {
       console.error('Failed to load aggregated master data:', error)
@@ -79,27 +73,23 @@ export const MasterDataProvider = ({ children }) => {
   }, [])
 
   useEffect(() => {
-    // Check authentication before loading
     const token = localStorage.getItem('token')
     if (token) {
       loadMasterData()
       loadAggregatedMasterData() // Also load aggregated data
     }
 
-    // Listen for updates
     const handleUpdate = () => {
       loadMasterData()
       loadAggregatedMasterData() // Refresh aggregated data too
     }
 
-    // Listen for authentication changes
     const handleAuthChange = () => {
       const currentToken = localStorage.getItem('token')
       if (currentToken) {
         loadMasterData()
         loadAggregatedMasterData()
       } else {
-        // Clear master data on logout
         setMasterData({
           companies: [],
           customers: [],
@@ -145,8 +135,6 @@ export const MasterDataProvider = ({ children }) => {
     }
   }, [loadMasterData])
 
-  // IMPORTANT: These getters must be synchronous because many pages call them during render/effects
-  // and expect arrays immediately (not Promises). The source of truth is the provider state.
   const getCustomers = useCallback(() => masterData.customers || [], [masterData.customers])
   const getCompanies = useCallback(() => masterData.companies || [], [masterData.companies])
   const getConsignees = useCallback(() => masterData.consignees || [], [masterData.consignees])
@@ -198,7 +186,6 @@ export const MasterDataProvider = ({ children }) => {
     getPaymentTerms,
     getRecordById,
     search,
-    // Aggregated master data (array of cards)
     aggregatedDataList,
     aggregatedLoading,
     loadAggregatedMasterData,

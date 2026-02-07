@@ -36,7 +36,6 @@ const getSubscriptionForUser = async (userId) => {
       plan_features: safeJsonParse(sub.plan_features, {}),
     };
   } catch (err) {
-    // If migrations haven't added user_id / subscription_plans yet, fall back to global subscription.
     const sub = await getSubscription();
     if (!sub) return null;
     return {
@@ -64,7 +63,6 @@ const listActivePlans = async () => {
       is_active: !!r.is_active,
     }));
   } catch (_err) {
-    // Fallback when subscription_plans table doesn't exist yet
     return [
       {
         id: 'trial',
@@ -106,7 +104,6 @@ const getBillingBundleForUser = async (userId) => {
   const sub = await getSubscriptionForUser(userId);
   const meta = sub?.metadata || {};
 
-  // The frontend expects { billingInfo, invoices, history } in `data`
   const billingInfo =
     meta.billingInfo ||
     meta.billing_info || {
@@ -154,7 +151,6 @@ const upsertSubscription = async (payload) => {
 const upsertSubscriptionForUser = async (userId, payload) => {
   const existing = await getSubscriptionForUser(userId);
 
-  // Normalize metadata merge
   const incomingMeta = payload.metadata ? payload.metadata : {};
   const mergedMeta = {
     ...(existing?.metadata || {}),
@@ -197,7 +193,6 @@ const upsertSubscriptionForUser = async (userId, payload) => {
       ],
     );
   } catch (_err) {
-    // Fallback for older schemas (no user_id / organization_id columns)
     await query(
       `INSERT INTO subscriptions (id, plan, status, seats, starts_at, ends_at, metadata)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -228,7 +223,6 @@ module.exports = {
   getSubscription,
   upsertSubscription,
 
-  // New, user-scoped APIs used by subscription page
   getSubscriptionForUser,
   upsertSubscriptionForUser,
   listActivePlans,

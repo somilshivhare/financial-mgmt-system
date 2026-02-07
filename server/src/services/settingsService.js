@@ -1,9 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const { query, transaction } = require('../db/query');
 
-/**
- * Parse setting value from DB - may be string (JSON) or already an object (e.g. MySQL2 JSON column)
- */
 const parseSettingValue = (val) => {
   if (val == null) return {};
   if (typeof val === 'object') return val;
@@ -15,14 +12,10 @@ const parseSettingValue = (val) => {
   }
 };
 
-// In-memory cache for settings (refreshed on updates)
 let settingsCache = null;
 let cacheTimestamp = null;
 const CACHE_TTL = 60000; // 1 minute
 
-/**
- * Get all settings with caching
- */
 const getAllSettings = async (useCache = true) => {
   const now = Date.now();
   
@@ -35,7 +28,6 @@ const getAllSettings = async (useCache = true) => {
       'SELECT setting_key, setting_value, setting_type, is_locked, lock_reason, updated_at, created_at FROM settings ORDER BY setting_key'
     );
     
-    // Transform to object format
     const settingsObj = {};
     if (settings && Array.isArray(settings)) {
       settings.forEach(setting => {
@@ -61,15 +53,11 @@ const getAllSettings = async (useCache = true) => {
     
     return settingsObj;
   } catch (err) {
-    // If settings table doesn't exist or query fails, return empty object
     console.warn('[Settings] Failed to load settings, returning empty object:', err.message);
     return {};
   }
 };
 
-/**
- * Get a specific setting by key
- */
 const getSetting = async (key) => {
   const [setting] = await query(
     'SELECT setting_key, setting_value, setting_type, is_locked, lock_reason, updated_at, created_at FROM settings WHERE setting_key = ?',
@@ -90,23 +78,17 @@ const getSetting = async (key) => {
   };
 };
 
-/**
- * Check if financial year can be changed (no transactions exist)
- */
 const canChangeFinancialYear = async (newFinancialYear) => {
   try {
-    // Check if any invoices exist for the current financial year
     const invoiceRows = await query(
       'SELECT COUNT(*) as count FROM invoices WHERE YEAR(created_at) IN (?, ?)',
       [newFinancialYear.split('-')[0], newFinancialYear.split('-')[1]]
     );
     const invoiceCount = (invoiceRows && invoiceRows[0]) ? Number(invoiceRows[0].count) : 0;
 
-    // Check if any payments exist
     const paymentRows = await query('SELECT COUNT(*) as count FROM payments');
     const paymentCount = (paymentRows && paymentRows[0]) ? Number(paymentRows[0].count) : 0;
 
-    // If transactions exist, cannot change financial year
     if (invoiceCount > 0 || paymentCount > 0) {
       const currentFY = await getSetting('general');
       if (currentFY && currentFY.financialYear !== newFinancialYear) {
@@ -119,18 +101,13 @@ const canChangeFinancialYear = async (newFinancialYear) => {
 
     return { allowed: true };
   } catch (err) {
-    // If tables don't exist or query fails, allow change (fail open for new installs)
     console.warn('[Settings] canChangeFinancialYear check failed:', err.message);
     return { allowed: true };
   }
 };
 
-/**
- * Update a setting
- */
 const updateSetting = async (key, value, userId, changeReason = null) => {
   return transaction(async (conn) => {
-    // Get old value for audit
     const [oldSetting] = await conn.execute(
       'SELECT setting_value, setting_type, is_locked FROM settings WHERE setting_key = ?',
       [key]
@@ -142,7 +119,6 @@ const updateSetting = async (key, value, userId, changeReason = null) => {
     
     const oldValue = parseSettingValue(oldSetting[0].setting_value);
     
-    // Validate financial year change
     if (key === 'general' && value.financialYear && oldValue.financialYear !== value.financialYear) {
       const validation = await canChangeFinancialYear(value.financialYear);
       if (!validation.allowed) {
@@ -150,18 +126,15 @@ const updateSetting = async (key, value, userId, changeReason = null) => {
       }
     }
     
-    // Check if setting is locked
     if (oldSetting[0].is_locked) {
       throw new Error(`SETTING_LOCKED: ${oldSetting[0].lock_reason || 'This setting cannot be changed'}`);
     }
     
-    // Update setting
     await conn.execute(
       'UPDATE settings SET setting_value = ?, updated_by = ?, updated_at = NOW() WHERE setting_key = ?',
       [JSON.stringify(value), userId, key]
     );
     
-    // Log audit trail
     const auditId = uuidv4();
     await conn.execute(
       `INSERT INTO settings_audit_log (id, setting_key, old_value, new_value, changed_by, change_reason, created_at)
@@ -169,11 +142,9 @@ const updateSetting = async (key, value, userId, changeReason = null) => {
       [auditId, key, JSON.stringify(oldValue), JSON.stringify(value), userId, changeReason]
     );
     
-  // Invalidate caches
   settingsCache = null;
   cacheTimestamp = null;
   
-  // Get updated setting
     const [updated] = await conn.execute(
       'SELECT setting_key, setting_value, setting_type, updated_at FROM settings WHERE setting_key = ?',
       [key]
@@ -188,13 +159,9 @@ const updateSetting = async (key, value, userId, changeReason = null) => {
   });
 };
 
-/**
- * Update multiple settings at once
- */
 const updateSettings = async (settingsObj, userId, changeReason = null) => {
   const results = {};
   
-  // Update each setting (each in its own transaction for safety)
   for (const [key, value] of Object.entries(settingsObj)) {
     const result = await updateSetting(key, value, userId, changeReason);
     results[key] = result;
@@ -203,9 +170,6 @@ const updateSettings = async (settingsObj, userId, changeReason = null) => {
   return results;
 };
 
-/**
- * Reset settings to defaults
- */
 const resetToDefaults = async (userId, settingKeys = null) => {
   const defaults = {
     general: {
@@ -251,37 +215,26 @@ const resetToDefaults = async (userId, settingKeys = null) => {
   return updateSettings(settingsToReset, userId, 'Reset to defaults');
 };
 
-/**
- * Lock a setting (e.g., financial year when transactions exist)
- */
 const lockSetting = async (key, reason, userId) => {
   await query(
     'UPDATE settings SET is_locked = TRUE, lock_reason = ?, updated_by = ?, updated_at = NOW() WHERE setting_key = ?',
     [reason, userId, key]
   );
   
-  // Invalidate cache
   settingsCache = null;
   cacheTimestamp = null;
 };
 
-/**
- * Unlock a setting
- */
 const unlockSetting = async (key, userId) => {
   await query(
     'UPDATE settings SET is_locked = FALSE, lock_reason = NULL, updated_by = ?, updated_at = NOW() WHERE setting_key = ?',
     [userId, key]
   );
   
-  // Invalidate cache
   settingsCache = null;
   cacheTimestamp = null;
 };
 
-/**
- * Get settings audit log
- */
 const getAuditLog = async (key = null, limit = 50) => {
   const where = key ? 'WHERE setting_key = ?' : '';
   const params = key ? [key] : [];
@@ -306,10 +259,6 @@ const getAuditLog = async (key = null, limit = 50) => {
   }));
 };
 
-/**
- * Get system settings (for use across modules)
- * This is a convenience method that returns settings without metadata
- */
 const getSystemSettings = async () => {
   const allSettings = await getAllSettings();
   const systemSettings = {};
@@ -323,9 +272,6 @@ const getSystemSettings = async () => {
   return systemSettings;
 };
 
-/**
- * Invalidate cache (for use by helper module)
- */
 const invalidateCache = () => {
   settingsCache = null;
   cacheTimestamp = null;

@@ -2,9 +2,6 @@ const { apiSuccess, apiError } = require('../utils/apiResponse');
 const settingsService = require('../services/settingsService');
 const { settingsUpdateSchema, resetSettingsSchema } = require('../validators/settingsValidators');
 
-/**
- * Get all settings
- */
 const getSettings = async (req, res, next) => {
   try {
     const settings = await settingsService.getAllSettings();
@@ -14,9 +11,6 @@ const getSettings = async (req, res, next) => {
   }
 };
 
-/**
- * Get system settings (without metadata, for internal use)
- */
 const getSystemSettings = async (req, res, next) => {
   try {
     const settings = await settingsService.getSystemSettings();
@@ -26,9 +20,6 @@ const getSystemSettings = async (req, res, next) => {
   }
 };
 
-/**
- * Update settings
- */
 const updateSettings = async (req, res, next) => {
   try {
     const validated = settingsUpdateSchema.parse(req.body);
@@ -53,9 +44,6 @@ const updateSettings = async (req, res, next) => {
   }
 };
 
-/**
- * Reset settings to defaults
- */
 const resetSettings = async (req, res, next) => {
   try {
     const validated = resetSettingsSchema.parse(req.body);
@@ -69,9 +57,6 @@ const resetSettings = async (req, res, next) => {
   }
 };
 
-/**
- * Get settings audit log
- */
 const getAuditLog = async (req, res, next) => {
   try {
     const { key, limit = 50 } = req.query;
@@ -82,9 +67,6 @@ const getAuditLog = async (req, res, next) => {
   }
 };
 
-/**
- * Check if financial year can be changed
- */
 const checkFinancialYearChange = async (req, res, next) => {
   try {
     const { financialYear } = req.query;

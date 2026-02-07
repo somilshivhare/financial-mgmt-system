@@ -3,9 +3,6 @@ import { io } from 'socket.io-client'
 import * as notificationsApi from '../api/notifications'
 import { getApiBaseUrl } from '../config/api'
 
-/**
- * Custom hook for managing notifications with real-time WebSocket support
- */
 export function useNotifications() {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -18,35 +15,28 @@ export function useNotifications() {
   const maxReconnectAttempts = 5
   const reconnectTimeoutRef = useRef(null)
 
-  // Load notifications from API
   const loadNotifications = useCallback(async () => {
     try {
       const response = await notificationsApi.getNotifications({ limit: 50 })
-      // Handle both old and new response formats, gracefully handle empty results
       const notifications = response?.data?.notifications || response?.data?.data?.notifications || []
       setNotifications(Array.isArray(notifications) ? notifications : [])
     } catch (error) {
       console.error('[Notifications] Failed to load notifications:', error)
-      // Set empty array on error to prevent crashes
       setNotifications([])
     }
   }, [])
 
-  // Load unread count
   const loadUnreadCount = useCallback(async () => {
     try {
       const response = await notificationsApi.getUnreadCount()
-      // Handle both old and new response formats, default to 0
       const count = response?.data?.count ?? response?.data?.data?.count ?? 0
       setUnreadCount(typeof count === 'number' ? count : 0)
     } catch (error) {
       console.error('[Notifications] Failed to load unread count:', error)
-      // Set to 0 on error to prevent crashes
       setUnreadCount(0)
     }
   }, [])
 
-  // Initialize WebSocket connection
   const connectWebSocket = useCallback(() => {
     const token = localStorage.getItem('token')
     const user = localStorage.getItem('user')
@@ -57,13 +47,11 @@ export function useNotifications() {
       return
     }
 
-    // Prevent multiple connections
     if (socketRef.current?.connected) {
       console.log('[Notifications] WebSocket already connected')
       return
     }
 
-    // Don't reconnect if max attempts reached
     if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
       console.warn('[Notifications] Max reconnection attempts reached, using polling fallback')
       setConnectionError('Max reconnection attempts reached')
@@ -74,8 +62,6 @@ export function useNotifications() {
       const userData = JSON.parse(user)
       const userId = userData.id
 
-      // Connect to WebSocket server
-      // WebSocket needs the base URL without /api/v1 path
       const baseUrl = getApiBaseUrl()
       
       console.log(`[Notifications] Connecting to WebSocket at ${baseUrl}`)
@@ -98,7 +84,6 @@ export function useNotifications() {
         setConnectionError(null)
         reconnectAttemptsRef.current = 0 // Reset on successful connection
         
-        // Load data on connection
         loadNotifications()
         loadUnreadCount()
       })
@@ -113,11 +98,9 @@ export function useNotifications() {
         console.log('[Notifications] WebSocket disconnected:', reason)
         setConnected(false)
         
-        // Only set error for unexpected disconnects
         if (reason === 'io server disconnect') {
           setConnectionError('Server disconnected')
         } else if (reason === 'io client disconnect') {
-          // Client-initiated disconnect, no error
           setConnectionError(null)
         }
       })
@@ -145,26 +128,20 @@ export function useNotifications() {
         setConnectionError('Reconnection failed. Using polling fallback.')
       })
 
-      // Listen for new notifications
       socket.on('notification', (notification) => {
         console.log('[Notifications] New notification received:', notification)
         
-        // Add to notifications list
         setNotifications(prev => {
-          // Avoid duplicates
           const exists = prev.find(n => n.id === notification.id)
           if (exists) return prev
           
           return [notification, ...prev].slice(0, 50)
         })
         
-        // Update unread count
         setUnreadCount(prev => prev + 1)
       })
 
-      // Heartbeat
       socket.on('pong', (data) => {
-        // Connection is alive
         if (data?.timestamp) {
           const latency = Date.now() - data.timestamp
           if (latency > 1000) {
@@ -181,23 +158,19 @@ export function useNotifications() {
     }
   }, [loadNotifications, loadUnreadCount])
 
-  // Fallback polling mechanism
   const startPolling = useCallback(() => {
-    // Poll every 30 seconds as fallback
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current)
     }
     
     pollingIntervalRef.current = setInterval(async () => {
       if (!connected) {
-        // Only poll if WebSocket is not connected
         console.log('[Notifications] Polling for updates (WebSocket disconnected)')
         await Promise.all([loadNotifications(), loadUnreadCount()])
       }
     }, 30000) // 30 seconds
   }, [connected, loadNotifications, loadUnreadCount])
 
-  // Mark notification as read
   const markAsRead = useCallback(async (id) => {
     try {
       await notificationsApi.markAsRead(id)
@@ -210,7 +183,6 @@ export function useNotifications() {
     }
   }, [])
 
-  // Mark all as read
   const markAllAsRead = useCallback(async () => {
     try {
       await notificationsApi.markAllAsRead()
@@ -223,20 +195,16 @@ export function useNotifications() {
     }
   }, [])
 
-  // Dismiss notification
   const dismissNotification = useCallback(async (id) => {
     try {
       await notificationsApi.dismissNotification(id)
       setNotifications(prev => prev.filter(n => n.id !== id))
-      // Don't decrease unread count if it was already read
     } catch (error) {
       console.error('[Notifications] Failed to dismiss notification:', error)
     }
   }, [])
 
-  // Initialize on mount - notifications temporarily disabled
   useEffect(() => {
-    // Check authentication first
     const token = localStorage.getItem('token')
     if (!token) {
       setLoading(false)
@@ -247,15 +215,12 @@ export function useNotifications() {
     
     const initialize = async () => {
       try {
-        // Notifications are temporarily disabled - just set empty state
         if (mounted) {
           setNotifications([])
           setUnreadCount(0)
           setLoading(false)
         }
 
-        // Skip WebSocket and polling since notifications are disabled
-        // connectWebSocket() and startPolling() are commented out temporarily
       } catch (err) {
         console.error('[Notifications] Initialization error (non-critical):', err)
         if (mounted) {
@@ -266,10 +231,8 @@ export function useNotifications() {
       }
     }
 
-    // Don't block rendering - initialize asynchronously
     initialize()
     
-    // Cleanup on unmount
     return () => {
       mounted = false
       if (socketRef.current) {
@@ -286,7 +249,6 @@ export function useNotifications() {
     }
   }, []) // Empty dependency array - notifications disabled
 
-  // Manual reconnect (with delay to prevent spam)
   const reconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current)

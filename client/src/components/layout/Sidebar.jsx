@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -13,17 +14,27 @@ import {
   Mail,
   Settings,
   LogOut,
+  Shield,
 } from 'lucide-react'
 import { performLogout } from '../../utils/logout'
 
+const overviewSection = {
+  title: 'OVERVIEW',
+  items: [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/reports', label: 'Reports', icon: BarChart3 },
+  ],
+}
+
+const adminSection = {
+  title: 'ADMIN',
+  items: [
+    { to: '/admin-dashboard', label: 'Admin Dashboard', icon: Shield },
+  ],
+}
+
 const sections = [
-  {
-    title: 'OVERVIEW',
-    items: [
-      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/reports', label: 'Reports', icon: BarChart3 },
-    ],
-  },
+  overviewSection,
   {
     title: 'MANAGE',
     items: [
@@ -63,6 +74,26 @@ function NavItem({ collapsed, to, icon: Icon, label }) {
 }
 
 export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    const check = () => {
+      try {
+        const stored = localStorage.getItem('user')
+        const parsed = stored ? JSON.parse(stored) : null
+        const role = (parsed?.role || '').toLowerCase()
+        setIsAdmin(role === 'admin')
+      } catch {
+        setIsAdmin(false)
+      }
+    }
+    check()
+    window.addEventListener('storage', check)
+    return () => window.removeEventListener('storage', check)
+  }, [])
+
+  const navSections = [overviewSection, ...(isAdmin ? [adminSection] : []), ...sections.slice(1)]
+
   const onLogout = () => {
     performLogout()
   }
@@ -71,7 +102,7 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
     <div className="app-sidebar-content">
       {/* Navigation - Brand section removed, starts directly with nav */}
       <nav className="sidebar-nav">
-        {sections.map((section) => (
+        {navSections.map((section) => (
           <div key={section.title} className="sidebar-section">
             <div className="sidebar-section-title">{section.title}</div>
             <div className="sidebar-nav-items">

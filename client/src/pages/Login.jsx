@@ -9,7 +9,6 @@ function Login({ onLogin }) {
   const navigate = useNavigate()
   const location = useLocation()
   
-  // Get the intended destination from location state, or default to dashboard
   const from = location.state?.from?.pathname || '/dashboard'
   const [formData, setFormData] = useState({
     email: '',
@@ -24,12 +23,10 @@ function Login({ onLogin }) {
   const isSubmittingRef = useRef(false)
   const submitButtonClickedRef = useRef(false)
 
-  // Prevent form submission on Enter key press in input fields
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && e.target.type !== 'submit' && e.target.tagName !== 'BUTTON') {
       e.preventDefault()
       e.stopPropagation()
-      // Focus on submit button to indicate user should click it
       const submitButton = e.target.form?.querySelector('button[type="submit"]')
       if (submitButton && !loading) {
         submitButton.focus()
@@ -37,10 +34,8 @@ function Login({ onLogin }) {
     }
   }
 
-  // Track when submit button is clicked
   const handleSubmitButtonClick = (e) => {
     submitButtonClickedRef.current = true
-    // Reset after form submission completes
     setTimeout(() => {
       submitButtonClickedRef.current = false
     }, 1000)
@@ -49,22 +44,17 @@ function Login({ onLogin }) {
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-    // Clear field error when user starts typing
     if (fieldErrors[name]) {
       setFieldErrors((prev) => ({ ...prev, [name]: '' }))
     }
-    // Clear general error
     if (error) setError('')
   }
 
   const validateForm = () => {
     const errors = {}
     
-    // Require "Remember me" checkbox to be checked FIRST
-    // Show red error bar if not checked
     if (!rememberMe) {
       setError('You must check "Remember me" to sign in')
-      // Scroll to error message to make it visible
       setTimeout(() => {
         const errorElement = document.querySelector('.auth-error-message')
         if (errorElement) {
@@ -92,74 +82,56 @@ function Login({ onLogin }) {
     e.preventDefault()
     e.stopPropagation()
     
-    // Only allow submission if submit button was clicked
     if (!submitButtonClickedRef.current) {
       return
     }
     
-    // Prevent double submission
     if (isSubmittingRef.current || loading) {
       return
     }
     
-    // Clear any existing timeout
     if (submitTimeoutRef.current) {
       clearTimeout(submitTimeoutRef.current)
     }
     
-    // Clear previous errors first
     setFieldErrors({})
     
-    // Validate form - this will set error if "Remember me" is not checked
     if (!validateForm()) {
-      // Error message is already set by validateForm() - it will show in red bar
       return
     }
     
-    // Clear error if validation passes
     setError('')
 
-    // Set submitting flag and loading state
     isSubmittingRef.current = true
     setLoading(true)
 
     try {
       const response = await login(formData.email, formData.password)
       
-      // Store user data
       const userData = response.data?.user || { email: formData.email, name: formData.email }
       onLogin(userData)
       
-      // Store remember me preference
       if (rememberMe) {
         localStorage.setItem('rememberEmail', formData.email)
       } else {
         localStorage.removeItem('rememberEmail')
       }
       
-      // Redirect to intended destination or dashboard
       navigate(from, { replace: true })
     } catch (err) {
-      // Handle structured error responses
-      let errorMessage = 'Invalid email or password. Please try again.'
-      
-      if (err.response?.data) {
-        const errorData = err.response.data
-        if (errorData.code === 'RATE_LIMIT_EXCEEDED') {
-          errorMessage = errorData.message || 'Too many login attempts. Please wait a moment and try again.'
-        } else if (errorData.message) {
-          errorMessage = errorData.message
-        } else if (errorData.code === 'ERR_INVALID_CREDENTIALS') {
-          errorMessage = 'Invalid email or password. Please check your credentials and try again.'
-        }
-      } else if (err.message) {
-        errorMessage = err.message
+      let errorMessage = 'Wrong email or password entered. Please try again.'
+      const code = err?.code || err?.response?.data?.code
+      const message = err?.message || err?.response?.data?.message
+      if (code === 'RATE_LIMIT_EXCEEDED') {
+        errorMessage = message || 'Too many login attempts. Please wait a moment and try again.'
+      } else if (code === 'ERR_INVALID_CREDENTIALS' || code === 'UNAUTHORIZED') {
+        errorMessage = message || 'Wrong email or password entered. Please try again.'
+      } else if (message) {
+        errorMessage = message
       }
-      
       setError(errorMessage)
       console.error('[Login] Error:', err)
     } finally {
-      // Add small delay before allowing resubmission to prevent rapid clicks
       submitTimeoutRef.current = setTimeout(() => {
         isSubmittingRef.current = false
         setLoading(false)
@@ -167,7 +139,6 @@ function Login({ onLogin }) {
     }
   }
   
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (submitTimeoutRef.current) {
@@ -176,7 +147,6 @@ function Login({ onLogin }) {
     }
   }, [])
 
-  // Load remembered email on mount
   useEffect(() => {
     const rememberedEmail = localStorage.getItem('rememberEmail')
     if (rememberedEmail) {
@@ -399,7 +369,6 @@ function Login({ onLogin }) {
                   checked={rememberMe}
                   onChange={(e) => {
                     setRememberMe(e.target.checked)
-                    // Clear error when checkbox is checked
                     if (e.target.checked && error) {
                       setError('')
                     }

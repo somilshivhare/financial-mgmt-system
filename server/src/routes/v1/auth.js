@@ -7,7 +7,6 @@ const { requireAuth } = require('../../middleware/requireAuth');
 
 const router = express.Router();
 
-// Apply stricter rate limiting to authentication endpoints
 router.use(authLimiter);
 
 router.post('/register', validate(registerSchema), register);

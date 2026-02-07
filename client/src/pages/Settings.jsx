@@ -100,33 +100,28 @@ export default function Settings() {
 
   const isDirty = useMemo(() => JSON.stringify(settings) !== JSON.stringify(draft), [settings, draft])
 
-  // Load settings from backend
   useEffect(() => {
     const loadSettings = async () => {
       try {
         setLoading(true)
         setLoadError(null)
         
-        // Load user from localStorage
         const storedUser = safeParse(localStorage.getItem('user') || '') || {}
         setUser({
           email: storedUser.email || 'user@example.com',
           role: storedUser.role || storedUser.userRole || 'User',
         })
 
-        // Load settings from backend
         const response = await settingsApi.getSettings()
         if (response?.data?.data) {
           const backendSettings = response.data.data
           
-          // Transform backend settings to frontend format (remove _meta)
           const transformedSettings = {}
           Object.keys(backendSettings).forEach(key => {
             const { _meta, ...value } = backendSettings[key]
             transformedSettings[key] = value
           })
           
-          // Merge with defaults to ensure all categories exist
           const mergedSettings = {
             ...DEFAULT_SETTINGS,
             ...transformedSettings,
@@ -135,14 +130,12 @@ export default function Settings() {
           setSettings(mergedSettings)
           setDraft(mergedSettings)
         } else {
-          // Fallback to defaults if no settings found
           setSettings(DEFAULT_SETTINGS)
           setDraft(DEFAULT_SETTINGS)
         }
       } catch (error) {
         console.error('Failed to load settings:', error)
         setLoadError(error.message || 'Failed to load settings')
-        // Fallback to defaults on error
         setSettings(DEFAULT_SETTINGS)
         setDraft(DEFAULT_SETTINGS)
       } finally {
@@ -194,13 +187,11 @@ export default function Settings() {
   const onSave = async () => {
     if (!validate(draft)) return
 
-    // Guarded confirmations for sensitive settings
     const changedFY = draft.general.financialYear !== settings.general.financialYear
     const changedNum = draft.invoice.numberingFormat !== settings.invoice.numberingFormat
     const changed2fa = draft.security.twoFactorEnabled !== settings.security.twoFactorEnabled
     const changedTimeout = draft.security.sessionTimeoutMinutes !== settings.security.sessionTimeoutMinutes
 
-    // Check financial year change if it's being changed
     if (changedFY) {
       try {
         const checkResponse = await settingsApi.checkFinancialYearChange(draft.general.financialYear)
@@ -229,7 +220,6 @@ export default function Settings() {
         }
       } catch (error) {
         console.error('Failed to check financial year:', error)
-        // Continue with confirmation if check fails
       }
     }
 
@@ -268,7 +258,6 @@ export default function Settings() {
     setErrors({})
     
     try {
-      // Prepare settings for backend (only changed categories)
       const settingsToUpdate = {}
       if (JSON.stringify(draft.general) !== JSON.stringify(settings.general)) {
         settingsToUpdate.general = draft.general
@@ -286,19 +275,15 @@ export default function Settings() {
         settingsToUpdate.access = draft.access
       }
 
-      // Update settings via backend API
       await settingsApi.updateSettings(settingsToUpdate)
       
-      // Update local state
       setSettings(draft)
       setSaved(true)
       
-      // Clear any errors
       setErrors({})
     } catch (error) {
       console.error('Failed to save settings:', error)
       
-      // Handle specific error types
       if (error.code === 'FINANCIAL_YEAR_LOCKED' || error.message?.includes('financial year')) {
         setErrors({
           ...errors,
@@ -310,7 +295,6 @@ export default function Settings() {
           _general: error.message || 'This setting is locked and cannot be changed',
         })
       } else if (error.code === 'VALIDATION_ERROR' && error.data) {
-        // Handle validation errors
         const validationErrors = {}
         error.data.forEach(err => {
           const path = err.path.join('.')
@@ -353,7 +337,6 @@ export default function Settings() {
         setSaving(true)
         try {
           await settingsApi.resetSettings()
-          // Reload settings
           const response = await settingsApi.getSettings()
           if (response?.data?.data) {
             const backendSettings = response.data.data

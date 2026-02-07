@@ -9,12 +9,8 @@ const {
   listTicketsQuerySchema,
 } = require('../validators/supportTicketValidators');
 
-/**
- * Create a new support ticket
- */
 const createTicket = async (req, res, next) => {
   try {
-    // Handle file uploads if any
     const attachments = [];
     if (req.files && req.files.length > 0) {
       attachments.push(...req.files.map(file => ({
@@ -25,7 +21,6 @@ const createTicket = async (req, res, next) => {
       })));
     }
     
-    // Parse and validate ticket data (FormData fields come as strings)
     const ticketData = {
       category: req.body.category,
       priority: req.body.priority,
@@ -39,7 +34,6 @@ const createTicket = async (req, res, next) => {
     
     const ticket = await supportTicketService.createTicket(validated, userId);
     
-    // Add attachments if provided
     if (attachments.length > 0) {
       await supportTicketService.addAttachments(ticket.id, attachments, userId);
     }
@@ -59,9 +53,6 @@ const createTicket = async (req, res, next) => {
   }
 };
 
-/**
- * List tickets (user's tickets or all tickets for admin)
- */
 const listTickets = async (req, res, next) => {
   try {
     const validated = listTicketsQuerySchema.parse(req.query);
@@ -78,9 +69,6 @@ const listTickets = async (req, res, next) => {
   }
 };
 
-/**
- * Get ticket by ID with full history
- */
 const getTicket = async (req, res, next) => {
   try {
     const { ticketId } = req.params;
@@ -100,9 +88,6 @@ const getTicket = async (req, res, next) => {
   }
 };
 
-/**
- * Add a reply to a ticket
- */
 const addReply = async (req, res, next) => {
   try {
     const { ticketId } = req.params;
@@ -133,9 +118,6 @@ const addReply = async (req, res, next) => {
   }
 };
 
-/**
- * Update ticket status
- */
 const updateStatus = async (req, res, next) => {
   try {
     const { ticketId } = req.params;
@@ -166,9 +148,6 @@ const updateStatus = async (req, res, next) => {
   }
 };
 
-/**
- * Assign ticket to admin (admin only)
- */
 const assignTicket = async (req, res, next) => {
   try {
     const { ticketId } = req.params;
@@ -198,9 +177,6 @@ const assignTicket = async (req, res, next) => {
   }
 };
 
-/**
- * Update ticket priority (admin only)
- */
 const updatePriority = async (req, res, next) => {
   try {
     const { ticketId } = req.params;

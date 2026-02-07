@@ -34,14 +34,9 @@ function MasterDataReview() {
     }
   }, [location.search])
 
-  /**
-   * Load draft data from backend (draft records for each type)
-   * Ensures Review page shows the latest draft state
-   */
   const loadFormData = useCallback(async () => {
     try {
       setLoading(true)
-      // Clear existing data first to ensure fresh start
       setAllFormData({})
 
       const formData = {}
@@ -95,7 +90,6 @@ function MasterDataReview() {
         return nextMultipleEntries
       }
 
-      // Fetch draft records for each type
       const loadPromises = FORM_TYPES.map(async (type) => {
         try {
           let records = []
@@ -155,7 +149,6 @@ function MasterDataReview() {
       loadFormData()
     }
     
-    // Also refresh when page becomes visible (user navigates back)
     const handleVisibilityChange = () => {
       if (!document.hidden && location.pathname === '/master-data/review') {
         loadFormData()
@@ -368,7 +361,6 @@ function MasterDataReview() {
                               )
                             })
                           ) : (
-                            // Fallback: show all values if groups structure not available
                             <div className="md-form-review-group">
                               {Object.keys(values).filter(key => !key.includes('_') || key.match(/^[^_]+$/)).map((key) => {
                                 const value = values[key]

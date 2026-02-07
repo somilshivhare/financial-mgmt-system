@@ -10,7 +10,6 @@ import { useFormPersistence } from '../hooks/useFormPersistence'
 import { INDIA_STATES, COUNTRIES } from '../utils/indiaStates'
 import '../styles/POEntry.css'
 
-// Option sets from Excel format
 const BUSINESS_UNITS = ['MAIN', 'UNIT1', 'UNIT2', 'UNIT3', 'Other']
 const SEGMENTS = ['Domestic', 'Export']
 const ZONES = ['North', 'East', 'West', 'South']
@@ -19,17 +18,6 @@ const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'Other']
 const INSURANCE_TYPES = ['Marine Insurance', 'Group Accidental Policy', 'Workmen Compensation Policy', 'All Erection Policy', 'Others']
 const BANK_GUARANTEE_TYPES = ['Advance Bank Guarantee', 'Performance Bank Guarantee', 'Bid Security', 'Retention', 'Others']
 
-/**
- * PO Entry Component
- * 
- * MASTER DATA INTEGRATION REQUIREMENTS:
- * - Customer Name dropdown lists ALL customers from Master Data
- * - When a customer is selected, ALL related fields are auto-populated from that specific master data record
- * - Auto-filled fields are read-only/system-controlled to ensure data accuracy
- * - Each PO Entry is strictly linked to the selected master data record
- * - No data from other master data records is mixed or prefilled
- * - Data isolation ensures consistency across the system
- */
 function POEntry() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -40,183 +28,124 @@ function POEntry() {
   const [employees, setEmployees] = useState([])
   const [companies, setCompanies] = useState([])
   
-  // Default form data structure
   const defaultFormData = {
-    // Customer Name
     customerId: '',
     customerName: '',
     
-    // Legal Entity Name
     legalEntityName: '',
     
-    // Customer Address
     customerAddress: '',
     
-    // District
     customerDistrict: '',
     
-    // State
     customerState: '',
     
-    // Country
     customerCountry: 'India',
     
-    // Pin Code
     customerPinCode: '',
     
-    // GST No
     customerGSTIN: '',
     
-    // Business Unit
     businessUnit: '',
     
-    // Segment
     segment: '',
     
-    // Zone
     zone: '',
     
-    // Contract Agreement No
     contractAgreementNo: '',
     
-    // Contract Agreement Date
     contractAgreementDate: '',
     
-    // Purchase Order No
     poNumber: '',
     
-    // Purchase Order Date
     poDate: '',
     
-    // Letter of Intent No
     loiNumber: '',
     
-    // Letter of Intent Date
     loiDate: '',
     
-    // Letter of Award No
     loaNumber: '',
     
-    // Letter of Award Date
     loaDate: '',
     
-    // Tender Reference No
     tenderNumber: '',
     
-    // Tender Date
     tenderDate: '',
     
-    // Project Description
     projectDescription: '',
     
-    // Payment Type
     paymentType: '',
     
-    // Payment Terms
     paymentTermsId: '',
     poPaymentTerms: '',
     
-    // Payment Terms Clause in PO
     paymentTermsClauseInPO: '',
     
-    // Insurance Type
     insuranceType: '',
     
-    // Policy No
     insurancePolicyNumber: '',
     
-    // Policy Date
     insurancePolicyDate: '',
     
-    // Policy Company
     insurancePolicyCompany: '',
     
-    // Policy Valid upto
     insurancePolicyValidUpto: '',
     
-    // Policy Clause in PO
     insurancePolicyClauseInPO: '',
     
-    // Policy Remarks
     insurancePolicyRemarks: '',
     
-    // Bank Guarantee Type
     bankGuaranteeType: '',
     
-    // Bank Guarantee No
     bankGuaranteeNumber: '',
     
-    // Bank Guarantee Date
     bankGuaranteeDate: '',
     
-    // Bank Guarantee Value
     bankGuaranteeValue: '',
     
-    // Bank Name
     bankName: '',
     
-    // Bank Guarantee Validity
     bankGuaranteeValidity: '',
     
-    // Bank Guarantee Release & Validity Clause in PO
     bankGuaranteeReleaseValidityClauseInPO: '',
     
-    // Bank Guarantee Remarks
     bankGuaranteeRemarks: '',
     
-    // Sales Manager
     salesManagerId: '',
     
-    // Sales Head
     salesHeadId: '',
     
-    // Business Head
     businessHeadId: '',
     
-    // Project Manager
     projectManagerId: '',
     
-    // Project Head
     projectHeadId: '',
     
-    // Collection Incharge
     collectionInchargeId: '',
     
-    // Sales Agent Name
     salesAgentName: '',
     
-    // Sales Agent Commission
     salesAgentCommission: '',
     
-    // Collection Agent Name
     collectionAgentName: '',
     
-    // Collection Agent Commission
     collectionAgentCommission: '',
     
-    // Delivery Schedule Clause
     deliveryScheduleClause: '',
     
-    // Liquidated Damages Clause
     liquidatedDamagesClause: '',
     
-    // Last Date of Delivery
     lastDateOfDelivery: '',
     
-    // PO Validity
     poValidity: '',
     
-    // PO Signed Concern Name
     poSignedConcernName: '',
     
-    // BOQ section visibility (enable/disable)
     boqEnabled: true,
 
-    // Internal fields for calculations and other purposes
     poValue: '',
     poCurrency: 'INR',
     
-    // "Other" fields for dropdowns
     businessUnitOther: '',
     segmentOther: '',
     zoneOther: '',
@@ -227,7 +156,6 @@ function POEntry() {
     bankGuaranteeTypeOther: '',
   }
 
-  // Form persistence hook
   const {
     values: persistedData,
     setValues: setPersistedData,
@@ -238,11 +166,8 @@ function POEntry() {
     clearLocalDraft,
   } = useFormPersistence({
     saveFn: async (data, entityId) => {
-      // Draft save only: no status so server keeps/ sets draft. Submit uses savePOEntry (status: 'approved').
-      // Ensure customerId is always sent (required field for new PO creation)
       const customerId = String(data.formData?.customerId || '').trim();
       if (!customerId) {
-        // Skip save if customerId is missing (auto-save guard should prevent this, but double-check)
         console.warn('[POEntry] Skipping draft save: customerId is required');
         return null;
       }
@@ -250,10 +175,8 @@ function POEntry() {
         ...data.formData,
         customerId: customerId, // Explicitly set to ensure it's sent
         boqItems: data.boqItems || [],
-        // Do not send status on draft save so existing row stays draft; Submit sends status: 'approved'
       }
       const result = await upsertPODraft(saveData, entityId || id)
-      // Return shape so hook merges id/poNumber into values; Submit and next saves use same PO (no duplicate)
       if (result && (result.id || result.po_number)) {
         return {
           id: result.id,
@@ -300,7 +223,6 @@ function POEntry() {
             }))
           : emptyBoq
 
-      // Edit: single GET /pos/:id with timeout so we never hang
       const FETCH_TIMEOUT_MS = 8000
       const withTimeout = (p, ms) =>
         Promise.race([
@@ -344,7 +266,6 @@ function POEntry() {
               }
             } catch (_) {}
           }
-          // Legacy row: build minimal form from DB fields only
           if (row) {
             return {
               formData: normalizeForm({
@@ -364,7 +285,6 @@ function POEntry() {
         return null
       }
 
-      // New entry (no poId): load latest draft if any; include id/status so Submit and autosave use same record
       try {
         const draft = await getPODraft(poId || null)
         if (draft) {
@@ -401,8 +321,6 @@ function POEntry() {
         totalCost: '',
       }],
     },
-    // Autosave only for drafts; never overwrite a submitted PO (status approved)
-    // Also require customerId to be present before auto-saving (prevents 500 errors from null customer_id)
     enableAutoSave: (values) => {
       const status = (values?.formData?.status || '').toString().toLowerCase();
       const customerId = String(values?.formData?.customerId || '').trim();
@@ -411,7 +329,6 @@ function POEntry() {
     autoSaveDelay: 2000,
   })
 
-  // Extract formData and boqItems from persisted data (merge with defaults; coerce undefined to '' so inputs stay controlled)
   const rawForm = { ...defaultFormData, ...(persistedData.formData || {}) }
   const formData = Object.fromEntries(
     Object.entries(rawForm).map(([k, v]) => [k, v === undefined || v === null ? '' : v])
@@ -428,7 +345,6 @@ function POEntry() {
     totalCost: '',
   }]
 
-  // Update form data
   const setFormData = (updater) => {
     if (typeof updater === 'function') {
       setPersistedData(prev => ({
@@ -443,7 +359,6 @@ function POEntry() {
     }
   }
 
-  // Update BOQ items
   const setBoqItems = (updater) => {
     if (typeof updater === 'function') {
       setPersistedData(prev => ({
@@ -459,20 +374,17 @@ function POEntry() {
   }
 
   useEffect(() => {
-    // Load Master Data for dropdowns
     const customersData = getCustomers()
     const paymentTermsData = getPaymentTerms()
     const employeesData = getEmployees()
     const companiesData = getCompanies()
     
-    // Ensure all are arrays
     setCustomers(Array.isArray(customersData) ? customersData : [])
     setPaymentTerms(Array.isArray(paymentTermsData) ? paymentTermsData : [])
     setEmployees(Array.isArray(employeesData) ? employeesData : [])
     setCompanies(Array.isArray(companiesData) ? companiesData : [])
   }, [getCustomers, getPaymentTerms, getEmployees, getCompanies])
   
-  // Auto-generate PO Number only for new entries (no id), and only when not loaded from persistence
   useEffect(() => {
     if (id) return
     if (!persistenceLoading && !formData.poNumber) {
@@ -481,14 +393,12 @@ function POEntry() {
     }
   }, [id, persistenceLoading, formData.poNumber, formData.businessUnit])
 
-  // Calculate BOQ totals
   const boqTotals = useMemo(() => {
     let totalExWorks = 0
     let totalFreight = 0
     let totalGST = 0
     let totalPOValue = 0
 
-    // Ensure boqItems is an array
     if (!Array.isArray(boqItems)) {
       console.warn('boqItems is not an array:', boqItems)
       return {
@@ -506,13 +416,9 @@ function POEntry() {
       const gst = parseFloat(item.gst) || 0
       const totalCost = parseFloat(item.totalCost) || 0
 
-      // Total Ex-Works = sum of (unit cost * quantity) for all items
       totalExWorks += unitCost * quantity
-      // Total Freight = sum of freight for all items
       totalFreight += freight
-      // Total GST = sum of GST for all items
       totalGST += gst
-      // Total PO Value = sum of total cost for all items
       totalPOValue += totalCost
     })
 
@@ -524,7 +430,6 @@ function POEntry() {
     }
   }, [boqItems])
 
-  // Update PO Value when BOQ totals change
   useEffect(() => {
     setFormData((prev) => ({
       ...prev,
@@ -537,14 +442,8 @@ function POEntry() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  /**
-   * Get first value when Master Data stores allowMultiple as array
-   */
   const first = (v) => (Array.isArray(v) ? v[0] : v)
 
-  /**
-   * Get value from Master Data values; supports allowMultiple keys (key_0, key_1, ...)
-   */
   const val = (v, key) => {
     if (!v || !key) return ''
     const direct = v[key]
@@ -554,11 +453,6 @@ function POEntry() {
     return Array.isArray(direct) ? (direct[0] != null ? String(direct[0]) : '') : ''
   }
 
-  /**
-   * Handle customer selection from Master Data
-   * Fetches the selected customer's saved data from Master Data and populates all
-   * customer-related PO form fields (including contact info). Data comes from customer-profile values only.
-   */
   const handleCustomerChange = (e) => {
     const customerId = e.target.value
     const customer = customers.find((c) => c.id === customerId)
@@ -621,7 +515,6 @@ function POEntry() {
     }
   }
 
-  // BOQ Item Handlers
   const handleAddBOQItem = () => {
     const newId = Math.max(...boqItems.map((item) => item.id), 0) + 1
     setBoqItems([
@@ -652,7 +545,6 @@ function POEntry() {
         if (item.id === id) {
           const updated = { ...item, [field]: value }
           
-          // Auto-calculate total cost: (quantity * unit cost) + freight + GST
           const quantity = parseFloat(updated.quantity) || 0
           const unitCost = parseFloat(updated.unitCost) || 0
           const freight = parseFloat(updated.freight) || 0
@@ -671,7 +563,6 @@ function POEntry() {
   const handleSaveDraft = async () => {
     try {
       const result = await persistenceSave(true)
-      // After first save (new PO), navigate to /po-entry/:id so Submit and autosave use same record
       if (result?.id && !id) {
         navigate(`/po-entry/${result.id}`, { replace: true })
       }
@@ -683,15 +574,12 @@ function POEntry() {
   }
 
   const handleReset = () => {
-    // Confirm reset action
     if (window.confirm('Are you sure you want to reset the form? All unsaved changes will be lost.')) {
-      // Reset form data to defaults (preserve id if editing)
       const resetFormData = { ...defaultFormData }
       if (id || formData.id) {
         resetFormData.id = id || formData.id
       }
       
-      // Reset BOQ items to single empty item
       const resetBoqItems = [{
         id: 1,
         materialDescription: '',
@@ -704,13 +592,11 @@ function POEntry() {
         totalCost: '',
       }]
       
-      // Update persisted data
       setPersistedData({
         formData: resetFormData,
         boqItems: resetBoqItems,
       })
       
-      // Clear local draft
       if (typeof clearLocalDraft === 'function') {
         clearLocalDraft()
       }
@@ -719,20 +605,16 @@ function POEntry() {
     }
   }
 
-  // Auto-fill sample data for manually filled fields only (not auto-generated or auto-filled)
   const handleAutoFill = () => {
-    // Get today's date for date fields
     const today = new Date().toISOString().split('T')[0]
     const futureDate = new Date()
     futureDate.setDate(futureDate.getDate() + 90)
     const futureDateStr = futureDate.toISOString().split('T')[0]
     
-    // Get first available employee IDs for role assignments
     const getFirstEmployeeId = (employeeList) => {
       return Array.isArray(employeeList) && employeeList.length > 0 ? employeeList[0].id : ''
     }
     
-    // Sample BOQ items (totalCost will be auto-calculated by handleBOQItemChange)
     const sampleBoqItems = [
       {
         id: 1,
@@ -769,7 +651,6 @@ function POEntry() {
       },
     ]
     
-    // Calculate totalCost for each BOQ item
     const calculatedBoqItems = sampleBoqItems.map((item) => {
       const quantity = parseFloat(item.quantity) || 0
       const unitCost = parseFloat(item.unitCost) || 0
@@ -782,14 +663,11 @@ function POEntry() {
       }
     })
     
-    // Auto-fill only manual fields (preserve auto-generated and auto-filled fields)
     setFormData((prev) => ({
       ...prev,
-      // Contract & Agreement Details
       contractAgreementNo: 'CA/2025-26/001',
       contractAgreementDate: today,
       
-      // LOI, LOA & Tender References
       loiNumber: 'LOI/2025-26/001',
       loiDate: today,
       loaNumber: 'LOA/2025-26/001',
@@ -797,14 +675,11 @@ function POEntry() {
       tenderNumber: 'TENDER/2025-26/001',
       tenderDate: today,
       
-      // Project Description
       projectDescription: 'Supply and installation of structural steel works for commercial building project. Scope includes fabrication, transportation, and erection of steel structures as per approved drawings and specifications.',
       
-      // Payment Details
       paymentType: 'Secured',
       paymentTermsClauseInPO: 'Payment shall be made as per the following schedule: 30% advance payment, 40% on delivery, 20% after 30 days of delivery, and 10% retention after 90 days. All payments subject to GST as applicable.',
       
-      // Insurance Details
       insuranceType: 'Marine Insurance',
       insurancePolicyNumber: 'INS/MAR/2025-26/001',
       insurancePolicyDate: today,
@@ -813,7 +688,6 @@ function POEntry() {
       insurancePolicyClauseInPO: 'The supplier shall arrange comprehensive marine insurance covering all risks from factory to site. Insurance policy shall be valid for the entire duration of the project.',
       insurancePolicyRemarks: 'Insurance coverage includes transit, storage, and erection risks. Policy to be submitted before dispatch.',
       
-      // Bank Guarantee Details
       bankGuaranteeType: 'Advance Bank Guarantee',
       bankGuaranteeNumber: 'BG/ADV/2025-26/001',
       bankGuaranteeDate: today,
@@ -823,7 +697,6 @@ function POEntry() {
       bankGuaranteeReleaseValidityClauseInPO: 'Bank guarantee shall be valid until completion of all contractual obligations and shall be released within 30 days of project completion and acceptance.',
       bankGuaranteeRemarks: 'Bank guarantee to be submitted along with advance payment request. Original document required.',
       
-      // Role Assignments (use first available employee from each role)
       salesManagerId: getFirstEmployeeId(salesManagers),
       salesHeadId: getFirstEmployeeId(salesHeads),
       businessHeadId: getFirstEmployeeId(businessHeads),
@@ -835,20 +708,17 @@ function POEntry() {
       collectionAgentName: getFirstEmployeeId(collectionAgents),
       collectionAgentCommission: '1.5',
       
-      // Delivery Schedule & Other Details
       deliveryScheduleClause: 'Delivery shall be completed within 90 days from the date of purchase order. Partial deliveries are acceptable. All materials must be delivered to the site address mentioned in the PO.',
       liquidatedDamagesClause: 'Liquidated damages at the rate of 0.5% per week of delay, subject to a maximum of 5% of the contract value, shall be applicable for any delay beyond the agreed delivery schedule.',
       lastDateOfDelivery: futureDateStr,
       poValidity: '90 days',
       poSignedConcernName: 'ABC Corporation Private Limited',
       
-      // Business Unit, Segment, Zone (if not already set from customer)
       businessUnit: prev.businessUnit || 'MAIN',
       segment: prev.segment || 'Domestic',
       zone: prev.zone || 'North',
     }))
     
-    // Fill BOQ items
     setBoqItems(calculatedBoqItems)
     
     showToast('Sample data filled! You can modify any field as needed.', 'success')
@@ -870,20 +740,16 @@ function POEntry() {
       return
     }
     
-    // Ensure form state has generated PO Number if it was empty
     if (!String(formData.poNumber || '').trim()) {
       setFormData((prev) => ({ ...prev, poNumber }))
     }
     
-    // Build full payload for save (all form fields + BOQ) so backend stores in draft_data
-    // Include id when editing so server updates that row and sets status to approved
     const poEntry = {
       ...formData,
       id: id || formData.id,
       customerId,
       poNumber,
       poDate,
-      // "Submit" = approved (submitted). Server draft endpoint persists this to DB.
       status: 'approved',
       boqItems,
       boqTotals,
@@ -894,13 +760,11 @@ function POEntry() {
     try {
       const savedPO = await poEntryService.savePOEntry(poEntry)
       
-      // Re-fetch the saved PO to ensure UI is synced with backend
       if (savedPO?.id || id) {
         try {
           const refreshedPO = await poEntryService.getPOEntryById(savedPO?.id || id)
           if (refreshedPO) {
             const { boqItems: refreshedBoqItems, ...refreshedFormData } = refreshedPO
-            // Normalize backend row fields to form fields
             const normalizedForm = {
               ...refreshedFormData,
               poNumber: refreshedFormData.poNumber || refreshedFormData.po_number || poEntry.poNumber,
@@ -918,7 +782,6 @@ function POEntry() {
           }
         } catch (refreshError) {
           console.warn('[POEntry] Failed to refresh PO after save:', refreshError)
-          // Continue anyway - save was successful
         }
       }
       
@@ -931,7 +794,6 @@ function POEntry() {
     }
   }
 
-  // Filter employees by role (reads from Master Data values.role)
   const getEmployeesByRole = (roleKeywords) => {
     if (!Array.isArray(employees)) {
       console.warn('employees is not an array:', employees)
@@ -944,7 +806,6 @@ function POEntry() {
     })
   }
 
-  // Employee display label from Master Data (values.nameOfEmployee, values.designation)
   const getEmployeeLabel = (emp) => {
     const v = emp.values || {}
     const name = v.nameOfEmployee || v.nameOfEmployee_0 || emp.nameOfEmployee || emp.name || ''
@@ -952,7 +813,6 @@ function POEntry() {
     return name + (des ? ` (${des})` : '')
   }
 
-  // Ensure all employee arrays are actually arrays (from Master Data employee-profile)
   const salesManagers = getEmployeesByRole(['sales manager'])
   const salesHeads = getEmployeesByRole(['sales head'])
   const projectManagers = getEmployeesByRole(['project manager'])
@@ -962,7 +822,6 @@ function POEntry() {
   const salesAgents = getEmployeesByRole(['sales agent'])
   const collectionAgents = getEmployeesByRole(['collection agent'])
 
-  // Edit mode: show loading until data is loaded so form does not flash empty
   if (id && persistenceLoading) {
     return (
       <div className="po-entry-page">

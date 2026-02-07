@@ -59,7 +59,6 @@ const REPORT_TYPES = [
   { id: 'audit-log', label: 'Audit/Activity Log', icon: FileSearch },
 ]
 
-// NB Aurum palette - aligned with Dashboard (no subscription/storage UI)
 const CHART_COLORS = ['#0f4c81', '#b8860b', '#0d9488', '#b45309', '#b91c1c', '#64748b']
 
 function Reports() {
@@ -72,7 +71,6 @@ function Reports() {
   const [showFilters, setShowFilters] = useState(false)
   const [viewMode, setViewMode] = useState('summary') // summary, detailed, chart
 
-  // Filters
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
@@ -84,19 +82,16 @@ function Reports() {
     status: '',
   })
 
-  // Load KPIs on mount
   useEffect(() => {
     loadKPIs()
   }, [filters.dateFrom, filters.dateTo])
 
-  // Load report data when report type or filters change
   useEffect(() => {
     if (selectedReport) {
       loadReport()
     }
   }, [selectedReport, filters])
 
-  // Auto-refresh when underlying data changes elsewhere in the app
   useEffect(() => {
     const handleDataUpdate = () => {
       loadKPIs()
@@ -127,7 +122,6 @@ function Reports() {
       window.removeEventListener('poDeleted', handleDataUpdate)
       window.removeEventListener('focus', onFocus)
     }
-    // We intentionally depend on selectedReport/filters so the refresh uses latest params
   }, [selectedReport, filters])
 
   const loadKPIs = async () => {
@@ -235,7 +229,6 @@ function Reports() {
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== '')
 
-  // Export to Excel
   const exportToExcel = () => {
     if (!reportData?.data) return
 
@@ -243,7 +236,6 @@ function Reports() {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Report Data')
 
-    // Add summary sheet if available
     if (reportData.summary) {
       const summaryData = Object.entries(reportData.summary).map(([key, value]) => ({
         Metric: key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase()),
@@ -257,7 +249,6 @@ function Reports() {
     XLSX.writeFile(wb, `${reportName}_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
 
-  // Export to CSV
   const exportToCSV = () => {
     if (!reportData?.data) return
 
@@ -274,18 +265,15 @@ function Reports() {
     document.body.removeChild(link)
   }
 
-  // Export to PDF
   const exportToPDF = () => {
     if (!reportData?.data) return
 
     const doc = new jsPDF()
     const reportName = REPORT_TYPES.find((r) => r.id === selectedReport)?.label || 'Report'
 
-    // Title
     doc.setFontSize(18)
     doc.text(reportName, 14, 20)
 
-    // Summary
     if (reportData.summary) {
       doc.setFontSize(12)
       doc.text('Summary', 14, 35)
@@ -302,7 +290,6 @@ function Reports() {
       })
     }
 
-    // Table
     if (reportData.data.length > 0) {
       const tableData = reportData.data.slice(0, 50).map((row) => {
         return Object.values(row).map((v) => {
@@ -328,7 +315,6 @@ function Reports() {
     doc.save(`${reportName}_${new Date().toISOString().split('T')[0]}.pdf`)
   }
 
-  // Prepare chart data
   const chartData = useMemo(() => {
     if (!reportData?.data || viewMode !== 'chart') return []
 

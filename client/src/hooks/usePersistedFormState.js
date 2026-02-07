@@ -10,18 +10,6 @@ import {
   cancelScheduledSave,
 } from '../utils/formPersistenceStorage'
 
-/**
- * Hook for form state with localStorage-only persistence (no backend draft).
- * Use for pages that don't use useFormPersistence (e.g. InvoiceEntry, PaymentEntry, MoMEntry, ContactSupport).
- * Restores from localStorage on mount and debounce-saves on change. Single draft per page/entity per user.
- *
- * @param {Object} options
- * @param {string} options.pathKey - Route key (e.g. 'invoice-entry', 'payment-entry', 'mom-entry')
- * @param {object} options.defaultValues - Default form values
- * @param {number} options.debounceMs - Debounce for localStorage writes (default 1500)
- * @param {string|null} options.entityId - Optional entity id (e.g. from useParams().id). Use 'new' or null for new entry.
- * @returns {{ values, setValues, clearLocalDraft, reset, persistNow, updateField, updateFields }}
- */
 export function usePersistedFormState({ pathKey, defaultValues = {}, debounceMs = 1500, entityId = null }) {
   const params = useParams()
   const resolvedId = entityId ?? params?.id ?? null
@@ -48,7 +36,6 @@ export function usePersistedFormState({ pathKey, defaultValues = {}, debounceMs 
     defaultValuesRef.current = defaultValues
   }, [defaultValues])
 
-  // Debounced persist to localStorage
   useEffect(() => {
     if (!storageKey || isFirstRender.current) {
       if (isFirstRender.current) isFirstRender.current = false
@@ -68,7 +55,6 @@ export function usePersistedFormState({ pathKey, defaultValues = {}, debounceMs 
     if (storageKey) clearStorageDraft(storageKey)
   }, [storageKey])
 
-  /** Persist current values to localStorage immediately (e.g. for "Save Draft" button). */
   const persistNow = useCallback(() => {
     if (storageKey && Object.keys(values).length > 0) {
       cancelScheduledSave(storageKey)

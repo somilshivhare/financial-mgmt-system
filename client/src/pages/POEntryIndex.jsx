@@ -7,7 +7,6 @@ import { useToast } from '../contexts/ToastContext'
 import * as poEntryService from '../services/poEntryService'
 import '../styles/POEntry.css'
 
-// Read a field from PO row or from draft_data.formData (when saved via draft)
 function getPOField(po, field) {
   if (po[field] != null && po[field] !== '') return po[field]
   try {
@@ -21,7 +20,6 @@ function getPOField(po, field) {
 function formatDate(value) {
   if (!value) return ''
   const s = String(value)
-  // Handles "2026-01-22T00:00:00.000Z" and "2026-01-22"
   return s.includes('T') ? s.split('T')[0] : s
 }
 
@@ -29,7 +27,6 @@ function pickPONumber(po) {
   const fromDraft = getPOField(po, 'poNumber')
   const fromRow = po.po_number || po.poNumber
   const candidates = [fromDraft, fromRow].filter(Boolean).map((v) => String(v))
-  // Prefer non-XXXX if available
   const nonPlaceholder = candidates.find((v) => !v.toUpperCase().includes('XXXX'))
   return nonPlaceholder || candidates[0] || ''
 }
@@ -42,7 +39,6 @@ function formatStatusLabel(status) {
   return 'Draft'
 }
 
-// PO value: prefer draft_data (form + BOQ) so list matches edit form; fallback to DB total_amount
 function getPOValue(po) {
   try {
     const draft = typeof po.draft_data === 'string' ? JSON.parse(po.draft_data) : po.draft_data
@@ -70,7 +66,6 @@ function POEntryIndex() {
   const [poEntries, setPOEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  // Default to empty string to show all POs; user can filter by status if needed
   const [statusFilter, setStatusFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -98,7 +93,6 @@ function POEntryIndex() {
     try {
       setLoading(true)
       const entries = await poEntryService.getAllPOEntries()
-      // Ensure entries is always an array
       if (Array.isArray(entries)) {
         setPOEntries(entries)
       } else {
@@ -114,14 +108,12 @@ function POEntryIndex() {
   }
 
   const filteredPOEntries = useMemo(() => {
-    // Ensure poEntries is always an array before spreading
     if (!Array.isArray(poEntries)) {
       console.warn('poEntries is not an array:', poEntries)
       return []
     }
     let filtered = [...poEntries]
 
-    // Search filter (include draft_data fields for customer/project/po number)
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       filtered = filtered.filter((po) => {
@@ -132,7 +124,6 @@ function POEntryIndex() {
       })
     }
 
-    // Status filter
     if (statusFilter) {
       filtered = filtered.filter((po) => {
         const status = po.status || 'draft'
@@ -140,7 +131,6 @@ function POEntryIndex() {
       })
     }
 
-    // Date range filter
     if (dateFrom) {
       filtered = filtered.filter((po) => {
         const poDate = po.issue_date || po.po_date || po.poDate || po.created_at

@@ -87,7 +87,6 @@ export default function MyProfile() {
   const [pwSaved, setPwSaved] = useState(false)
   const [showPw, setShowPw] = useState({ current: false, next: false, confirm: false })
 
-  // Load profile data from API
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -144,9 +143,7 @@ export default function MyProfile() {
           setProfile(userProfile)
           setDraft(userProfile)
           
-          // Set profile photo preview if exists
           if (data.profile?.profile_picture_url) {
-            // If it's a relative path, prepend API base URL
             const apiBase = getApiBaseUrl()
             const photoUrl = data.profile.profile_picture_url.startsWith('http')
               ? data.profile.profile_picture_url
@@ -154,7 +151,6 @@ export default function MyProfile() {
             setPhotoPreviewUrl(photoUrl)
           }
           
-          // Update localStorage with fresh user data
           if (data.user) {
             localStorage.setItem('user', JSON.stringify({
               id: data.user.id,
@@ -168,7 +164,6 @@ export default function MyProfile() {
         console.error('Failed to load profile:', err)
         let errorMessage = err.response?.data?.message || err.message || 'Failed to load profile data'
         
-        // Handle rate limit errors specifically
         if (err.response?.status === 429 || err.status === 429) {
           errorMessage = 'Rate limit exceeded. Please wait a moment and try again.'
         } else if (err.response?.status === 404) {
@@ -176,7 +171,6 @@ export default function MyProfile() {
         } else if (err.code === 'NETWORK_ERROR' || err.isNetworkError) {
           errorMessage = 'Network error: Unable to connect to server. Please check your connection.'
         } else if (!err.response) {
-          // No response means server might be down or migration issue
           errorMessage = 'Unable to connect to server. If this persists, please ensure database migrations are run: npm run migrate'
         }
         
@@ -254,14 +248,12 @@ export default function MyProfile() {
 
     setFieldErrors((prev) => ({ ...prev, photo: '' }))
     
-    // Create preview
     if (photoPreviewUrl && photoPreviewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(photoPreviewUrl)
     }
     setPhotoPreviewUrl(URL.createObjectURL(file))
     setPhotoFile(file)
 
-    // Upload immediately
     setPhotoUploading(true)
     try {
       const response = await uploadProfilePhoto(file)
@@ -271,11 +263,9 @@ export default function MyProfile() {
           ? response.data.data.photoUrl
           : `${apiBase}${response.data.data.photoUrl}`
         
-        // Update both profile and draft with new photo URL
         setProfile((prev) => ({ ...prev, profilePictureUrl: photoUrl }))
         setDraft((prev) => ({ ...prev, profilePictureUrl: photoUrl }))
         
-        // Update preview to use server URL
         if (photoPreviewUrl && photoPreviewUrl.startsWith('blob:')) {
           URL.revokeObjectURL(photoPreviewUrl)
         }
@@ -288,7 +278,6 @@ export default function MyProfile() {
         ...prev, 
         photo: err.response?.data?.message || 'Failed to upload photo. Please try again.' 
       }))
-      // Revert preview
       if (photoPreviewUrl && photoPreviewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(photoPreviewUrl)
       }
@@ -308,7 +297,6 @@ export default function MyProfile() {
     setSaving(true)
     setError('')
     try {
-      // Get user role from localStorage to determine if company_name can be updated
       const storedUser = safeParse(localStorage.getItem('user') || '') || {}
       const isAdmin = storedUser.role === 'admin'
       
@@ -329,7 +317,6 @@ export default function MyProfile() {
         date_format: draft.preferences.dateFormat,
       }
       
-      // Only include company_name if user is admin
       if (isAdmin) {
         updateData.company_name = draft.organization.companyName || ''
       }
@@ -339,7 +326,6 @@ export default function MyProfile() {
       setProfile(draft)
       setSaved(true)
       
-      // Update localStorage
       localStorage.setItem('user', JSON.stringify({
         ...storedUser,
         fullName: draft.personal.name,
@@ -408,7 +394,6 @@ export default function MyProfile() {
 
     try {
       await revokeSession(sessionId)
-      // Reload profile to get updated sessions
       const response = await getProfile()
       const data = response.data.data
       if (data?.sessions) {

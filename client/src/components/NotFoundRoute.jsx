@@ -1,12 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 
-/**
- * NotFoundRoute Component
- * 
- * Handles 404 cases - redirects authenticated users to dashboard,
- * unauthenticated users to home, but only for truly invalid routes.
- */
 export default function NotFoundRoute() {
   const location = useLocation()
   const [isAuthenticated, setIsAuthenticated] = useState(null)
@@ -34,6 +28,5 @@ export default function NotFoundRoute() {
     return null
   }
 
-  // Redirect authenticated users to dashboard, unauthenticated to home
   return <Navigate to={isAuthenticated ? '/dashboard' : '/'} replace />
 }

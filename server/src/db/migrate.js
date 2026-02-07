@@ -12,7 +12,6 @@ const ensureMigrationsTable = async () => {
   `);
 };
 
-// Error codes to ignore when re-running idempotent migrations (e.g. column/index already exists)
 const IGNORABLE_DDL_ERRORS = new Set([1060, 1061]); // ER_DUP_FIELDNAME, ER_DUP_KEYNAME
 
 const runMigrations = async () => {
@@ -30,7 +29,6 @@ const runMigrations = async () => {
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
-      // Split into statements (semicolon at end of line) so we can ignore duplicate column/index errors
       const statements = sql
         .split(/\s*;\s*\n/)
         .map((s) => s.trim())

@@ -1,6 +1,4 @@
-/* AI Assistant Styles */
 
-/* Toggle Button (when closed) */
 .ai-assistant-toggle {
   position: fixed;
   bottom: 24px;
@@ -30,7 +28,6 @@
   height: 24px;
 }
 
-/* AI Assistant Container */
 .ai-assistant {
   position: fixed;
   bottom: 24px;
@@ -52,7 +49,6 @@
   height: auto;
 }
 
-/* Header */
 .ai-assistant-header {
   display: flex;
   align-items: center;
@@ -118,7 +114,6 @@
   height: 16px;
 }
 
-/* Messages Container */
 .ai-assistant-messages {
   flex: 1;
   overflow-y: auto;
@@ -145,7 +140,6 @@
   background: #9ca3af;
 }
 
-/* Empty State */
 .ai-assistant-empty {
   display: flex;
   flex-direction: column;
@@ -196,14 +190,12 @@
   color: var(--color-primary-hover);
 }
 
-/* Messages List */
 .ai-assistant-messages-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-/* Message */
 .ai-message {
   display: flex;
   gap: 12px;
@@ -270,7 +262,6 @@
   padding-left: 8px;
 }
 
-/* Loading State */
 .ai-message-loading {
   display: flex;
   align-items: center;
@@ -298,7 +289,6 @@
   }
 }
 
-/* Insights */
 .ai-message-insights {
   margin-top: 12px;
   display: flex;
@@ -363,7 +353,6 @@
   opacity: 0.9;
 }
 
-/* Recommendations */
 .ai-message-recommendations {
   margin-top: 12px;
   display: flex;
@@ -429,7 +418,6 @@
   color: var(--color-primary);
 }
 
-/* Input Form */
 .ai-assistant-input-form {
   display: flex;
   gap: 8px;
@@ -487,7 +475,6 @@
   height: 18px;
 }
 
-/* Footer */
 .ai-assistant-footer {
   padding: 12px 16px;
   background: #f9fafb;
@@ -512,7 +499,6 @@
   color: #374151;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .ai-assistant {
     width: calc(100vw - 32px);
@@ -532,7 +518,6 @@
   }
 }
 
-/* Minimized State */
 .ai-assistant.minimized .ai-assistant-messages,
 .ai-assistant.minimized .ai-assistant-input-form,
 .ai-assistant.minimized .ai-assistant-footer {

@@ -1,12 +1,7 @@
-/**
- * Payment Service
- * Manages Payment data, links to Invoices, and updates invoice balances
- */
 
 import * as paymentApi from '../api/payment'
 import * as invoiceService from './invoiceService'
 
-// Generate unique Payment ID
 export const generatePaymentID = (financialYear = null) => {
   if (!financialYear) {
     const now = new Date()
@@ -20,18 +15,18 @@ export const generatePaymentID = (financialYear = null) => {
   return `PAY-${fyShort}-XXXX` // Backend will handle sequence
 }
 
-// Get all payments
 export const getAllPayments = async () => {
   try {
     const response = await paymentApi.getAllPayments()
-    return response.data || []
+    const wrapper = response?.data ?? response
+    const list = Array.isArray(wrapper) ? wrapper : (wrapper?.data?.data ?? wrapper?.data ?? [])
+    return Array.isArray(list) ? list : []
   } catch (error) {
     console.error('Failed to load payments:', error)
     return []
   }
 }
 
-// Get payment by ID
 export const getPaymentById = async (id) => {
   try {
     const response = await paymentApi.getPaymentById(id)
@@ -42,7 +37,6 @@ export const getPaymentById = async (id) => {
   }
 }
 
-// Get payments by Invoice ID
 export const getPaymentsByInvoiceID = async (invoiceID) => {
   try {
     const response = await paymentApi.getPaymentsByInvoice(invoiceID)
@@ -53,7 +47,6 @@ export const getPaymentsByInvoiceID = async (invoiceID) => {
   }
 }
 
-// Get payments by Customer
 export const getPaymentsByCustomer = async (customerId) => {
   try {
     const response = await paymentApi.getPaymentsByCustomer(customerId)
@@ -64,7 +57,6 @@ export const getPaymentsByCustomer = async (customerId) => {
   }
 }
 
-// Get open invoices for a customer (uses backend API for correct filtering and pagination)
 export const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
   try {
     if (!customerId && !customerName) return []
@@ -88,6 +80,7 @@ export const getOpenInvoicesForCustomer = async (customerId, customerName = null
       const balance = parseFloat(inv.outstandingBalance ?? inv.balance ?? total - parseFloat(inv.previousReceivedAmount ?? inv.amount_paid ?? 0))
       return {
         invoiceID,
+        invoiceId: inv.id || inv.invoiceId || null,
         keyID,
         invoiceDate,
         totalInvoiceValue: Number.isFinite(total) ? total.toFixed(2) : '0.00',
@@ -102,19 +95,15 @@ export const getOpenInvoicesForCustomer = async (customerId, customerName = null
   }
 }
 
-// Calculate payment breakdown
 export const calculatePaymentBreakdown = async (invoiceData, paymentAmount, charges) => {
   try {
     const response = await paymentApi.calculatePaymentBreakdown(invoiceData, paymentAmount, charges)
     return response.data
   } catch (error) {
     console.error('Failed to calculate payment breakdown:', error)
-    // Fallback to client-side calculation
-    // invoiceData can be either the invoice object or the open invoice data
     const invoice = invoiceData.invoice || invoiceData
     const invoiceAmount = parseFloat(invoice.totalInvoiceValue || 0)
 
-    // Calculate previous received from invoice
     const firstReceived = parseFloat(invoice.firstReceivedAmount || 0)
     const secondReceived = parseFloat(invoice.secondReceivedAmount || 0)
     const thirdReceived = parseFloat(invoice.thirdReceivedAmount || 0)
@@ -147,9 +136,7 @@ export const calculatePaymentBreakdown = async (invoiceData, paymentAmount, char
   }
 }
 
-// UI expects a synchronous breakdown function (used inside useMemo)
 export const calculatePaymentBreakdownSync = (invoiceData, paymentAmount, charges) => {
-  // invoiceData can be either the invoice object or the open invoice data
   const invoice = invoiceData?.invoice || invoiceData || {}
   const invoiceAmount = parseFloat(invoice.totalInvoiceValue || invoice.total_amount || 0)
 
@@ -180,7 +167,6 @@ export const calculatePaymentBreakdownSync = (invoiceData, paymentAmount, charge
   }
 }
 
-// Save payment and update invoice balances
 export const savePayment = async (paymentData) => {
   try {
     let response
@@ -190,9 +176,7 @@ export const savePayment = async (paymentData) => {
       response = await paymentApi.createPayment(paymentData)
     }
 
-    // Trigger update event
     window.dispatchEvent(new CustomEvent('paymentUpdated', { detail: { payment: response.data } }))
-    // Payments impact invoice balances/outstanding, so refresh invoice views too
     window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { payment: response.data } }))
 
     return response.data
@@ -202,7 +186,6 @@ export const savePayment = async (paymentData) => {
   }
 }
 
-// Update invoice with payment
 const updateInvoiceWithPayment = (invoicePayment) => {
   const invoice = invoiceService.getInvoiceByID(invoicePayment.invoiceID)
   if (!invoice) return
@@ -211,7 +194,6 @@ const updateInvoiceWithPayment = (invoicePayment) => {
   const paymentType = invoicePayment.paymentType // 1st Due / 2nd Due / 3rd Due
   const receiptDate = invoicePayment.receiptDate
   
-  // Update the appropriate due stage
   if (paymentType === '1st Due') {
     const currentReceived = parseFloat(invoice.firstReceivedAmount || 0)
     invoice.firstReceivedAmount = (currentReceived + paymentAmount).toFixed(2)
@@ -226,7 +208,6 @@ const updateInvoiceWithPayment = (invoicePayment) => {
     invoice.thirdReceiptDate = receiptDate || invoice.thirdReceiptDate
   }
   
-  // Update charges/deductions
   if (invoicePayment.charges) {
     invoice.tdsAmount = (parseFloat(invoice.tdsAmount || 0) + parseFloat(invoicePayment.charges.tds || 0)).toFixed(2)
     invoice.bankCharges = (parseFloat(invoice.bankCharges || 0) + parseFloat(invoicePayment.charges.bankCharges || 0)).toFixed(2)
@@ -234,16 +215,13 @@ const updateInvoiceWithPayment = (invoicePayment) => {
     invoice.deductionAmount = (parseFloat(invoice.deductionAmount || 0) + parseFloat(invoicePayment.charges.otherDeductions || 0)).toFixed(2)
   }
   
-  // Save updated invoice
   invoiceService.saveInvoice(invoice)
 }
 
-// Delete payment and reverse invoice updates
 export const deletePayment = async (paymentId) => {
   try {
     const response = await paymentApi.deletePayment(paymentId)
 
-    // Trigger update event
     window.dispatchEvent(new CustomEvent('paymentDeleted', { detail: { paymentId } }))
 
     return response.data
@@ -253,7 +231,6 @@ export const deletePayment = async (paymentId) => {
   }
 }
 
-// Get payment analytics data
 export const getPaymentAnalytics = async (startDate = null, endDate = null) => {
   try {
     const response = await paymentApi.getPaymentAnalytics(startDate, endDate)

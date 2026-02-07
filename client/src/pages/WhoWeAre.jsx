@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 
 export default function WhoWeAre() {
   useEffect(() => {
-    document.title = 'Who We Are – NB Aurum Solutions Team & Culture'
+    document.title = 'Who We Are – NB Aurum Solutions Team & Philosophy'
     const metaDescription = document.querySelector('meta[name="description"]')
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Meet the team behind NB Aurum Solutions. We build finance software, invoicing, and collections platforms with real-world experience in finance operations.')
+      metaDescription.setAttribute('content', 'Meet the team behind NB Aurum Solutions. Payment collections & consultancy for Power, Solar, Telecom, Railways, PSUs & Government. 20+ years expertise, integrity first, PAN-India.')
     }
   }, [])
 
@@ -17,33 +17,33 @@ export default function WhoWeAre() {
           <div className="mkt-page-head">
             <h1 id="who-heading" className="mkt-section-heading">Who we are</h1>
             <p className="mkt-lead">
-              We are product and operations people who have sat inside finance teams—and build software that respects the discipline and detail of their work.
+              We are your trusted partner in payment collections and consultancy—with 20+ years of expertise in Power, Solar, Telecom, Railways, PSU's and Government projects across India.
             </p>
           </div>
 
           <div className="mkt-illustration-block">
             <div className="mkt-image-placeholder caption" style={{ aspectRatio: '4/3' }} aria-hidden="true">
               <span>Our team</span>
-              <div className="mkt-image-caption">Building solutions with real-world finance experience</div>
+              <div className="mkt-image-caption">PAN-India · Integrity first</div>
             </div>
             <div>
               <div className="mkt-grid-3" style={{ gap: 24 }}>
                 <div className="mkt-card">
-                  <h3>Why we built this</h3>
+                  <h3>Why we do this</h3>
                   <p className="mkt-body">
-                    We watched teams stitch together spreadsheets, multiple systems, and email threads just to answer “what’s really due this month?” NB Aurum Solutions exists so that answer is always one page away.
+                    We saw teams struggle with delayed payments, stuck retention money, and complex liaison with utilities and authorities. NB Aurum Solutions exists to set processes right, recover what's due, and close contracts with full compliance—so you can focus on growth.
                   </p>
                 </div>
                 <div className="mkt-card">
                   <h3>Who we serve</h3>
                   <p className="mkt-body">
-                    Finance leaders, shared services teams, project-based organizations, and operations leaders accountable for cash flow and customer experience.
+                    Companies in Power, Solar, Telecom, Railways, PSUs and Government projects—PAN India. We serve finance leaders, project teams, and operations who need aggressive payment realization, dispute resolution, and end-to-end collection support.
                   </p>
                 </div>
                 <div className="mkt-card">
                   <h3>How we work</h3>
                   <p className="mkt-body">
-                    We listen to the details, design calm UIs, and ship only what we can support for the long term. We prefer fewer modules that are deeply reliable over many that are half-built.
+                    Dedicated liaison, regular MIS, diplomatic negotiation, and a "Never say No" attitude. We combine on-ground expertise with process-driven compliance so you get faster collections and preserved relationships.
                   </p>
                 </div>
               </div>
@@ -57,29 +57,26 @@ export default function WhoWeAre() {
           <div className="mkt-page-head">
             <h2 id="philosophy-heading" className="mkt-section-heading">Our philosophy and commitment</h2>
             <p className="mkt-lead">
-              How we work, what we value, and why it matters for your success.
+              Integrity first, full compliance, and reputation-preserving recovery.
             </p>
           </div>
           <div className="mkt-grid-2" style={{ marginTop: 48 }}>
             <div className="mkt-card">
-              <h3>Leadership philosophy</h3>
+              <h3>Our philosophy</h3>
               <p className="mkt-body">
-                Our principles are simple: be transparent with customers, say “no” when a feature weakens the product, and never compromise on auditability or correctness. We build trust through consistent, reliable behavior—not marketing promises.
+                Set processes right the first time. Build strong customer relationships. Ensure full policy and document compliance. Deliver end-to-end service. We operate with a "Never say No" attitude—so your cash flow is secured and your contracts close without friction.
               </p>
               <div className="mkt-image-placeholder" style={{ marginTop: 24, aspectRatio: '16/9' }} aria-hidden="true">
-                <span>Leadership</span>
+                <span>Philosophy</span>
               </div>
             </div>
             <div className="mkt-card">
-              <h3>Team culture</h3>
-              <p className="mkt-body">
-                We work in small cross-functional pods—engineering, product, and support together. Every release is measured against its impact on daily finance and collections workflows. We value clarity, precision, and long-term thinking over quick wins.
-              </p>
-              <ul className="mkt-benefit-list" style={{ marginTop: 24 }}>
-                <li><strong>Customer-first:</strong> Every feature starts with a real problem.</li>
-                <li><strong>Quality over speed:</strong> We ship when it’s ready, not when it’s convenient.</li>
-                <li><strong>Transparent operations:</strong> We share roadmaps, constraints, and decisions openly.</li>
-                <li><strong>Continuous learning:</strong> We improve by working closely with finance teams.</li>
+              <h3>What we commit to</h3>
+              <ul className="mkt-benefit-list" style={{ marginTop: 0 }}>
+                <li><strong>Diplomatic approach:</strong> Firm yet courteous negotiation to preserve long-term business relationships.</li>
+                <li><strong>Ethical recovery:</strong> Full transparency, MIS reporting, and compliance with policy and documentation standards.</li>
+                <li><strong>Risk-free model:</strong> No Collection, No Fee—so you only pay when we deliver.</li>
+                <li><strong>Single point of contact:</strong> Dedicated team so your internal resources focus on growth.</li>
               </ul>
             </div>
           </div>
@@ -89,17 +86,17 @@ export default function WhoWeAre() {
       <section className="mkt-section-full">
         <div className="mkt-container mkt-container-wide">
           <div className="mkt-page-head">
-            <h2 className="mkt-section-heading">Join us</h2>
+            <h2 className="mkt-section-heading">Ready to secure your cash flow?</h2>
             <p className="mkt-lead">
-              Whether you’re evaluating NB Aurum Solutions or planning a rollout, we’re here to help.
+              Zero risk performance model, sector expertise, and end-to-end lifecycle coverage. Your Dues. Our Duty.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', marginTop: 32 }}>
             <Link to="/contact" className="mkt-btn mkt-btn-primary mkt-btn-lg">
-              Contact us
+              Get in touch
             </Link>
             <Link to="/pricing" className="mkt-btn mkt-btn-ghost mkt-btn-lg">
-              View pricing
+              View engagement options
             </Link>
           </div>
         </div>

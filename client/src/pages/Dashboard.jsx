@@ -46,7 +46,6 @@ import {
 } from 'recharts'
 import '../styles/Dashboard.css'
 
-// Currency formatter
 const formatCurrency = (value, currency = 'INR') => {
   const currencySymbols = {
     INR: '₹',
@@ -64,7 +63,6 @@ const formatCurrency = (value, currency = 'INR') => {
   }).format(value).replace(currency, symbol)
 }
 
-// Format date
 const formatDate = (date) => {
   if (!date) return 'N/A'
   return new Date(date).toLocaleDateString('en-IN', {
@@ -74,7 +72,6 @@ const formatDate = (date) => {
   })
 }
 
-// Get user role from localStorage
 const getUserRole = () => {
   try {
     const user = JSON.parse(localStorage.getItem('user') || '{}')
@@ -84,7 +81,6 @@ const getUserRole = () => {
   }
 }
 
-// Role-based quick actions
 const getQuickActions = (role) => {
   const actions = []
   
@@ -124,7 +120,6 @@ function Dashboard() {
   const [customerFilter, setCustomerFilter] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
 
-  // Date range filters
   const dateFilters = useMemo(() => {
     const now = new Date()
     const filters = { dateFrom: null, dateTo: null }
@@ -154,25 +149,21 @@ function Dashboard() {
         filters.dateTo = now.toISOString().split('T')[0]
         break
       default:
-        // 'all' - no filters
         break
     }
     
     return filters
   }, [dateRange])
 
-  // Load dashboard data - with proper error handling and retry limits
   const loadDashboard = async (retryCount = 0) => {
     const maxRetries = 1 // Only retry once
     
     try {
       setError(null)
       
-      // Use Promise.allSettled to prevent one failure from blocking others
       const [dashboardResponse, analyticsResponse] = await Promise.allSettled([
         dashboardApi.getDashboardData(dateFilters).catch(err => {
           console.error('[Dashboard] Failed to load dashboard data:', err)
-          // Return a valid structure even on error
           return { success: false, data: null }
         }),
         dashboardApi.getDashboardAnalytics(dateFilters).catch(err => {
@@ -181,7 +172,6 @@ function Dashboard() {
         }),
       ])
       
-      // Extract data safely from Promise.allSettled results
       const dashboardData = dashboardResponse.status === 'fulfilled' 
         ? (dashboardResponse.value?.data || dashboardResponse.value || null)
         : null
@@ -189,16 +179,13 @@ function Dashboard() {
         ? (analyticsResponse.value?.data || analyticsResponse.value || null)
         : null
       
-      // Only set data if we got valid responses
       if (dashboardData) setDashboardData(dashboardData)
       if (analyticsData) setAnalyticsData(analyticsData)
       
-      // Show error only if all requests failed
       const allFailed = [dashboardResponse, analyticsResponse]
         .every(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value?.data))
       
       if (allFailed && retryCount < maxRetries) {
-        // Retry once after a delay
         setTimeout(() => {
           loadDashboard(retryCount + 1)
         }, 2000)
@@ -210,7 +197,6 @@ function Dashboard() {
       }
     } catch (err) {
       console.error('[Dashboard] Unexpected error loading dashboard:', err)
-      // Don't show error on retry attempts
       if (retryCount === 0) {
         setError('Failed to load dashboard data. Some features may be unavailable.')
       }
@@ -224,7 +210,6 @@ function Dashboard() {
     loadDashboard()
   }, [dateRange])
 
-  // Auto-refresh when underlying data changes elsewhere in the app
   useEffect(() => {
     const handleDataUpdate = () => {
       setRefreshing(true)
@@ -266,11 +251,9 @@ function Dashboard() {
   const quickActions = getQuickActions(userRole)
   const customers = getCustomers()
 
-  // Filter recent invoices based on search and filters
   const filteredRecentInvoices = useMemo(() => {
     let filtered = invoiceInsights.recent || []
     
-    // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(invoice => 
@@ -279,12 +262,10 @@ function Dashboard() {
       )
     }
     
-    // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(invoice => invoice.status === statusFilter)
     }
     
-    // Customer filter
     if (customerFilter !== 'all') {
       filtered = filtered.filter(invoice => invoice.customer_id === customerFilter)
     }
@@ -292,7 +273,6 @@ function Dashboard() {
     return filtered
   }, [invoiceInsights.recent, searchQuery, statusFilter, customerFilter])
 
-  // Chart colors - NB Aurum Solutions palette (primary blue, accent gold)
   const chartColors = {
     primary: '#0f4c81',
     secondary: '#b8860b',
@@ -302,7 +282,6 @@ function Dashboard() {
     gray: '#64748b',
   }
 
-  // Status colors
   const statusColors = {
     draft: '#64748b',
     open: '#0f4c81',

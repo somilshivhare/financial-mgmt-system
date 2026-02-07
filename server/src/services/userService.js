@@ -1,12 +1,8 @@
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../db/query');
 
-/**
- * Get user profile by user ID
- */
 const getUserProfile = async (userId) => {
   try {
-    // Get user profile if it exists, otherwise return null
     const profiles = await query(
       `SELECT up.*
        FROM user_profiles up
@@ -15,7 +11,6 @@ const getUserProfile = async (userId) => {
     );
     return profiles[0] || null;
   } catch (err) {
-    // If table doesn't exist yet, return null (graceful degradation)
     if (err.code === 'ER_NO_SUCH_TABLE' || err.message?.includes('user_profiles')) {
       console.warn('user_profiles table does not exist yet');
       return null;
@@ -24,12 +19,6 @@ const getUserProfile = async (userId) => {
   }
 };
 
-/**
- * Create or update user profile
- * @param {string} userId - User ID
- * @param {object} profileData - Profile data to update
- * @param {string} updatedBy - User ID who is making the update (for audit)
- */
 const upsertUserProfile = async (userId, profileData, updatedBy = null) => {
   const {
     phone,
@@ -49,16 +38,12 @@ const upsertUserProfile = async (userId, profileData, updatedBy = null) => {
     date_format,
   } = profileData;
 
-  // Use userId as updatedBy if not provided
   const auditUserId = updatedBy || userId;
 
   try {
-    // Check if profile exists
     const existing = await query('SELECT id FROM user_profiles WHERE user_id = ?', [userId]);
     
     if (existing.length > 0) {
-      // Update existing profile - only update fields that are provided (not undefined)
-      // This allows partial updates
       const updates = [];
       const values = [];
       
@@ -78,7 +63,6 @@ const upsertUserProfile = async (userId, profileData, updatedBy = null) => {
       if (language !== undefined) { updates.push('language = ?'); values.push(language); }
       if (date_format !== undefined) { updates.push('date_format = ?'); values.push(date_format); }
       
-      // Always update audit fields
       updates.push('updated_at = NOW()');
       
       if (updates.length > 1) { // More than just updated_at
@@ -91,7 +75,6 @@ const upsertUserProfile = async (userId, profileData, updatedBy = null) => {
       
       return { id: existing[0].id, user_id: userId };
     } else {
-      // Create new profile
       const id = uuidv4();
       await query(
         `INSERT INTO user_profiles (
@@ -108,7 +91,6 @@ const upsertUserProfile = async (userId, profileData, updatedBy = null) => {
       return { id, user_id: userId };
     }
   } catch (err) {
-    // If table doesn't exist, throw helpful error
     if (err.code === 'ER_NO_SUCH_TABLE' || err.message?.includes('user_profiles')) {
       throw new Error('User profiles table does not exist. Please run migrations: npm run migrate');
     }
@@ -116,9 +98,6 @@ const upsertUserProfile = async (userId, profileData, updatedBy = null) => {
   }
 };
 
-/**
- * Log user login attempt
- */
 const logLoginAttempt = async (userId, loginData) => {
   const {
     ip_address,
@@ -132,7 +111,6 @@ const logLoginAttempt = async (userId, loginData) => {
     token_id,
   } = loginData;
 
-  // Convert undefined to null for SQL (MySQL2 doesn't accept undefined)
   const id = uuidv4();
   await query(
     `INSERT INTO user_login_history (
@@ -156,9 +134,6 @@ const logLoginAttempt = async (userId, loginData) => {
   return { id };
 };
 
-/**
- * Get user login history
- */
 const getUserLoginHistory = async (userId, limit = 50) => {
   try {
     return await query(
@@ -169,7 +144,6 @@ const getUserLoginHistory = async (userId, limit = 50) => {
       [userId, limit]
     );
   } catch (err) {
-    // If table doesn't exist yet, return empty array
     if (err.code === 'ER_NO_SUCH_TABLE' || err.message?.includes('user_login_history')) {
       return [];
     }
@@ -177,9 +151,6 @@ const getUserLoginHistory = async (userId, limit = 50) => {
   }
 };
 
-/**
- * Create or update user session
- */
 const createUserSession = async (userId, sessionData) => {
   const {
     token_hash,
@@ -193,7 +164,6 @@ const createUserSession = async (userId, sessionData) => {
     expires_at,
   } = sessionData;
 
-  // Convert undefined to null for SQL (MySQL2 doesn't accept undefined)
   const id = uuidv4();
   await query(
     `INSERT INTO user_sessions (
@@ -217,9 +187,6 @@ const createUserSession = async (userId, sessionData) => {
   return { id };
 };
 
-/**
- * Get active user sessions
- */
 const getActiveUserSessions = async (userId) => {
   try {
     return await query(
@@ -229,7 +196,6 @@ const getActiveUserSessions = async (userId) => {
       [userId]
     );
   } catch (err) {
-    // If table doesn't exist yet, return empty array
     if (err.code === 'ER_NO_SUCH_TABLE' || err.message?.includes('user_sessions')) {
       return [];
     }
@@ -237,9 +203,6 @@ const getActiveUserSessions = async (userId) => {
   }
 };
 
-/**
- * Deactivate user session
- */
 const deactivateSession = async (sessionId) => {
   await query(
     'UPDATE user_sessions SET is_active = FALSE WHERE id = ?',
@@ -247,9 +210,6 @@ const deactivateSession = async (sessionId) => {
   );
 };
 
-/**
- * Deactivate all user sessions
- */
 const deactivateAllUserSessions = async (userId) => {
   await query(
     'UPDATE user_sessions SET is_active = FALSE WHERE user_id = ?',
@@ -257,9 +217,79 @@ const deactivateAllUserSessions = async (userId) => {
   );
 };
 
-/**
- * Get user preference
- */
+const listAllUsersForAdmin = async () => {
+  const rows = await query(
+    `SELECT u.id, u.full_name, u.email, u.status, u.last_login_at, u.last_login_ip, u.created_at, r.name AS role_name
+     FROM users u
+     JOIN roles r ON r.id = u.role_id
+     ORDER BY u.created_at DESC`
+  );
+  return rows;
+};
+
+const getStorageByUserForAdmin = async () => {
+  const byUser = {};
+  try {
+    const filesRows = await query(
+      `SELECT user_id, SUM(file_size_bytes) AS storage_bytes
+       FROM storage_files
+       WHERE COALESCE(is_deleted, 0) = 0
+       GROUP BY user_id`
+    );
+    (filesRows || []).forEach((row) => {
+      byUser[row.user_id] = (byUser[row.user_id] || 0) + Number(row.storage_bytes || 0);
+    });
+  } catch (err) {
+    if (err.code === 'ER_NO_SUCH_TABLE' || err.message?.includes('storage_files')) {
+      try {
+        const cacheRows = await query(
+          `SELECT user_id, total_bytes AS storage_bytes FROM storage_usage_cache`
+        );
+        (cacheRows || []).forEach((row) => {
+          byUser[row.user_id] = Number(row.storage_bytes || 0);
+        });
+      } catch {
+        // ignore
+      }
+    }
+  }
+  try {
+    const attachRows = await query(
+      `SELECT uploaded_by AS user_id, SUM(file_size_bytes) AS storage_bytes
+       FROM support_ticket_attachments
+       GROUP BY uploaded_by`
+    );
+    (attachRows || []).forEach((row) => {
+      byUser[row.user_id] = (byUser[row.user_id] || 0) + Number(row.storage_bytes || 0);
+    });
+  } catch (err) {
+    if (err.code !== 'ER_NO_SUCH_TABLE' && !err.message?.includes('support_ticket_attachments')) {
+      throw err;
+    }
+  }
+  return Object.entries(byUser).map(([user_id, storage_bytes]) => ({ user_id, storage_bytes }));
+};
+
+const getRecentLoginsForAdmin = async (limit = 50) => {
+  try {
+    return await query(
+      `SELECT h.id, h.user_id, h.login_at, h.ip_address, h.status AS login_status, h.failure_reason,
+              h.browser, h.os, u.full_name, u.email, r.name AS role_name
+       FROM user_login_history h
+       JOIN users u ON u.id = h.user_id
+       JOIN roles r ON r.id = u.role_id
+       ORDER BY h.login_at DESC
+       LIMIT ?`,
+      [limit]
+    );
+  } catch (err) {
+    if (err.code === 'ER_NO_SUCH_TABLE' || err.message?.includes('user_login_history')) {
+      return [];
+    }
+    throw err;
+  }
+};
+
 const getUserPreference = async (userId, preferenceKey) => {
   const prefs = await query(
     'SELECT * FROM user_preferences WHERE user_id = ? AND preference_key = ?',
@@ -268,9 +298,6 @@ const getUserPreference = async (userId, preferenceKey) => {
   return prefs[0] || null;
 };
 
-/**
- * Set user preference
- */
 const setUserPreference = async (userId, preferenceKey, preferenceValue) => {
   const existing = await query(
     'SELECT id FROM user_preferences WHERE user_id = ? AND preference_key = ?',
@@ -293,9 +320,6 @@ const setUserPreference = async (userId, preferenceKey, preferenceValue) => {
   }
 };
 
-/**
- * Get all user preferences
- */
 const getUserPreferences = async (userId) => {
   try {
     return await query(
@@ -303,7 +327,6 @@ const getUserPreferences = async (userId) => {
       [userId]
     );
   } catch (err) {
-    // If table doesn't exist yet, return empty array
     if (err.code === 'ER_NO_SUCH_TABLE' || err.message?.includes('user_preferences')) {
       return [];
     }
@@ -311,9 +334,6 @@ const getUserPreferences = async (userId) => {
   }
 };
 
-/**
- * Log user activity
- */
 const logUserActivity = async (userId, activityData) => {
   const {
     action_type,
@@ -336,9 +356,6 @@ const logUserActivity = async (userId, activityData) => {
   return { id };
 };
 
-/**
- * Get user activity log
- */
 const getUserActivityLog = async (userId, limit = 100) => {
   return await query(
     `SELECT * FROM user_activity_log
@@ -349,9 +366,6 @@ const getUserActivityLog = async (userId, limit = 100) => {
   );
 };
 
-/**
- * Get or create user security settings
- */
 const getUserSecuritySettings = async (userId) => {
   const settings = await query(
     'SELECT * FROM user_security_settings WHERE user_id = ?',
@@ -362,7 +376,6 @@ const getUserSecuritySettings = async (userId) => {
     return settings[0];
   }
 
-  // Create default security settings
   const id = uuidv4();
   await query(
     `INSERT INTO user_security_settings (id, user_id) VALUES (?, ?)`,
@@ -371,9 +384,6 @@ const getUserSecuritySettings = async (userId) => {
   return await getUserSecuritySettings(userId);
 };
 
-/**
- * Update user security settings
- */
 const updateUserSecuritySettings = async (userId, settingsData) => {
   const {
     two_factor_enabled,
@@ -421,6 +431,9 @@ module.exports = {
   getActiveUserSessions,
   deactivateSession,
   deactivateAllUserSessions,
+  listAllUsersForAdmin,
+  getStorageByUserForAdmin,
+  getRecentLoginsForAdmin,
   getUserPreference,
   setUserPreference,
   getUserPreferences,

@@ -7,28 +7,20 @@ let io = null;
 const userSockets = new Map(); // Map userId -> Set of socketIds
 const userRoles = new Map(); // Map userId -> role
 
-/**
- * Initialize WebSocket server with authentication middleware
- */
 const initializeWebSocket = (httpServer) => {
-  // Configure CORS for WebSocket - use same origins as HTTP API
   const corsOptions = {
     origin: (origin, callback) => {
-      // Allow requests with no origin
       if (!origin) {
         return callback(null, true);
       }
       
-      // In development, allow localhost origins
       if (env.NODE_ENV !== 'production') {
         if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
           return callback(null, true);
         }
       }
       
-      // Check against allowed origins list
       if (env.ALLOWED_ORIGINS.length === 0) {
-        // If no origins configured in production, deny all
         if (env.NODE_ENV === 'production') {
           return callback(new Error('CORS: No allowed origins configured'));
         }
@@ -53,7 +45,6 @@ const initializeWebSocket = (httpServer) => {
     pingInterval: 25000,
   });
 
-  // Authentication middleware
   io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token || socket.handshake.query?.token;
@@ -63,7 +54,6 @@ const initializeWebSocket = (httpServer) => {
         return next(new Error('Authentication error: No token provided'));
       }
 
-      // Verify JWT token
       let payload;
       try {
         payload = jwt.verify(token, env.JWT_SECRET);
@@ -72,7 +62,6 @@ const initializeWebSocket = (httpServer) => {
         return next(new Error('Authentication error: Invalid token'));
       }
 
-      // Attach user info to socket
       socket.userId = payload.id;
       socket.userRole = payload.role;
       socket.userEmail = payload.email;
@@ -90,22 +79,18 @@ const initializeWebSocket = (httpServer) => {
     
     console.log(`[WebSocket] Client connected: ${socket.id} (User: ${userId}, Role: ${userRole})`);
 
-    // Register user socket
     if (!userSockets.has(userId)) {
       userSockets.set(userId, new Set());
     }
     userSockets.get(userId).add(socket.id);
     userRoles.set(userId, userRole);
 
-    // Join user-specific room
     socket.join(`user:${userId}`);
     
-    // Join role-based room
     if (userRole) {
       socket.join(`role:${userRole}`);
     }
 
-    // Emit authenticated event
     socket.emit('authenticated', { 
       success: true, 
       userId,
@@ -113,7 +98,6 @@ const initializeWebSocket = (httpServer) => {
       message: 'WebSocket connection authenticated' 
     });
 
-    // Handle disconnect
     socket.on('disconnect', (reason) => {
       console.log(`[WebSocket] Client disconnected: ${socket.id} (User: ${userId}, Reason: ${reason})`);
       
@@ -129,31 +113,24 @@ const initializeWebSocket = (httpServer) => {
       }
     });
 
-    // Handle errors
     socket.on('error', (error) => {
       console.error(`[WebSocket] Socket error for ${socket.id}:`, error);
     });
 
-    // Heartbeat to keep connection alive
     socket.on('ping', () => {
       socket.emit('pong', { timestamp: Date.now() });
     });
 
-    // Handle client reconnection
     socket.on('reconnect_attempt', () => {
       console.log(`[WebSocket] Reconnection attempt for ${socket.id} (User: ${userId})`);
     });
   });
 
-  // Log server startup
   console.log('[WebSocket] Socket.IO server initialized and ready for connections');
 
   return io;
 };
 
-/**
- * Send notification to a specific user
- */
 const sendNotificationToUser = (userId, notification) => {
   if (!io) {
     console.warn('[WebSocket] Cannot send notification: Socket.IO not initialized');
@@ -181,9 +158,6 @@ const sendNotificationToUser = (userId, notification) => {
   }
 };
 
-/**
- * Send notification to multiple users
- */
 const sendNotificationToUsers = (userIds, notification) => {
   if (!io) {
     console.warn('[WebSocket] Cannot send notifications: Socket.IO not initialized');
@@ -206,9 +180,6 @@ const sendNotificationToUsers = (userIds, notification) => {
   }
 };
 
-/**
- * Send notification to all users in a role
- */
 const sendNotificationToRole = async (roleName, notification) => {
   if (!io) {
     console.warn('[WebSocket] Cannot send notification: Socket.IO not initialized');
@@ -216,7 +187,6 @@ const sendNotificationToRole = async (roleName, notification) => {
   }
   
   try {
-    // Get role ID from role name
     const roles = await query('SELECT id FROM roles WHERE name = ?', [roleName]);
     if (roles.length === 0) {
       console.warn(`[WebSocket] Role ${roleName} not found`);
@@ -232,7 +202,6 @@ const sendNotificationToRole = async (roleName, notification) => {
       return false;
     }
     
-    // Emit to role room (for connected users)
     io.to(`role:${roleName}`).emit('notification', {
       ...notification,
       timestamp: new Date().toISOString(),
@@ -246,9 +215,6 @@ const sendNotificationToRole = async (roleName, notification) => {
   }
 };
 
-/**
- * Send notification to all connected users
- */
 const sendNotificationToAll = (notification) => {
   if (!io) {
     console.warn('[WebSocket] Cannot send notification: Socket.IO not initialized');
@@ -269,28 +235,16 @@ const sendNotificationToAll = (notification) => {
   }
 };
 
-/**
- * Get WebSocket instance
- */
 const getIO = () => io;
 
-/**
- * Check if user is connected
- */
 const isUserConnected = (userId) => {
   return userSockets.has(userId) && userSockets.get(userId).size > 0;
 };
 
-/**
- * Get connected users count
- */
 const getConnectedUsersCount = () => {
   return userSockets.size;
 };
 
-/**
- * Get all connected user IDs
- */
 const getConnectedUserIds = () => {
   return Array.from(userSockets.keys());
 };

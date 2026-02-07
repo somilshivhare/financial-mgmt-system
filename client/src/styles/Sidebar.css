@@ -1,4 +1,3 @@
-/* Professional Sidebar Styles */
 
 .sidebar {
   position: fixed;
@@ -22,7 +21,6 @@
   display: none;
 }
 
-/* Brand */
 .sidebar-brand {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid #e5e7eb;
@@ -39,7 +37,6 @@
   object-fit: contain;
 }
 
-/* Navigation */
 .sidebar-nav {
   flex: 1;
   overflow-y: auto;
@@ -48,7 +45,6 @@
   transition: padding 0.3s ease;
 }
 
-/* keep spacing consistent */
 
 .nav-section {
   margin-bottom: 2rem;
@@ -167,9 +163,7 @@
   opacity: 1;
 }
 
-/* no collapsed mode */
 
-/* Bottom Section */
 .sidebar-bottom {
   padding: 1.25rem 1.5rem;
   border-top: 1px solid #e5e7eb;
@@ -294,7 +288,6 @@
   box-shadow: 0 2px 6px rgba(185, 28, 28, 0.25);
 }
 
-/* Scrollbar Styling */
 .sidebar::-webkit-scrollbar {
   width: 6px;
 }
@@ -312,18 +305,15 @@
   background: #9ca3af;
 }
 
-/* Active state enhancements */
 .nav-link.active .nav-icon {
   color: #667eea;
 }
 
-/* Hover effects for icons */
 .nav-link:hover .nav-icon {
   color: #667eea;
   transform: scale(1.05);
 }
 
-/* Mobile Responsive */
 @media (max-width: 768px) {
   .sidebar-overlay {
     display: block;
@@ -362,14 +352,12 @@
   }
 }
 
-/* Large screen optimizations */
 @media (min-width: 1920px) {
   .sidebar {
     width: 300px;
   }
 }
 
-/* Accessibility improvements */
 .nav-link:focus-visible {
   outline: 2px solid #667eea;
   outline-offset: 2px;
@@ -381,7 +369,6 @@
   outline-offset: 2px;
 }
 
-/* Animation for nav items on load */
 @keyframes fadeInUp {
   from {
     opacity: 0;

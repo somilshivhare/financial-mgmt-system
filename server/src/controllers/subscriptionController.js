@@ -16,7 +16,6 @@ const buildSubscriptionUiModel = (sub) => {
   const nextBillingDate = new Date(now);
   nextBillingDate.setDate(nextBillingDate.getDate() + 30);
 
-  // If we have an explicit ends_at for trial, compute remaining days
   let trialDaysRemaining = null;
   if ((sub.status || '').toLowerCase() === 'trial' && sub.ends_at) {
     const endsAt = new Date(sub.ends_at);
@@ -37,7 +36,6 @@ const buildSubscriptionUiModel = (sub) => {
 
 const getSubscription = async (_req, res, next) => {
   try {
-    // Backward-compatible admin/global endpoint (legacy)
     const sub = await subscriptionService.getSubscription();
     res.json(apiSuccess(sub));
   } catch (err) {
@@ -54,7 +52,6 @@ const upsertSubscription = async (req, res, next) => {
   }
 };
 
-// New endpoints used by the Subscription page
 const getMySubscription = async (req, res, next) => {
   try {
     const sub = await subscriptionService.getSubscriptionForUser(req.user.id);
@@ -178,8 +175,6 @@ const downloadInvoice = async (req, res, next) => {
       return res.status(400).json(apiSuccess(null, 'Missing invoice id'));
     }
 
-    // Placeholder PDF so the UI download button works even without a billing provider.
-    // Minimal valid PDF content:
     const pdf = `%PDF-1.4
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
@@ -228,11 +223,9 @@ startxref
 };
 
 module.exports = {
-  // legacy (admin/global)
   getSubscription,
   upsertSubscription,
 
-  // subscription page
   getMySubscription,
   getPlans,
   getBilling,

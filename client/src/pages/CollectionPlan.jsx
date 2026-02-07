@@ -29,13 +29,10 @@ function CollectionPlan() {
     setEmployees(getEmployees() || [])
   }, [getEmployees])
   
-  // Load collection plan data when filters change
   useEffect(() => {
     loadCollectionPlanData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.personId, filters.businessUnit, filters.month])
   
-  // Listen for updates
   useEffect(() => {
     const handleUpdate = () => {
       loadCollectionPlanData()
@@ -60,7 +57,6 @@ function CollectionPlan() {
         month: filters.month ? filters.month.toISOString().split('T')[0].substring(0, 7) : undefined,
       }
       
-      // Remove undefined values
       Object.keys(filterParams).forEach(key => 
         filterParams[key] === undefined && delete filterParams[key]
       )
@@ -79,7 +75,6 @@ function CollectionPlan() {
         month: filters.month ? filters.month.toISOString().split('T')[0].substring(0, 7) : undefined,
       }
       
-      // Remove undefined values
       Object.keys(filterParams).forEach(key => 
         filterParams[key] === undefined && delete filterParams[key]
       )
@@ -105,17 +100,12 @@ function CollectionPlan() {
   
   const handlePlanFinalisedChange = async (customerId, value) => {
     try {
-      // Find invoice for this customer to link the collection plan
       const customerInvoices = gridData.filter(row => row.customerId === customerId)
       if (customerInvoices.length === 0) {
         console.warn('No invoice found for customer:', customerId)
         return
       }
       
-      // Use the first invoice for this customer (or we could aggregate)
-      // For now, we'll need to get the actual invoice ID from the grid data
-      // Since gridData doesn't have invoice IDs, we'll need to fetch them
-      // For simplicity, let's create/update collection plan with customer reference
       const planData = {
         customerId,
         businessUnit: filters.businessUnit || undefined,
@@ -127,7 +117,6 @@ function CollectionPlan() {
       }
       
       await collectionPlanService.saveCollectionPlan(planData)
-      // Reload data after a short delay
       setTimeout(() => {
         loadCollectionPlanData()
       }, 500)
@@ -145,7 +134,6 @@ function CollectionPlan() {
     }))
   }
   
-  // Get person options for filter
   const personOptions = useMemo(() => {
     const roles = [
       'Sales Manager',
@@ -165,7 +153,6 @@ function CollectionPlan() {
     }))
   }, [employees])
   
-  // Calculate totals
   const totals = useMemo(() => {
     return {
       totalOutstanding: gridData.reduce((sum, row) => sum + parseFloat(row.totalOutstanding || 0), 0),

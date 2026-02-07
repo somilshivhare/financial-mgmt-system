@@ -10,8 +10,6 @@ const router = express.Router();
 router.get('/', requireAuth, listPayments);
 router.get('/next-number', requireAuth, getNextPaymentNumber);
 
-// IMPORTANT: /open-invoices route must come before /invoice route to avoid route conflicts
-// This route handles: GET /api/v1/payments/open-invoices/:customerId?customerName=...
 router.get('/open-invoices/:customerId', requireAuth, (req, res, next) => {
   console.log('[PaymentRoutes] /open-invoices route hit:', {
     customerId: req.params.customerId,

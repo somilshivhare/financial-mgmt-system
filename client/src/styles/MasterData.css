@@ -1,6 +1,3 @@
-/* Master Data - Professional UI
-   Uses the same neutral SaaS palette + spacing system as the dashboard/layout.
-*/
 
 .md-page {
   padding: var(--space-4);
@@ -217,7 +214,6 @@
   line-height: 1.5;
 }
 
-/* Index page */
 .md-breadcrumb-link {
   display: inline-flex;
   align-items: center;
@@ -291,7 +287,6 @@
   margin: 0;
 }
 
-/* Table Container */
 .md-index-table-container {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
@@ -432,7 +427,6 @@
   transform: translateX(2px);
 }
 
-/* Responsive Table */
 @media (max-width: 768px) {
   .md-index-table-container {
     overflow-x: auto;
@@ -495,9 +489,6 @@
   }
 }
 
-/* ============================================
-   FORM PAGE - PRODUCTION READY
-   ============================================ */
 
 .md-form-page {
   max-width: 900px;
@@ -505,7 +496,6 @@
   width: 100%;
 }
 
-/* Breadcrumb */
 .md-form-breadcrumb {
   display: inline-flex;
   align-items: center;
@@ -538,7 +528,6 @@
   height: 16px;
 }
 
-/* Form Header */
 .md-form-header {
   margin-bottom: var(--space-8);
 }
@@ -568,7 +557,6 @@
   line-height: 1.5;
 }
 
-/* Form Container */
 .md-form-container {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
@@ -585,7 +573,6 @@
   gap: var(--space-8);
 }
 
-/* Form Group */
 .md-form-group {
   display: flex;
   flex-direction: column;
@@ -611,7 +598,6 @@
   display: none;
 }
 
-/* Form Grid */
 .md-form-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -624,7 +610,6 @@
   }
 }
 
-/* Form Field */
 .md-form-field {
   display: flex;
   flex-direction: column;
@@ -635,7 +620,6 @@
   grid-column: 1 / -1;
 }
 
-/* Form Label */
 .md-form-label {
   display: block;
   font-size: var(--font-size-sm);
@@ -650,7 +634,6 @@
   font-weight: 600;
 }
 
-/* Form Input */
 .md-form-input {
   width: 100%;
   height: 40px;
@@ -680,7 +663,6 @@
   cursor: not-allowed;
 }
 
-/* Form Select */
 .md-form-select {
   width: 100%;
   height: 40px;
@@ -705,12 +687,10 @@
   padding: var(--space-2);
 }
 
-/* Form Input Other (for custom dropdown values) */
 .md-form-input-other {
   margin-top: var(--space-2);
 }
 
-/* Form File Input */
 .md-form-file-wrapper {
   position: relative;
   width: 100%;
@@ -758,7 +738,6 @@
   color: var(--color-text-primary);
 }
 
-/* Logo Viewer */
 .md-form-logo-viewer {
   width: 100%;
 }
@@ -852,7 +831,6 @@
   font-weight: 600;
 }
 
-/* Form Textarea */
 .md-form-textarea {
   width: 100%;
   min-height: 100px;
@@ -884,7 +862,6 @@
   cursor: not-allowed;
 }
 
-/* Form Status Message */
 .md-form-status {
   display: flex;
   align-items: center;
@@ -914,7 +891,6 @@
   color: #991b1b;
 }
 
-/* Form Entry Block (for multiple entries) */
 .md-form-entry-block {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
@@ -1030,7 +1006,6 @@
   height: 16px;
 }
 
-/* Form Actions */
 .md-form-actions {
   display: flex;
   align-items: center;
@@ -1107,7 +1082,6 @@
   cursor: not-allowed;
 }
 
-/* Save Options Modal */
 .md-save-options-overlay {
   position: fixed;
   top: 0;
@@ -1168,7 +1142,6 @@
   }
 }
 
-/* Review Step */
 .md-form-review-header {
   margin-bottom: var(--space-6);
   padding-bottom: var(--space-4);
@@ -1243,7 +1216,6 @@
   margin-top: var(--space-2);
 }
 
-/* Review Page Sections */
 .md-form-review-section {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
@@ -1347,7 +1319,6 @@
   max-width: 400px;
 }
 
-/* Error State */
 .md-form-error-container {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
@@ -1392,9 +1363,7 @@
   background: var(--color-primary-hover);
 }
 
-/* Mobile responsive styles consolidated in main mobile section below */
 
-/* Master Data Records Cards */
 .md-records-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1549,9 +1518,6 @@
   color: white;
 }
 
-/* ============================================
-   MOBILE RESPONSIVE - ≤768px
-   ============================================ */
 
 @media (max-width: 768px) {
   .md-page {
@@ -1561,7 +1527,6 @@
     box-sizing: border-box;
   }
   
-  /* Header Card - Stack Layout */
   .md-header-card {
     flex-direction: column;
     align-items: stretch;
@@ -1603,7 +1568,6 @@
     padding: var(--space-3) var(--space-4);
   }
   
-  /* Filter Card - Stack Layout */
   .md-filter-card {
     flex-direction: column;
     align-items: stretch;
@@ -1629,7 +1593,6 @@
     width: 100%;
   }
   
-  /* Empty Card - Centered, Constrained */
   .md-empty-card {
     max-width: 100%;
     padding: var(--space-6) var(--space-4);
@@ -1652,7 +1615,6 @@
     margin-bottom: var(--space-6);
   }
   
-  /* Records Grid - Single Column */
   .md-records-grid {
     grid-template-columns: 1fr;
     gap: var(--space-3);
@@ -1673,7 +1635,6 @@
     min-height: 40px;
   }
   
-  /* Form Page Mobile */
   .md-form-page {
     padding: var(--space-3);
     max-width: 100%;
@@ -1733,7 +1694,6 @@
     min-height: 40px;
   }
   
-  /* Index Table Mobile */
   .md-index-table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -1763,7 +1723,6 @@
     font-size: var(--font-size-xl);
   }
   
-  /* Review Page Mobile */
   .md-form-review-section {
     padding: var(--space-4);
   }
@@ -1780,7 +1739,6 @@
   }
 }
 
-/* Consolidated Master Data Card Styles */
 .md-record-badges {
   display: flex;
   gap: var(--space-2);
@@ -1856,7 +1814,6 @@
   border-color: var(--color-border);
 }
 
-/* Master Data View Page Styles */
 .md-view-summary-card {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);

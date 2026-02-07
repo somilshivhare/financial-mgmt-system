@@ -23,7 +23,6 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
-    // Close mobile sidebar on navigation
     setMobileOpen(false)
   }, [location.pathname])
 
@@ -31,7 +30,6 @@ export default function AppLayout() {
     try {
       localStorage.setItem('sidebarCollapsed', String(collapsed))
     } catch {
-      // ignore
     }
   }, [collapsed])
 

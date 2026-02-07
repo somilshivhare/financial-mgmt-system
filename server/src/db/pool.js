@@ -1,26 +1,19 @@
 const mysql = require('mysql2/promise');
 const { env } = require('../config/env');
 
-/**
- * Database connection pool with retry logic and health tracking
- */
 
-// Configuration for retry behavior
 const DB_CONNECTION_CONFIG = {
-  // Retry configuration
   MAX_RETRY_ATTEMPTS: Number(process.env.DB_MAX_RETRY_ATTEMPTS || 5),
   INITIAL_RETRY_DELAY_MS: Number(process.env.DB_INITIAL_RETRY_DELAY_MS || 1000),
   MAX_RETRY_DELAY_MS: Number(process.env.DB_MAX_RETRY_DELAY_MS || 30000),
   RETRY_MULTIPLIER: Number(process.env.DB_RETRY_MULTIPLIER || 2),
   
-  // Pool configuration
   CONNECTION_LIMIT: Number(process.env.DB_CONNECTION_LIMIT || 10),
   QUEUE_LIMIT: Number(process.env.DB_QUEUE_LIMIT || 0),
   CONNECT_TIMEOUT: Number(process.env.DB_CONNECT_TIMEOUT || 10000),
   ACQUIRE_TIMEOUT: Number(process.env.DB_ACQUIRE_TIMEOUT || 60000),
 };
 
-// Health state tracking
 const healthState = {
   isHealthy: false,
   lastCheck: null,
@@ -28,31 +21,20 @@ const healthState = {
   lastError: null,
 };
 
-/**
- * Sleep utility for retry delays
- */
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Calculate exponential backoff delay
- */
 const calculateBackoffDelay = (attempt, baseDelay, maxDelay, multiplier) => {
   const delay = Math.min(baseDelay * Math.pow(multiplier, attempt), maxDelay);
-  // Add jitter to prevent thundering herd
   const jitter = Math.random() * 0.3 * delay;
   return delay + jitter;
 };
 
-/**
- * Check if error is transient (retryable)
- */
 const isTransientError = (error) => {
   if (!error) return false;
   
   const errorCode = error.code;
   const errorMessage = error.message?.toLowerCase() || '';
   
-  // MySQL transient error codes
   const transientCodes = [
     'ECONNREFUSED',
     'ETIMEDOUT',
@@ -65,12 +47,10 @@ const isTransientError = (error) => {
     'ER_LOCK_DEADLOCK',
   ];
   
-  // Check error code
   if (transientCodes.includes(errorCode)) {
     return true;
   }
   
-  // Check error message for transient patterns
   const transientPatterns = [
     'connection lost',
     'connection closed',
@@ -84,9 +64,6 @@ const isTransientError = (error) => {
   return transientPatterns.some(pattern => errorMessage.includes(pattern));
 };
 
-/**
- * Verify database connection by executing a simple query
- */
 const verifyConnection = async (connection = null) => {
   const conn = connection || pool;
   try {
@@ -97,17 +74,11 @@ const verifyConnection = async (connection = null) => {
   }
 };
 
-/**
- * Initialize database connection with retry logic and exponential backoff
- * @param {number} maxAttempts - Maximum number of retry attempts
- * @returns {Promise<boolean>} - True if connection successful, false otherwise
- */
 const initializeWithRetry = async (maxAttempts = DB_CONNECTION_CONFIG.MAX_RETRY_ATTEMPTS) => {
   let attempt = 0;
   
   while (attempt < maxAttempts) {
     try {
-      // Verify connection
       const isConnected = await verifyConnection();
       
       if (isConnected) {
@@ -128,14 +99,12 @@ const initializeWithRetry = async (maxAttempts = DB_CONNECTION_CONFIG.MAX_RETRY_
       healthState.lastError = error;
       healthState.consecutiveFailures++;
       
-      // If not a transient error, don't retry
       if (!isTransientError(error)) {
         console.error('✗ Database connection failed with non-transient error:', error.message);
         healthState.isHealthy = false;
         return false;
       }
       
-      // Calculate backoff delay
       const delay = calculateBackoffDelay(
         attempt,
         DB_CONNECTION_CONFIG.INITIAL_RETRY_DELAY_MS,
@@ -166,9 +135,6 @@ const initializeWithRetry = async (maxAttempts = DB_CONNECTION_CONFIG.MAX_RETRY_
   return false;
 };
 
-/**
- * Get current health status
- */
 const getHealthStatus = () => {
   return {
     isHealthy: healthState.isHealthy,
@@ -186,9 +152,6 @@ const getHealthStatus = () => {
   };
 };
 
-/**
- * Perform a health check and update state
- */
 const performHealthCheck = async () => {
   try {
     const isConnected = await verifyConnection();
@@ -212,7 +175,6 @@ const performHealthCheck = async () => {
   }
 };
 
-// Create connection pool
 const pool = mysql.createPool({
   host: env.DB_HOST,
   user: env.DB_USER,
@@ -226,12 +188,10 @@ const pool = mysql.createPool({
   acquireTimeout: DB_CONNECTION_CONFIG.ACQUIRE_TIMEOUT,
   multipleStatements: true,
   timezone: 'Z',
-  // Enable automatic reconnection
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
 });
 
-// Handle pool errors
 pool.on('connection', (connection) => {
   console.log('New database connection established');
 });
@@ -239,7 +199,6 @@ pool.on('connection', (connection) => {
 pool.on('error', (error) => {
   console.error('Database pool error:', error.message);
   if (isTransientError(error)) {
-    // Update health state but don't mark as permanently unhealthy
     healthState.lastError = error;
     healthState.lastCheck = new Date();
   } else {

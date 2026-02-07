@@ -1,12 +1,7 @@
-/**
- * Collection Plan Service
- * Manages Collection Plan data, calculates receivables, and links with Invoices and Payments
- */
 
 import * as collectionApi from '../api/collection'
 import * as masterDataService from './masterDataService'
 
-// Get all collection plans
 export const getAllCollectionPlans = async () => {
   try {
     const response = await collectionApi.getAllCollectionPlans()
@@ -17,7 +12,6 @@ export const getAllCollectionPlans = async () => {
   }
 }
 
-// Get collection plan by ID
 export const getCollectionPlanById = async (id) => {
   try {
     const response = await collectionApi.getCollectionPlanById(id)
@@ -28,7 +22,6 @@ export const getCollectionPlanById = async (id) => {
   }
 }
 
-// Calculate receivables for a customer
 export const calculateCustomerReceivables = async (customerId, businessUnit = null, month = null) => {
   try {
     const response = await collectionApi.calculateCustomerReceivables(customerId, businessUnit, month)
@@ -44,16 +37,12 @@ export const calculateCustomerReceivables = async (customerId, businessUnit = nu
   }
 }
 
-// Calculate received and deductions from payments
 export const calculateCustomerPayments = async (customerId, businessUnit = null, month = null) => {
   try {
-    // This is handled by the backend through the collection API, but we can use the payment service
     const payments = await paymentService.getPaymentsByCustomer(customerId)
 
     let filteredPayments = payments.filter((p) => !p.draft)
 
-    // Filter by business unit if provided - this would need to be implemented
-    // For now, return basic calculation
     let totalReceived = 0
     let totalDeductions = 0
 
@@ -62,7 +51,6 @@ export const calculateCustomerPayments = async (customerId, businessUnit = null,
         const paymentAmount = parseFloat(ip.paymentAmount || 0)
         totalReceived += paymentAmount
 
-        // Calculate deductions
         const charges = ip.charges || {}
         const tds = parseFloat(charges.tds || 0)
         const bankCharges = parseFloat(charges.bankCharges || 0)
@@ -86,7 +74,6 @@ export const calculateCustomerPayments = async (customerId, businessUnit = null,
   }
 }
 
-// Get collection plan data for grid
 export const getCollectionPlanData = async (filters = {}) => {
   try {
     const response = await collectionApi.getCollectionPlanData(filters)
@@ -97,7 +84,6 @@ export const getCollectionPlanData = async (filters = {}) => {
   }
 }
 
-// Save collection plan
 export const saveCollectionPlan = async (planData) => {
   try {
     let response
@@ -107,7 +93,6 @@ export const saveCollectionPlan = async (planData) => {
       response = await collectionApi.createCollectionPlan(planData)
     }
 
-    // Trigger update event
     window.dispatchEvent(new CustomEvent('collectionPlanUpdated', { detail: { plan: response.data } }))
 
     return response.data
@@ -117,7 +102,6 @@ export const saveCollectionPlan = async (planData) => {
   }
 }
 
-// Get analytics data
 export const getCollectionAnalytics = async (filters = {}) => {
   try {
     const response = await collectionApi.getCollectionAnalytics(filters)

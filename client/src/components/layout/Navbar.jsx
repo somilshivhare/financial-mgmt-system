@@ -32,18 +32,15 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
   const notificationsRef = useRef(null)
   const userMenuRef = useRef(null)
 
-  // Load user data from localStorage and API
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        // First, try to get from localStorage (fast)
         const storedUser = localStorage.getItem('user')
         if (storedUser) {
           const parsed = JSON.parse(storedUser)
           setUserData(parsed)
         }
 
-        // Then, fetch fresh data from API if token exists
         const token = localStorage.getItem('token')
         if (token) {
           try {
@@ -57,11 +54,9 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
                 id: apiUserData.id,
               }
               setUserData(userInfo)
-              // Update localStorage with fresh data
               localStorage.setItem('user', JSON.stringify(userInfo))
             }
           } catch (apiError) {
-            // If API call fails, use localStorage data
             console.warn('Failed to fetch user from API, using localStorage:', apiError)
           }
         }
@@ -70,13 +65,11 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
       }
     }
     loadUserData()
-    // Listen for storage changes (e.g., when user logs in from another tab)
     const handleStorageChange = () => loadUserData()
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
 
-  // Use real notifications hook - hooks handle errors internally
   const {
     notifications = [],
     unreadCount: notificationUnreadCount = 0,
@@ -85,10 +78,8 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
     dismissNotification = () => {},
   } = useNotifications() || {}
 
-  // Unread count from notifications only
   const unreadCount = notificationUnreadCount || 0
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (quickActionsRef.current && !quickActionsRef.current.contains(event.target)) {
@@ -115,7 +106,6 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
   const handleSearch = (e) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      // TODO: Implement search functionality
       console.log('Searching for:', searchQuery)
       setSearchQuery('')
     }
@@ -127,7 +117,6 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
     { label: 'Add Master Data', icon: Bookmark, action: () => navigate('/master-data/new') },
   ]
 
-  // Format notification time
   const formatNotificationTime = (dateString) => {
     if (!dateString) return 'Just now'
     const date = new Date(dateString)

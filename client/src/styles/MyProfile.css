@@ -1,6 +1,3 @@
-/* ============================================
-   MY PROFILE - ENTERPRISE
-   ============================================ */
 
 .profile-page {
   width: 100%;
@@ -378,7 +375,6 @@
   box-shadow: 0 0 0 1px rgba(250, 250, 249, 0.35);
 }
 
-/* Security */
 .profile-security-meta {
   display: flex;
   flex-direction: column;
@@ -483,7 +479,6 @@
   margin-top: var(--space-4);
 }
 
-/* Sessions */
 .profile-sessions-head {
   display: flex;
   align-items: baseline;
@@ -569,7 +564,6 @@
   white-space: nowrap;
 }
 
-/* Buttons */
 .profile-btn {
   display: inline-flex;
   align-items: center;

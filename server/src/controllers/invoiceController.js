@@ -4,7 +4,6 @@ const invoiceService = require('../services/invoiceService');
 const listInvoices = async (req, res, next) => {
   try {
     const { page, pageSize, status, q, keyId } = req.query;
-    // Parse pagination params to integers (service will validate and default if needed)
     const result = await invoiceService.listInvoices({ 
       page: page ? parseInt(page, 10) : 1, 
       pageSize: pageSize ? parseInt(pageSize, 10) : 20, 

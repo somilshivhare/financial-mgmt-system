@@ -1,18 +1,8 @@
-/**
- * Cap logo preview payload size for Master Data save (avoids 413 in production).
- * Resizes base64 images over maxBytesPerImage via canvas so request stays under Nginx/Express limits.
- */
 
 const DEFAULT_MAX_BYTES_PER_IMAGE = 250000 // ~250KB per image
 const MAX_DIMENSION = 800
 const JPEG_QUALITY = 0.75
 
-/**
- * Resize a single data URL (base64) image to fit within maxBytes, using canvas.
- * @param {string} dataUrl - data URL (e.g. data:image/png;base64,...)
- * @param {number} maxBytes - max size in bytes
- * @returns {Promise<string>} - data URL (resized or original)
- */
 function resizeDataUrl(dataUrl, maxBytes = DEFAULT_MAX_BYTES_PER_IMAGE) {
   if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image')) {
     return Promise.resolve(dataUrl)
@@ -60,12 +50,6 @@ function resizeDataUrl(dataUrl, maxBytes = DEFAULT_MAX_BYTES_PER_IMAGE) {
   })
 }
 
-/**
- * Recursively cap all data URL values in a previews object so payload stays small.
- * @param {object} previews - { key: dataUrl string or nested object }
- * @param {number} maxBytesPerImage - max bytes per image
- * @returns {Promise<object>} - same structure with resized data URLs
- */
 export async function capLogoPreviewsPayload(previews, maxBytesPerImage = DEFAULT_MAX_BYTES_PER_IMAGE) {
   if (!previews || typeof previews !== 'object') return {}
   const out = {}

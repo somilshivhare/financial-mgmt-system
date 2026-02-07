@@ -3,13 +3,11 @@ const poService = require('../services/poService');
 
 const listPOs = async (req, res, next) => {
   try {
-    // PRODUCTION FIX: Validate user context before processing
     if (!req.user || !req.user.id) {
       return res.status(401).json(apiError('Authentication required', 'UNAUTHORIZED'));
     }
     
     const { page = 1, pageSize = 20, status, q } = req.query;
-    // CRITICAL: Pass user context for data isolation
     const result = await poService.listPOs({ 
       page, 
       pageSize, 
@@ -49,7 +47,6 @@ const updatePOStatus = async (req, res, next) => {
 
 const getPO = async (req, res, next) => {
   try {
-    // CRITICAL: Pass user context for authorization check
     const po = await poService.getPO(req.params.id, req.user.id, req.user.role);
     if (!po) {
       return res.status(404).json(apiError('PO not found', 'NOT_FOUND'));
@@ -62,7 +59,6 @@ const getPO = async (req, res, next) => {
 
 const getPONumbers = async (req, res, next) => {
   try {
-    // CRITICAL: Pass user context for data isolation
     const list = await poService.getPONumbers(req.user.id, req.user.role);
     res.json(apiSuccess(list));
   } catch (err) {
@@ -72,7 +68,6 @@ const getPONumbers = async (req, res, next) => {
 
 const getPOByNumber = async (req, res, next) => {
   try {
-    // CRITICAL: Pass user context for authorization check
     const po = await poService.getPOByNumber(req.params.poNumber, req.user.id, req.user.role);
     if (!po) {
       return res.status(404).json(apiError('PO not found', 'NOT_FOUND'));
@@ -86,7 +81,6 @@ const getPOByNumber = async (req, res, next) => {
 const getPODraft = async (req, res, next) => {
   try {
     const { id } = req.params;
-    // CRITICAL: Pass user context for authorization check
     const draft = await poService.getPODraft(id || null, req.user.id, req.user.role);
     if (!draft) {
       return res.json(apiSuccess(null));
@@ -99,7 +93,6 @@ const getPODraft = async (req, res, next) => {
 
 const deletePO = async (req, res, next) => {
   try {
-    // CRITICAL: Pass user context for authorization check
     const result = await poService.deletePO(req.params.id, req.user.id, req.user.role);
     if (!result) {
       return res.status(404).json(apiError('PO not found', 'NOT_FOUND'));
@@ -112,7 +105,6 @@ const deletePO = async (req, res, next) => {
 
 const upsertPODraft = async (req, res, next) => {
   try {
-    // PRODUCTION FIX: Validate user context before processing
     if (!req.user || !req.user.id) {
       return res.status(401).json(apiError('Authentication required', 'UNAUTHORIZED'));
     }

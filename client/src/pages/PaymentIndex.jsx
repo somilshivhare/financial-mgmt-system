@@ -22,7 +22,6 @@ function PaymentIndex() {
   useEffect(() => {
     loadPayments()
     
-    // Listen for payment updates
     const handlePaymentUpdate = () => loadPayments()
     window.addEventListener('paymentUpdated', handlePaymentUpdate)
     window.addEventListener('paymentDeleted', handlePaymentUpdate)
@@ -37,7 +36,6 @@ function PaymentIndex() {
     try {
       setLoading(true)
       const response = await paymentService.getAllPayments()
-      // Handle both direct array and response.data format
       const allPayments = Array.isArray(response) ? response : (response?.data || [])
       setPayments(allPayments)
     } catch (error) {
@@ -56,22 +54,21 @@ function PaymentIndex() {
   const filteredPayments = useMemo(() => {
     let filtered = [...payments]
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter((payment) => {
         return (
-          payment.paymentID?.toLowerCase().includes(query) ||
-          payment.customerName?.toLowerCase().includes(query) ||
+          (payment.payment_number || payment.paymentID)?.toLowerCase().includes(query) ||
+          (payment.customer_name || payment.customerName)?.toLowerCase().includes(query) ||
+          (payment.invoice_number_display || payment.invoice_id)?.toLowerCase().includes(query) ||
+          (payment.reference || payment.bankName)?.toLowerCase().includes(query) ||
           payment.invoiceIDs?.some((id) => id?.toLowerCase().includes(query)) ||
-          payment.bankName?.toLowerCase().includes(query) ||
           payment.chequeNumber?.toLowerCase().includes(query) ||
           payment.utrNumber?.toLowerCase().includes(query)
         )
       })
     }
 
-    // Status filter
     if (statusFilter) {
       filtered = filtered.filter((payment) => {
         const status = getStatus(payment).toLowerCase()
@@ -79,26 +76,26 @@ function PaymentIndex() {
       })
     }
 
-    // Payment type filter
     if (paymentTypeFilter) {
       filtered = filtered.filter((payment) => {
-        const type = (payment.paymentType || '').toLowerCase()
+        const type = (payment.method || payment.paymentType || '').toLowerCase()
         return type === paymentTypeFilter.toLowerCase()
       })
     }
 
-    // Date range filter
     if (dateFrom) {
       filtered = filtered.filter((payment) => {
-        const paymentDate = payment.paymentReceiptDate || payment.created_at
-        return paymentDate && paymentDate >= dateFrom
+        const paymentDate = payment.paid_at || payment.paymentReceiptDate || payment.created_at
+        const dateStr = paymentDate ? (typeof paymentDate === 'string' ? paymentDate.slice(0, 10) : String(paymentDate).slice(0, 10)) : ''
+        return dateStr && dateStr >= dateFrom
       })
     }
 
     if (dateTo) {
       filtered = filtered.filter((payment) => {
-        const paymentDate = payment.paymentReceiptDate || payment.created_at
-        return paymentDate && paymentDate <= dateTo
+        const paymentDate = payment.paid_at || payment.paymentReceiptDate || payment.created_at
+        const dateStr = paymentDate ? (typeof paymentDate === 'string' ? paymentDate.slice(0, 10) : String(paymentDate).slice(0, 10)) : ''
+        return dateStr && dateStr <= dateTo
       })
     }
 
@@ -270,15 +267,26 @@ function PaymentIndex() {
                 </tr>
               </thead>
               <tbody>
-                {filteredPayments.map((payment) => (
+                {filteredPayments.map((payment) => {
+                  const paymentDate = payment.paid_at || payment.paymentReceiptDate || payment.created_at
+                  const dateStr = paymentDate
+                    ? (typeof paymentDate === 'string' && paymentDate.includes('T')
+                        ? paymentDate.split('T')[0]
+                        : String(paymentDate).slice(0, 10))
+                    : ''
+                  return (
                   <tr key={payment.id}>
-                    <td>{payment.paymentReceiptDate}</td>
+                    <td>{dateStr}</td>
                     <td>
-                      <span className="payment-index-id">{payment.paymentID}</span>
+                      <span className="payment-index-id">{payment.payment_number || payment.paymentID}</span>
                     </td>
-                    <td>{payment.customerName || payment.customer_name || 'N/A'}</td>
+                    <td>{payment.customer_name || payment.customerName || 'N/A'}</td>
                     <td>
-                      {payment.invoicePayments?.length > 0 ? (
+                      {payment.invoice_number_display ? (
+                        <span className="payment-index-invoice-tag">
+                          {payment.invoice_number_display}
+                        </span>
+                      ) : payment.invoicePayments?.length > 0 ? (
                         payment.invoicePayments.map((ip, idx) => (
                           <span key={idx} className="payment-index-invoice-tag">
                             {ip.invoiceID || ip.invoice_id || ip.invoice_number || 'N/A'}
@@ -290,7 +298,7 @@ function PaymentIndex() {
                             {id}
                           </span>
                         ))
-                      ) : payment.invoice_id ? (
+                      ) : payment.invoice_id && !String(payment.invoice_id).match(/^[0-9a-f-]{36}$/i) ? (
                         <span className="payment-index-invoice-tag">
                           {payment.invoice_id}
                         </span>
@@ -298,13 +306,13 @@ function PaymentIndex() {
                         'N/A'
                       )}
                     </td>
-                    <td>₹{parseFloat(payment.paymentAmount || payment.amount || payment.payment_amount || 0).toFixed(2)}</td>
+                    <td>₹{parseFloat(payment.amount ?? payment.paymentAmount ?? payment.payment_amount ?? 0).toFixed(2)}</td>
                     <td>
-                      <span className={`payment-index-type-badge payment-index-type-badge-${(payment.paymentType || payment.payment_type || 'other').toLowerCase()}`}>
-                        {payment.paymentType || payment.payment_type || 'N/A'}
+                      <span className={`payment-index-type-badge payment-index-type-badge-${(payment.method || payment.paymentType || payment.payment_type || 'other').toLowerCase().replace(/\s/g, '-')}`}>
+                        {payment.method || payment.paymentType || payment.payment_type || 'N/A'}
                       </span>
                     </td>
-                    <td>{payment.bankName || payment.bank_name || 'N/A'}</td>
+                    <td>{payment.reference || payment.bankName || payment.bank_name || 'N/A'}</td>
                     <td>
                       <span className={`payment-index-status-badge payment-index-status-badge-${getStatus(payment).toLowerCase()}`}>
                         {getStatus(payment)}
@@ -339,7 +347,8 @@ function PaymentIndex() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

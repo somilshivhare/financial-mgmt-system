@@ -1,21 +1,17 @@
 const { z } = require('zod');
 
-// Ticket categories
 const ticketCategorySchema = z.enum(['Billing', 'Invoice', 'Payment', 'PO', 'Access', 'Bug', 'Other'], {
   errorMap: () => ({ message: 'Invalid category' }),
 });
 
-// Ticket priorities
 const ticketPrioritySchema = z.enum(['Low', 'Medium', 'High', 'Critical'], {
   errorMap: () => ({ message: 'Invalid priority' }),
 });
 
-// Ticket statuses
 const ticketStatusSchema = z.enum(['open', 'in_progress', 'resolved', 'closed'], {
   errorMap: () => ({ message: 'Invalid status' }),
 });
 
-// Create ticket schema (attachments handled by multer, so optional in validation)
 const createTicketSchema = z.object({
   category: ticketCategorySchema,
   priority: ticketPrioritySchema,
@@ -30,29 +26,24 @@ const createTicketSchema = z.object({
   })).optional().default([]),
 }).passthrough(); // Allow additional fields from multer
 
-// Add reply schema
 const addReplySchema = z.object({
   message: z.string().min(1, 'Message is required').max(2000, 'Message must be 2000 characters or less'),
   isInternal: z.boolean().optional().default(false),
 });
 
-// Update status schema
 const updateStatusSchema = z.object({
   status: ticketStatusSchema,
   notes: z.string().max(1000, 'Notes must be 1000 characters or less').optional(),
 });
 
-// Assign ticket schema
 const assignTicketSchema = z.object({
   assignedTo: z.string().uuid().nullable(),
 });
 
-// Update priority schema
 const updatePrioritySchema = z.object({
   priority: ticketPrioritySchema,
 });
 
-// List tickets query schema
 const listTicketsQuerySchema = z.object({
   status: ticketStatusSchema.optional(),
   priority: ticketPrioritySchema.optional(),

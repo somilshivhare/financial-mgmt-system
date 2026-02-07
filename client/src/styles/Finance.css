@@ -120,7 +120,6 @@ td {
 }
 
 @media (max-width: 768px) {
-  /* Page Container - Full Width, No Sidebar Offset */
   .finance-header,
   .table-wrapper {
     width: 100%;

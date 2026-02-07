@@ -19,7 +19,6 @@ export default function ForgotPassword() {
     try {
       const res = await requestPasswordReset(email)
       setMessage(res.message || 'If the email exists, a reset link has been generated.')
-      // Only in development: backend may return token for local testing; never show in production
       if (import.meta.env.DEV && res.data?.token) setDevToken(res.data.token)
     } catch (err) {
       setError('Unable to process request. Please try again.')

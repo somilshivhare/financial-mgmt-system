@@ -9,10 +9,8 @@ const normalizeBusinessUnit = (bu) => {
   return cleaned || 'MAIN';
 };
 
-// Financial year uses April–March cycle and is formatted as 20252026 (no dash)
 const getFinancialYearConcat = (dateLike = null) => {
   const d = dateLike ? new Date(dateLike) : new Date();
-  // If invalid date, fallback to now
   const dt = Number.isNaN(d.getTime()) ? new Date() : d;
   const year = dt.getFullYear();
   const month = dt.getMonth() + 1; // 1-12
@@ -40,10 +38,6 @@ const createHttpError = (status, code, message) => {
   return err;
 };
 
-/**
- * Generate next PO number (transaction-safe)
- * Format: PO-{BU}-{FY}-{NNNN}
- */
 const generateNextPONumber = async (businessUnit, poDateLike = null) => {
   const bu = normalizeBusinessUnit(businessUnit);
   const fy = getFinancialYearConcat(poDateLike);
@@ -74,9 +68,6 @@ const generateNextPONumber = async (businessUnit, poDateLike = null) => {
   });
 };
 
-/**
- * Check if user role has admin/operations privileges (can see all POs)
- */
 const canViewAllPOs = (role) => {
   const adminRoles = ['admin', 'operations', 'finance'];
   return adminRoles.includes(String(role || '').toLowerCase());
@@ -90,13 +81,8 @@ const listPOs = async ({ page = 1, pageSize = 20, status, q, userId, role }) => 
     const where = [];
     const params = [];
     
-    // CRITICAL: Enforce user-level data isolation
-    // Regular users can only see POs they created
-    // Admin/operations/finance roles can see all POs
-    // PRODUCTION FIX: Require userId for non-admin users to prevent data leakage
     const canViewAll = canViewAllPOs(role);
     
-    // PRODUCTION DEBUG: Log role and filtering decision
     console.log('[PO Service] listPOs called:', {
       userId: userId ? `${userId.substring(0, 8)}...` : 'MISSING',
       role: role || 'MISSING',
@@ -126,8 +112,6 @@ const listPOs = async ({ page = 1, pageSize = 20, status, q, userId, role }) => 
       params.push(`%${String(q).trim()}%`);
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-    // IMPORTANT: Some MySQL/MariaDB setups error with bound params in LIMIT/OFFSET.
-    // We safely interpolate sanitized integers instead (pageSizeNum/offset are clamped ints).
     const data = await query(
       `SELECT * FROM purchase_orders ${whereSql} ORDER BY created_at DESC LIMIT ${pageSizeNum} OFFSET ${offset}`,
       params,
@@ -136,12 +120,10 @@ const listPOs = async ({ page = 1, pageSize = 20, status, q, userId, role }) => 
     const total = countResult && countResult[0] ? Number(countResult[0].total) : 0;
     return { data: data || [], page: pageNum, pageSize: pageSizeNum, total };
   } catch (err) {
-    // PRODUCTION FIX: Don't swallow authorization errors - let them propagate
     if (err.status === 403 || err.code === 'ERR_FORBIDDEN') {
       throw err;
     }
     console.error('[PO Service] Error listing POs:', err.message);
-    // Re-throw database errors instead of silently returning empty data
     throw err;
   }
 };
@@ -169,14 +151,12 @@ const createPO = async (payload, userId) =>
     const [poRows] = await conn.execute('SELECT * FROM purchase_orders WHERE id = ?', [poId]);
     const po = poRows[0];
     
-    // Trigger notification after transaction commits
     setImmediate(async () => {
       try {
         const notificationService = require('./notificationService');
         const websocketService = require('./websocketService');
         const notifications = await notificationService.notifyPOCreated(po, userId);
         
-        // Send via WebSocket
         notifications.forEach(notif => {
           if (notif.user_id) {
             websocketService.sendNotificationToUser(notif.user_id, notif);
@@ -190,21 +170,10 @@ const createPO = async (payload, userId) =>
     return po;
   });
 
-/**
- * Get PO by id. When draft_data exists, parses it and attaches formData + boqItems
- * so the client can use this for edit without a separate draft call.
- * 
- * @param {string} poId - PO ID
- * @param {string} userId - Authenticated user ID
- * @param {string} role - User role for authorization check
- * @returns {Promise<Object|null>} PO object or null if not found/unauthorized
- */
 const getPO = async (poId, userId = null, role = null) => {
   const [po] = await query('SELECT * FROM purchase_orders WHERE id = ?', [poId]);
   if (!po) return null;
   
-  // CRITICAL: Enforce authorization - users can only access their own POs unless admin/operations
-  // PRODUCTION FIX: Require userId for non-admin users to prevent unauthorized access
   if (!canViewAllPOs(role)) {
     if (!userId || String(userId).trim() === '') {
       throw createHttpError(403, 'ERR_FORBIDDEN', 'User ID is required to access purchase orders');
@@ -224,7 +193,6 @@ const getPO = async (poId, userId = null, role = null) => {
         po.boqItems = Array.isArray(parsed.boqItems) ? parsed.boqItems : [];
       }
     } catch (err) {
-      // ignore parse error
     }
   }
 
@@ -246,19 +214,10 @@ const getPO = async (poId, userId = null, role = null) => {
   return po;
 };
 
-/** 
- * Return list of PO numbers for dropdowns (id + po_number). Only approved/closed POs so invoice creation uses valid POs.
- * 
- * @param {string} userId - Authenticated user ID
- * @param {string} role - User role for authorization check
- * @returns {Promise<Array>} Array of PO objects with id and po_number
- */
 const getPONumbers = async (userId = null, role = null) => {
   const where = [];
   const params = [];
   
-  // CRITICAL: Enforce user-level data isolation
-  // PRODUCTION FIX: Require userId for non-admin users to prevent data leakage
   if (!canViewAllPOs(role)) {
     if (!userId || String(userId).trim() === '') {
       throw createHttpError(403, 'ERR_FORBIDDEN', 'User ID is required to access purchase orders');
@@ -277,21 +236,10 @@ const getPONumbers = async (userId = null, role = null) => {
   return rows || [];
 };
 
-/**
- * Get PO by po_number. Returns same shape as getPO (with formData/boqItems).
- * When multiple POs share the same po_number, prefers approved/closed so invoice flow gets the valid PO.
- * 
- * @param {string} poNumber - PO number
- * @param {string} userId - Authenticated user ID
- * @param {string} role - User role for authorization check
- * @returns {Promise<Object|null>} PO object or null if not found/unauthorized
- */
 const getPOByNumber = async (poNumber, userId = null, role = null) => {
   const where = ['po_number = ?'];
   const params = [poNumber];
   
-  // CRITICAL: Enforce user-level data isolation
-  // PRODUCTION FIX: Require userId for non-admin users to prevent data leakage
   if (!canViewAllPOs(role)) {
     if (!userId || String(userId).trim() === '') {
       throw createHttpError(403, 'ERR_FORBIDDEN', 'User ID is required to access purchase orders');
@@ -325,7 +273,6 @@ const updateStatus = async (poId, status, userId) => {
   ]);
   const [po] = await query('SELECT * FROM purchase_orders WHERE id = ?', [poId]);
   
-  // Trigger notifications based on status change
   setImmediate(async () => {
     try {
       const notificationService = require('./notificationService');
@@ -338,7 +285,6 @@ const updateStatus = async (poId, status, userId) => {
         notifications = await notificationService.notifyPOApprovalPending(po);
       }
       
-      // Send via WebSocket
       notifications.forEach(notif => {
         if (notif.user_id) {
           websocketService.sendNotificationToUser(notif.user_id, notif);
@@ -352,23 +298,13 @@ const updateStatus = async (poId, status, userId) => {
   return po;
 };
 
-/**
- * Upsert PO draft - Insert if new, Update if exists
- * Stores full form data as JSON in draft_data column
- */
 const upsertPODraft = async (formData, userId, poId = null) => {
-  // Check if we need to add draft_data column (for migration compatibility)
-  // For now, we'll use a separate approach - store in a JSON column if it exists
   
-  // Resolve existing PO: by URL poId, then by body id (so Submit updates same row after Save Draft), then by poNumber
-  // Single lifecycle: draft → submitted; never create a second row when client sends an existing id
-  // PRODUCTION FIX: Pass userId/role to enforce authorization checks on internal calls
   let existingPO = null;
   if (poId) {
     try {
       existingPO = await getPO(poId, userId, null);
     } catch (err) {
-      // If authorization fails, treat as not found (user cannot access this PO)
       if (err.status === 403) {
         throw createHttpError(403, 'ERR_FORBIDDEN', 'You do not have permission to access this PO');
       }
@@ -396,23 +332,18 @@ const upsertPODraft = async (formData, userId, poId = null) => {
     }
   }
   
-  // PRODUCTION FIX: Additional security check - ensure user owns the PO they're trying to update
   if (existingPO && userId && !canViewAllPOs(null) && existingPO.created_by !== userId) {
     throw createHttpError(403, 'ERR_FORBIDDEN', 'You do not have permission to modify this PO');
   }
   
-  // Validate customer_id for new PO creation (required field)
-  // For existing PO updates, customer_id can be omitted (will preserve existing value)
   const customerId = formData.customerId || formData.customer_id || null;
   if (!existingPO && (!customerId || String(customerId).trim() === '')) {
     throw createHttpError(400, 'ERR_VALIDATION', 'Customer is required. Please select a customer before saving the draft.');
   }
   
-  // Extract BOQ items if present
   const boqItems = formData.boqItems || [];
   delete formData.boqItems; // Remove from main form data
   
-  // Clean form data (remove undefined values)
   const cleanFormData = Object.entries(formData).reduce((acc, [key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
       acc[key] = value;
@@ -420,13 +351,10 @@ const upsertPODraft = async (formData, userId, poId = null) => {
     return acc;
   }, {});
 
-  // Determine requested status (Submit sends "approved")
   const requestedStatus = normalizePOStatus(cleanFormData.status || formData.status);
 
-  // If PO number is missing/placeholder, generate a real one (0001, 0002...) on the server
   const shouldGenerateNumber = needsGeneratedPONumber(cleanFormData.poNumber);
   
-  // We'll inject the generated poNumber into draft_data.formData so UI shows the correct value
   let generatedPoNumber = null;
   if (shouldGenerateNumber) {
     generatedPoNumber = await generateNextPONumber(cleanFormData.businessUnit || 'MAIN', cleanFormData.poDate || null);
@@ -439,7 +367,6 @@ const upsertPODraft = async (formData, userId, poId = null) => {
     savedAt: new Date().toISOString(),
   });
 
-  // Compute total for list display: formData.poValue or sum(boqItems.totalCost)
   let totalFromDraft = parseFloat(cleanFormData.poValue) || 0;
   if (!Number.isFinite(totalFromDraft) || totalFromDraft <= 0) {
     totalFromDraft = (boqItems || []).reduce(
@@ -449,7 +376,6 @@ const upsertPODraft = async (formData, userId, poId = null) => {
   }
   
   if (existingPO) {
-    // If this PO was previously saved with XXXX, upgrade it to the real sequential number
     const existingNeedsUpgrade =
       needsGeneratedPONumber(existingPO.po_number) || needsGeneratedPONumber(existingPO.poNumber);
 
@@ -462,7 +388,6 @@ const upsertPODraft = async (formData, userId, poId = null) => {
       );
     }
 
-    // Update existing PO (draft_data + total_amount + optional status)
     try {
       await query(
         `UPDATE purchase_orders 
@@ -471,9 +396,6 @@ const upsertPODraft = async (formData, userId, poId = null) => {
         [draftDataJson, totalFromDraft, requestedStatus, userId, existingPO.id]
       );
     } catch (err) {
-      // If draft_data column doesn't exist, create a migration entry
-      // For now, update basic fields
-      // For updates, preserve existing customer_id if new one is not provided
       await query(
         `UPDATE purchase_orders 
          SET customer_id = COALESCE(?, customer_id), po_number = ?, currency = ?, status = COALESCE(?, status), updated_by = ?, updated_at = NOW() 
@@ -489,18 +411,14 @@ const upsertPODraft = async (formData, userId, poId = null) => {
       );
     }
     
-    // Update BOQ lines if provided
     if (boqItems.length > 0) {
-      // Delete existing lines
       await query('DELETE FROM purchase_order_lines WHERE po_id = ?', [existingPO.id]);
       
-      // Insert new lines
       let total = 0;
       let lineNumber = 1;
       for (const item of boqItems) {
         if (item.materialDescription && item.quantity && item.unitPrice) {
           const lineId = uuidv4();
-          // Ensure line_number is a valid integer
           const validLineNumber = Number.isInteger(item.lineNumber) ? item.lineNumber : lineNumber;
           await query(
             `INSERT INTO purchase_order_lines (id, po_id, line_number, description, quantity, unit_price)
@@ -519,14 +437,11 @@ const upsertPODraft = async (formData, userId, poId = null) => {
         }
       }
       
-      // Update total
       await query('UPDATE purchase_orders SET total_amount = ? WHERE id = ?', [total, existingPO.id]);
     }
     
     return getPO(existingPO.id, userId, null); // userId already validated, role not needed for own PO
   } else {
-    // Create new PO
-    // customerId is already validated above (required for new PO)
     const newPoId = poId || uuidv4();
     const poNumber = cleanFormData.poNumber || `PO-${Date.now()}`;
     const initialStatus = requestedStatus || 'draft';
@@ -547,18 +462,15 @@ const upsertPODraft = async (formData, userId, poId = null) => {
       ]
     );
     
-    // Try to add draft_data and total_amount for list display
     try {
       await query(
         `UPDATE purchase_orders SET draft_data = ?, total_amount = ? WHERE id = ?`,
         [draftDataJson, totalFromDraft || 0, newPoId]
       );
     } catch (err) {
-      // Column doesn't exist yet, that's okay
       console.warn('[PO Service] draft_data column not found, skipping JSON storage');
     }
     
-    // Add BOQ lines if provided
     if (boqItems.length > 0) {
       let total = 0;
       for (const item of boqItems) {
@@ -580,14 +492,6 @@ const upsertPODraft = async (formData, userId, poId = null) => {
   }
 };
 
-/**
- * Get PO draft data (form data + BOQ items)
- * 
- * @param {string|null} poId - PO ID (optional)
- * @param {string} userId - Authenticated user ID (required)
- * @param {string} role - User role for authorization check
- * @returns {Promise<Object|null>} PO draft object or null if not found/unauthorized
- */
 const getPODraft = async (poId = null, userId = null, role = null) => {
   let po = null;
   
@@ -599,9 +503,6 @@ const getPODraft = async (poId = null, userId = null, role = null) => {
   
   if (!po) return null;
   
-  // CRITICAL: Additional authorization check for drafts
-  // Users can only access their own drafts unless admin/operations
-  // PRODUCTION FIX: Require userId for non-admin users
   if (!canViewAllPOs(role)) {
     if (!userId || String(userId).trim() === '') {
       throw createHttpError(403, 'ERR_FORBIDDEN', 'User ID is required to access purchase order drafts');
@@ -611,7 +512,6 @@ const getPODraft = async (poId = null, userId = null, role = null) => {
     }
   }
   
-  // Try to get draft_data JSON
   let draftData = null;
   try {
     const [result] = await query('SELECT draft_data FROM purchase_orders WHERE id = ?', [po.id]);
@@ -619,13 +519,10 @@ const getPODraft = async (poId = null, userId = null, role = null) => {
       draftData = typeof result.draft_data === 'string' ? JSON.parse(result.draft_data) : result.draft_data;
     }
   } catch (err) {
-    // Column doesn't exist or JSON parse failed
   }
   
-  // Get BOQ lines
   const lines = await query('SELECT * FROM purchase_order_lines WHERE po_id = ? ORDER BY line_number', [po.id]);
   
-  // Transform lines to BOQ format
   const boqItems = lines.map((line, index) => ({
     id: index + 1,
     materialDescription: line.description || '',
@@ -638,7 +535,6 @@ const getPODraft = async (poId = null, userId = null, role = null) => {
     totalCost: line.subtotal || '',
   }));
   
-  // If we have draft_data, use it; otherwise reconstruct from DB fields
   if (draftData && draftData.formData) {
     return {
       ...draftData.formData,
@@ -648,7 +544,6 @@ const getPODraft = async (poId = null, userId = null, role = null) => {
     };
   }
   
-  // Reconstruct from DB fields (basic fields only)
   return {
     id: po.id,
     poNumber: po.po_number,
@@ -660,14 +555,6 @@ const getPODraft = async (poId = null, userId = null, role = null) => {
   };
 };
 
-/**
- * Delete PO (cascades to lines/history via FK constraints)
- * 
- * @param {string} poId - PO ID
- * @param {string} userId - Authenticated user ID
- * @param {string} role - User role for authorization check
- * @returns {Promise<Object|null>} Deleted PO object or null if not found/unauthorized
- */
 const deletePO = async (poId, userId = null, role = null) => {
   const existing = await getPO(poId, userId, role);
   if (!existing) return null;

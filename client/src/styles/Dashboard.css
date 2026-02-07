@@ -1,8 +1,3 @@
-/* ============================================
-   DASHBOARD STYLES - PRODUCTION READY
-   ============================================
-   Consistent spacing, alignment, typography
-   ============================================ */
 
 .dashboard-page {
   width: 100%;
@@ -11,9 +6,6 @@
   overflow-x: hidden;
 }
 
-/* ============================================
-   PAGE HEADER SECTION
-   ============================================ */
 
 .dashboard-header {
   display: flex;
@@ -60,7 +52,6 @@
   flex-shrink: 0;
 }
 
-/* Filter Card */
 .dashboard-filter-card {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
@@ -208,9 +199,6 @@
   outline-offset: 2px;
 }
 
-/* ============================================
-   ACTION BAR / FILTERS SECTION
-   ============================================ */
 
 .dashboard-filters {
   display: flex;
@@ -247,7 +235,6 @@
   flex-shrink: 0;
 }
 
-/* Search Input */
 .dashboard-search {
   position: relative;
   flex: 1;
@@ -289,7 +276,6 @@
   box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
-/* Filter Button */
 .dashboard-filter-button {
   display: inline-flex;
   align-items: center;
@@ -327,7 +313,6 @@
   height: 16px;
 }
 
-/* Date Select */
 .dashboard-date-select {
   height: 40px;
   padding: 0 var(--space-3);
@@ -350,7 +335,6 @@
   box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
 }
 
-/* Action Buttons */
 .dashboard-action-button {
   display: inline-flex;
   align-items: center;
@@ -414,9 +398,6 @@
   height: 16px;
 }
 
-/* ============================================
-   STATISTICS CARDS GRID
-   ============================================ */
 
 .dashboard-stats-grid {
   display: grid;
@@ -523,9 +504,6 @@
   letter-spacing: -0.02em;
 }
 
-/* ============================================
-   TABLE SECTION
-   ============================================ */
 
 .dashboard-table-card {
   background: var(--color-bg-primary);
@@ -647,9 +625,6 @@
   color: #991b1b;
 }
 
-/* ============================================
-   LOADING STATE
-   ============================================ */
 
 .dashboard-loading {
   display: flex;
@@ -667,9 +642,6 @@
   color: var(--color-text-tertiary);
 }
 
-/* ============================================
-   EMPTY STATE
-   ============================================ */
 
 .dashboard-empty {
   padding: var(--space-8);
@@ -678,13 +650,9 @@
   font-size: var(--font-size-base);
 }
 
-/* ============================================
-   RESPONSIVE ADJUSTMENTS
-   ============================================ */
 
 
 @media (max-width: 767px) {
-  /* Page Container - Full Width, No Sidebar Offset */
   .dashboard-page {
     width: 100%;
     max-width: 100%;
@@ -695,7 +663,6 @@
     position: relative;
   }
   
-  /* Header - Stack Vertically */
   .dashboard-header {
     flex-direction: column;
     align-items: stretch;
@@ -749,7 +716,6 @@
     display: inline-block; /* Show text but we might need to hide it if too small */
   }
 
-  /* On very small screens, hide the text to keep icons only if needed */
   @media (max-width: 380px) {
     .dashboard-action-button span {
       display: none;
@@ -759,7 +725,6 @@
     }
   }
   
-  /* Filters - Stack Vertically */
   .dashboard-filters {
     flex-direction: column;
     gap: var(--space-3);
@@ -810,7 +775,6 @@
     justify-content: center;
   }
   
-  /* Stats Grid - Single Column */
   .dashboard-stats-grid {
     grid-template-columns: 1fr;
     gap: var(--space-3);
@@ -823,7 +787,6 @@
     min-height: auto;
   }
   
-  /* Table - Horizontal Scroll Only */
   .dashboard-table-card {
     width: 100%;
     max-width: 100%;
@@ -853,11 +816,7 @@
   }
 }
 
-/* ============================================
-   NEW DASHBOARD COMPONENTS - ROYAL BLUE THEME
-   ============================================ */
 
-/* Section Container */
 .dashboard-section {
   margin-bottom: var(--space-8);
 }
@@ -881,7 +840,6 @@
   border-radius: 2px;
 }
 
-/* KPI Grid - Royal Blue Theme */
 .dashboard-kpi-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -985,7 +943,6 @@
   height: 16px;
 }
 
-/* Quick Actions */
 .dashboard-quick-actions {
   display: grid;
   grid-template-columns: 1fr;
@@ -1044,7 +1001,6 @@
   opacity: 1;
 }
 
-/* Charts */
 .dashboard-charts-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1077,7 +1033,6 @@
   margin: 0 0 var(--space-4) 0;
 }
 
-/* Two Column Layout */
 .dashboard-two-column {
   display: grid;
   grid-template-columns: 1fr;
@@ -1090,7 +1045,6 @@
   }
 }
 
-/* Card Components */
 .dashboard-card {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
@@ -1168,7 +1122,6 @@
   gap: var(--space-2);
 }
 
-/* Status List */
 .dashboard-status-list {
   display: flex;
   flex-direction: column;
@@ -1205,7 +1158,6 @@
   color: var(--color-text-primary);
 }
 
-/* Table Styles */
 .dashboard-table-container {
   overflow-x: auto;
 }
@@ -1243,7 +1195,6 @@
   color: #6b7280;
 }
 
-/* List Components */
 .dashboard-list {
   display: flex;
   flex-direction: column;
@@ -1326,7 +1277,6 @@
   font-size: var(--font-size-sm);
 }
 
-/* Badge */
 .dashboard-badge {
   display: inline-flex;
   align-items: center;
@@ -1342,7 +1292,6 @@
   margin-left: var(--space-2);
 }
 
-/* Subscription & Storage */
 .dashboard-subscription-info {
   display: flex;
   flex-direction: column;
@@ -1392,7 +1341,6 @@
   text-align: right;
 }
 
-/* Loading & Error States */
 .dashboard-loading-spinner {
   width: 24px;
   height: 24px;
@@ -1459,7 +1407,6 @@
   box-shadow: 0 4px 12px rgba(15, 76, 129, 0.25);
 }
 
-/* Responsive Adjustments for New Components */
 @media (max-width: 767px) {
   .dashboard-page {
     padding-bottom: var(--space-8);
@@ -1479,7 +1426,6 @@
     font-weight: 800;
   }
 
-  /* 2-Column KPI Grid on Mobile for Better Density */
   .dashboard-kpi-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-2);
@@ -1538,7 +1484,6 @@
     height: 12px;
   }
 
-  /* 2-Column Quick Actions on Mobile */
   .dashboard-quick-actions {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-2);
@@ -1592,7 +1537,6 @@
     font-size: var(--font-size-base);
   }
 
-  /* Modernized List Items for Mobile */
   .dashboard-list-item {
     flex-direction: row; /* Keep horizontal but wrap metadata */
     align-items: center;

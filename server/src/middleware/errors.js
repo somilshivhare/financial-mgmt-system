@@ -5,11 +5,9 @@ const notFound = (req, res, _next) => {
   res.status(404).json(apiError(`Route not found: ${req.method} ${req.originalUrl}`, 'NOT_FOUND'));
 };
 
-// eslint-disable-next-line no-unused-vars
 const errorHandler = (err, _req, res, _next) => {
   console.error('[Error Handler]', err);
   
-  // Handle rate limit errors
   if (err.status === 429) {
     return res.status(429).json(apiError(
       err.message || 'Too many requests. Please try again later.',
@@ -18,7 +16,6 @@ const errorHandler = (err, _req, res, _next) => {
     ));
   }
   
-  // Handle validation errors
   if (err.name === 'ZodError' || err.code === 'ERR_VALIDATION') {
     return res.status(400).json(apiError(
       err.message || 'Validation error',
@@ -27,7 +24,6 @@ const errorHandler = (err, _req, res, _next) => {
     ));
   }
   
-  // Handle database errors
   if (err.code === 'ER_DUP_ENTRY') {
     return res.status(409).json(apiError(
       'Duplicate entry. This record already exists.',
@@ -70,7 +66,6 @@ const errorHandler = (err, _req, res, _next) => {
     ));
   }
   
-  // Handle MySQL parameter errors
   if (err.code === 'ER_WRONG_ARGUMENTS' || err.message?.includes('mysqld_stmt_execute')) {
     console.error('[Database] Parameter mismatch error:', {
       code: err.code,
@@ -85,7 +80,6 @@ const errorHandler = (err, _req, res, _next) => {
     ));
   }
   
-  // Handle other MySQL errors
   if (err.code && err.code.startsWith('ER_')) {
     console.error('[Database] MySQL error:', {
       code: err.code,
@@ -99,7 +93,6 @@ const errorHandler = (err, _req, res, _next) => {
     ));
   }
   
-  // Handle JWT errors
   if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
     return res.status(401).json(apiError(
       'Invalid or expired token',
@@ -111,7 +104,6 @@ const errorHandler = (err, _req, res, _next) => {
   const message = err.message || 'Internal server error';
   const code = err.code || 'ERR_INTERNAL';
   
-  // Don't expose internal error details in production unless it's a known error code
   const isDevelopment = process.env.NODE_ENV === 'development';
   const isStaging = process.env.NODE_ENV === 'staging';
   const isKnownError = [
@@ -128,7 +120,6 @@ const errorHandler = (err, _req, res, _next) => {
 
   const errorMessage = (isDevelopment || isStaging || isKnownError) ? message : 'An error occurred. Please try again.';
   
-  // Ensure we always return valid JSON
   try {
     if (res.headersSent) {
       console.error('[Error Handler] Headers already sent, cannot send error JSON');
@@ -138,10 +129,8 @@ const errorHandler = (err, _req, res, _next) => {
     const errorResponse = apiError(errorMessage, code, (isDevelopment || isStaging) ? { stack: err.stack, details: err.details || null } : null);
     res.status(status).json(errorResponse);
   } catch (jsonError) {
-    // Fallback if JSON serialization fails
     console.error('[Error Handler] Failed to send JSON response:', jsonError);
     
-    // Make sure response hasn't been sent already
     if (res.headersSent) {
       return;
     }
@@ -154,7 +143,6 @@ const errorHandler = (err, _req, res, _next) => {
         message: 'An error occurred. Please try again.',
       }));
     } catch (finalError) {
-      // Last resort - try to send plain text
       console.error('[Error Handler] Complete failure to send response:', finalError);
       if (!res.headersSent) {
         res.status(500).end('Internal Server Error');

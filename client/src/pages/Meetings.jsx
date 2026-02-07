@@ -167,7 +167,6 @@ export default function Meetings() {
   const [draft, setDraft] = useState(DEFAULT_MOM)
   const [errors, setErrors] = useState({})
 
-  // Participants data state
   const [participants, setParticipants] = useState([])
   const [participantsLoading, setParticipantsLoading] = useState(true)
   const [participantsError, setParticipantsError] = useState(null)
@@ -175,7 +174,6 @@ export default function Meetings() {
 
   const filePrintRef = useRef(null)
 
-  // Create participants map for quick lookup
   const participantsMap = useMemo(() => {
     const map = new Map()
     participants.forEach((p) => {
@@ -184,14 +182,12 @@ export default function Meetings() {
     return map
   }, [participants])
 
-  // Fetch participants (users and customers) from backend
   useEffect(() => {
     const fetchParticipants = async () => {
       setParticipantsLoading(true)
       setParticipantsError(null)
 
       try {
-        // Fetch current user
         let userData = null
         try {
           const userResponse = await me()
@@ -208,14 +204,11 @@ export default function Meetings() {
           }
         } catch (userError) {
           console.warn('Failed to fetch current user:', userError)
-          // Continue without current user data
         }
 
-        // Fetch employees (internal users) from masterData
         let employees = []
         try {
           const employeesResponse = await masterDataApi.getMasterDataByType('employee-profile')
-          // Handle different response structures: response.data.data, response.data, or direct array
           let employeesData = []
           if (employeesResponse?.data?.data && Array.isArray(employeesResponse.data.data)) {
             employeesData = employeesResponse.data.data
@@ -240,10 +233,8 @@ export default function Meetings() {
           })
         } catch (empError) {
           console.warn('Failed to fetch employees:', empError)
-          // Continue without employees
         }
 
-        // Add current user to employees list if not already present
         if (userData && !employees.find((e) => e.originalId === userData.id)) {
           employees.unshift({
             id: `user-${userData.id}`,
@@ -255,11 +246,9 @@ export default function Meetings() {
           })
         }
 
-        // Fetch customers from masterData
         let customers = []
         try {
           const customersResponse = await masterDataApi.getMasterDataByType('customer-profile')
-          // Handle different response structures: response.data.data, response.data, or direct array
           let customersData = []
           if (customersResponse?.data?.data && Array.isArray(customersResponse.data.data)) {
             customersData = customersResponse.data.data
@@ -281,10 +270,8 @@ export default function Meetings() {
           })
         } catch (custError) {
           console.warn('Failed to fetch customers:', custError)
-          // Continue without customers
         }
 
-        // Combine all participants
         const allParticipants = [...employees, ...customers]
 
         if (allParticipants.length === 0) {
@@ -316,7 +303,6 @@ export default function Meetings() {
       setMoms(stored)
       return
     }
-    // Seed with a sample record for UX
     const seed = {
       ...DEFAULT_MOM(),
       title: 'Collections Review - Weekly',
@@ -475,7 +461,6 @@ export default function Meetings() {
     w.print()
   }
 
-  // Filter participants by type for action item owners (only users)
   const userParticipants = useMemo(() => {
     return participants.filter((p) => p.type === 'User')
   }, [participants])

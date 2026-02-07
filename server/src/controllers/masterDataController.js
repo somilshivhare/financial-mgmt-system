@@ -57,7 +57,6 @@ const updateProduct = async (req, res, next) => {
   }
 };
 
-// Generic Master Data endpoints
 const getMasterDataByType = async (req, res, next) => {
   try {
     const { type, status } = req.query;
@@ -102,7 +101,6 @@ const saveMasterDataRecord = async (req, res, next) => {
       return res.status(400).json(apiError('Values object is required', 'ERR_INVALID_BODY'));
     }
     
-    // Ensure user is authenticated and has an ID
     if (!req.user || !req.user.id) {
       return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
@@ -267,7 +265,6 @@ const getAggregatedMasterData = async (req, res, next) => {
       return res.status(401).json(apiError('Authentication required', 'ERR_UNAUTHORIZED'));
     }
     
-    // Get all aggregated master data sets (multiple cards)
     const aggregatedDataList = await masterDataService.getAggregatedMasterData(req.user.id);
     res.json(apiSuccess(aggregatedDataList));
   } catch (err) {

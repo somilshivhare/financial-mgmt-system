@@ -3,7 +3,6 @@ const { apiError } = require('../utils/apiResponse');
 const validate =
   (schema, property = 'body') =>
   (req, res, next) => {
-    // Ensure the property exists and is an object
     if (!req[property] || typeof req[property] !== 'object') {
       return res.status(400).json(apiError(
         `Invalid ${property}: must be a valid object`,
@@ -23,7 +22,6 @@ const validate =
       }));
     }
     
-    // Replace req[property] with validated and sanitized data
     req[property] = result.data;
     return next();
   };

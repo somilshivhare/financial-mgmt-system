@@ -1,25 +1,17 @@
 const { v4: uuidv4 } = require('uuid');
 const { query, transaction } = require('../db/query');
 
-/**
- * List invoices with pagination. Does NOT join invoice_lines so that invoices
- * without line items are always included. Line items are fetched only on the
- * invoice detail view via listInvoiceLines().
- */
 const listInvoices = async ({ page = 1, pageSize = 20, status, q, keyId, userId = null, userRole = null }) => {
   try {
-    // Ensure page and pageSize are valid integers
     const pageInt = parseInt(page, 10);
     const pageSizeInt = parseInt(pageSize, 10);
     const validPage = !isNaN(pageInt) && pageInt > 0 ? pageInt : 1;
     const validPageSize = !isNaN(pageSizeInt) && pageSizeInt > 0 ? pageSizeInt : 20;
     const offset = (validPage - 1) * validPageSize;
     
-    // Build WHERE clause and params array conditionally
     const where = [];
     const params = [];
     
-    // User role filtering: 'user' can only see their own invoices, 'admin' sees all
     if (userRole === 'user' && userId) {
       where.push('i.created_by = ?');
       params.push(userId);
@@ -41,13 +33,10 @@ const listInvoices = async ({ page = 1, pageSize = 20, status, q, keyId, userId 
     
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     
-    // Build final query params: filter params + LIMIT + OFFSET (order matters!)
-    // IMPORTANT: LIMIT and OFFSET must be passed as numbers
     const limit = parseInt(validPageSize, 10);
     const offsetVal = parseInt(offset, 10);
     const queryParams = [...params, limit, offsetVal];
     
-    // Execute main query
     const data = await query(
       `SELECT i.*, c.name AS customer_name, p.po_number
        FROM invoices i
@@ -59,7 +48,6 @@ const listInvoices = async ({ page = 1, pageSize = 20, status, q, keyId, userId 
       queryParams
     );
     
-    // Execute count query (uses same WHERE params, no LIMIT/OFFSET)
     const countResult = await query(
       `SELECT COUNT(*) as total FROM invoices i ${whereSql}`,
       params
@@ -87,7 +75,6 @@ const getInvoice = async (id, userId = null, userRole = null) => {
      WHERE i.id = ?`;
   const params = [id];
   
-  // User role filtering: 'user' can only see their own invoices
   if (userRole === 'user' && userId) {
     sql += ' AND i.created_by = ?';
     params.push(userId);
@@ -97,7 +84,6 @@ const getInvoice = async (id, userId = null, userRole = null) => {
   return rows[0] || null;
 };
 
-// Get invoices by PO Number (Key ID)
 const getInvoicesByPONumber = async (poNumber) => {
   const rows = await query(
     `SELECT i.*, c.name AS customer_name, p.po_number
@@ -115,7 +101,6 @@ const listInvoiceLines = async (invoiceId) => {
   return query('SELECT * FROM invoice_lines WHERE invoice_id = ? ORDER BY line_number', [invoiceId]);
 };
 
-/** Financial year (April–March) as concatenated string, e.g. 20252026 */
 function getFinancialYearConcat(dateLike = null) {
   const d = dateLike ? new Date(dateLike) : new Date();
   const year = d.getFullYear();
@@ -125,10 +110,6 @@ function getFinancialYearConcat(dateLike = null) {
   return `${fyStart}${fyEnd}`;
 }
 
-/**
- * Get next internal invoice number. Format: INV-{type}-{bu}-{fy}-{NNNN}
- * Example: INV-REG-MAIN-20252026-0001
- */
 const getNextInvoiceNumber = async (invoiceType = 'REG', businessUnit = 'MAIN') => {
   const type = (invoiceType || 'REG').toString().trim().toUpperCase().slice(0, 8) || 'REG';
   const bu = (businessUnit || 'MAIN').toString().trim().toUpperCase().slice(0, 16) || 'MAIN';
@@ -152,10 +133,8 @@ const VALID_PO_STATUSES = ['approved', 'closed'];
 
 const createInvoice = async (payload, userId) =>
   transaction(async (conn) => {
-    // Log status being received from frontend
     console.log('[InvoiceService] Creating invoice with status:', payload.status || 'open (default)')
     
-    // Resolve PO from a single source: poId (preferred) or key_id/keyID. Only accept submitted/approved POs.
     let po = null;
     if (payload.poId && typeof payload.poId === 'string' && payload.poId.trim()) {
       const [[poResult]] = await conn.execute('SELECT * FROM purchase_orders WHERE id = ?', [payload.poId.trim()]);
@@ -181,7 +160,6 @@ const createInvoice = async (payload, userId) =>
     }
     if (!po) throw new Error('PO_NOT_FOUND');
 
-    // Single source of truth for customer: use only the validated PO's customer_id (never payload from frontend).
     const customerId = po.customer_id;
     if (!customerId || typeof customerId !== 'string' || !customerId.trim()) {
       const err = new Error('The selected PO has no customer linked. Please link a customer to the PO first.');
@@ -194,7 +172,6 @@ const createInvoice = async (payload, userId) =>
     if (customerRow) {
       if (!resolvedCustomerName) resolvedCustomerName = customerRow.name || null;
     } else {
-      // PO may store master_data id (e.g. after migration 017). Resolve to customers.id by name from master_data.
       const [mdRows] = await conn.execute(
         "SELECT id, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(`values`, '$.customerName')), JSON_UNQUOTE(JSON_EXTRACT(`values`, '$.companyName'))) AS name FROM master_data WHERE id = ? AND type IN ('company-profile', 'customer-profile') LIMIT 1",
         [resolvedCustomerId]
@@ -206,7 +183,6 @@ const createInvoice = async (payload, userId) =>
         if (custByName && custByName.length > 0) {
           resolvedCustomerId = custByName[0].id;
         } else {
-          // No customers row for this name (Master Data customer never synced). Create one so invoice can reference it.
           const newCustomerId = uuidv4();
           await conn.execute(
             'INSERT INTO customers (id, name, status) VALUES (?, ?, ?)',
@@ -226,17 +202,14 @@ const createInvoice = async (payload, userId) =>
     const invoiceNumber = payload.invoice_number || payload.internalInvoiceNo || `INV-${Date.now()}`;
     const issueDate = payload.issue_date || payload.gstTaxInvoiceDate || new Date().toISOString().split('T')[0];
     
-    // Calculate total amount from various sources, prioritizing calculated values
     let totalAmount = parseFloat(payload.total_amount || payload.totalInvoiceValue || payload.total_invoice_value || 0);
     
-    // If totalAmount is 0 or NaN, try to calculate from components
     if (!totalAmount || isNaN(totalAmount)) {
       const basicValue = parseFloat(payload.basic_value || payload.basicValue || 0);
       const freightValue = parseFloat(payload.freight_value || payload.freightValue || 0);
       const totalGST = parseFloat(payload.total_gst || payload.totalGST || 0);
       const subtotal = parseFloat(payload.subtotal || 0);
       
-      // Use subtotal if available, otherwise calculate
       if (subtotal > 0) {
         totalAmount = subtotal + totalGST;
       } else {
@@ -253,7 +226,6 @@ const createInvoice = async (payload, userId) =>
       total_gst: payload.total_gst
     });
     
-    // Build comprehensive INSERT statement with all fields (every form field persisted)
     const fields = [
       'id', 'invoice_number', 'po_id', 'customer_id', 'status', 'issue_date', 'due_date',
       'currency', 'basic_rate', 'quantity', 'basic_value', 'freight_rate', 'freight_value',
@@ -294,7 +266,6 @@ const createInvoice = async (payload, userId) =>
       invoiceNumber,
       payload.poId || po.id,
       resolvedCustomerId,
-      // Default new invoices to 'posted' when not explicitly provided
       (payload.status && String(payload.status).trim()) || 'posted',
       issueDate,
       payload.due_date || payload.firstDueDate || issueDate,
@@ -408,7 +379,6 @@ const createInvoice = async (payload, userId) =>
       values
     );
 
-    // Handle invoice lines if provided
     if (payload.lines && Array.isArray(payload.lines)) {
       for (const line of payload.lines) {
         const lineId = uuidv4();
@@ -423,17 +393,14 @@ const createInvoice = async (payload, userId) =>
     const [invoiceRows] = await conn.execute('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
     const invoice = invoiceRows[0];
     
-    // Log the final status that was saved
     console.log('[InvoiceService] Invoice created with final status:', invoice?.status, 'Invoice ID:', invoiceId)
     
-    // Trigger notification after transaction commits
     setImmediate(async () => {
       try {
         const notificationService = require('./notificationService');
         const websocketService = require('./websocketService');
         const notifications = await notificationService.notifyInvoiceCreated(invoice, userId);
         
-        // Send via WebSocket
         notifications.forEach(notif => {
           if (notif.user_id) {
             websocketService.sendNotificationToUser(notif.user_id, notif);
@@ -447,7 +414,6 @@ const createInvoice = async (payload, userId) =>
     return invoice;
   });
 
-// Helper: map payload to DB value (supports both snake_case and camelCase)
 const val = (p, ...keys) => {
   for (const k of keys) {
     if (p[k] !== undefined && p[k] !== null && p[k] !== '') return p[k];
@@ -461,7 +427,6 @@ const num = (p, ...keys) => {
   return Number.isNaN(n) ? 0 : n;
 };
 
-// Resolve approved/closed PO and customer_id from it (single source of truth). Returns { poId, customerId } or null.
 const resolvePOAndCustomer = async (conn, payload) => {
   let po = null;
   if (payload.poId && String(payload.poId).trim()) {
@@ -495,14 +460,12 @@ const resolvePOAndCustomer = async (conn, payload) => {
 
 const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
   transaction(async (conn) => {
-    // Load existing core fields so we can preserve non-null constraints like due_date
     const [[existing]] = await conn.execute(
       'SELECT id, po_id, customer_id, status, due_date, first_due_date, created_by FROM invoices WHERE id = ?',
       [invoiceId]
     );
     if (!existing) return null;
     
-    // User role check: 'user' can only update their own invoices
     if (userRole === 'user' && existing.created_by !== userId) {
       throw new Error('FORBIDDEN');
     }
@@ -517,7 +480,6 @@ const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
       }
     }
     const issueDate = payload.issue_date || payload.gstTaxInvoiceDate || existing.issue_date || null;
-    // Prefer explicit payload due_date/firstDueDate; otherwise fall back to existing, never null
     const payloadDueDate = val(payload, 'due_date', 'firstDueDate');
     const effectiveDueDate = payloadDueDate || existing.due_date || existing.first_due_date || issueDate;
     const totalAmount = num(payload, 'total_amount', 'totalInvoiceValue');
@@ -526,7 +488,6 @@ const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
       ['invoice_number', val(payload, 'invoice_number', 'internalInvoiceNo')],
       ['po_id', poId],
       ['customer_id', customerId],
-      // Preserve existing status when not explicitly changed
       ['status', payload.status ?? existing.status ?? 'open'],
       ['issue_date', issueDate],
       ['due_date', effectiveDueDate],
@@ -643,49 +604,32 @@ const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
     return invoice;
   });
 
-/**
- * Delete an invoice and its related records
- * Checks for payments and prevents deletion if payments exist (or deletes them based on business rules)
- */
 const deleteInvoice = async (invoiceId, userId, userRole = null) => {
   return transaction(async (conn) => {
-    // Check if invoice exists
     const [[invoice]] = await conn.execute('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
     if (!invoice) {
       throw new Error('INVOICE_NOT_FOUND');
     }
     
-    // User role check: 'user' can only delete their own invoices
     if (userRole === 'user' && invoice.created_by !== userId) {
       throw new Error('FORBIDDEN');
     }
 
-    // Check for related payments
     const [payments] = await conn.execute('SELECT id FROM payments WHERE invoice_id = ?', [invoiceId]);
     
     if (payments && payments.length > 0) {
-      // Option 1: Prevent deletion if payments exist (safer)
       throw new Error('INVOICE_HAS_PAYMENTS');
       
-      // Option 2: Delete payments first (uncomment if needed)
-      // await conn.execute('DELETE FROM payments WHERE invoice_id = ?', [invoiceId]);
     }
 
-    // Delete invoice lines (CASCADE should handle this, but being explicit)
     await conn.execute('DELETE FROM invoice_lines WHERE invoice_id = ?', [invoiceId]);
     
-    // Delete the invoice
     await conn.execute('DELETE FROM invoices WHERE id = ?', [invoiceId]);
     
     return { id: invoiceId, deleted: true };
   });
 };
 
-/**
- * Get open invoices for a customer (for payment entry)
- * Returns invoices with status 'open', 'posted', 'active', or 'submitted' that have outstanding balance
- * Searches by both customer_id and customer_name to ensure invoices are found
- */
 const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
   try {
     if (!customerId && !customerName) return [];
@@ -693,10 +637,7 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
     let customerNameToSearch = customerName;
     let resolvedCustomerIds = [];
     
-    // First, try to resolve the customer ID - it might be from master_data or customers table
-    // Note: query() returns the rows array directly (not [rows, fields])
     if (customerId) {
-      // Check if it exists in customers table
       const customerRows = await query('SELECT id, name FROM customers WHERE id = ? LIMIT 1', [customerId]);
       
       if (customerRows && customerRows.length > 0) {
@@ -705,7 +646,6 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
           customerNameToSearch = customerRows[0].name;
         }
       } else {
-        // If not found in customers table, it might be a master_data ID
         const mdRows = await query(
           `SELECT id, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(\`values\`, '$.customerName')), JSON_UNQUOTE(JSON_EXTRACT(\`values\`, '$.companyName'))) AS name 
            FROM master_data 
@@ -719,7 +659,6 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
           if (!customerNameToSearch) {
             customerNameToSearch = custName;
           }
-          // Find matching customer in customers table by name (case-insensitive, trimmed)
           const custByName = await query(
             'SELECT id FROM customers WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND status = ?',
             [custName, 'active']
@@ -731,7 +670,6 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
       }
     }
     
-    // If we have a customer name but no IDs, search by name (case-insensitive, trimmed)
     if (customerNameToSearch && resolvedCustomerIds.length === 0) {
       const custByName = await query(
         'SELECT id FROM customers WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND status = ?',
@@ -742,19 +680,15 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
       }
     }
     
-    // Build WHERE clause to search by both customer_id and customer_name
     const whereConditions = [];
     const params = [];
     
-    // Search by customer_id if we have resolved IDs
     if (resolvedCustomerIds.length > 0) {
       const placeholders = resolvedCustomerIds.map(() => '?').join(',');
       whereConditions.push(`i.customer_id IN (${placeholders})`);
       params.push(...resolvedCustomerIds);
     }
     
-    // Also search by customer_name field in invoices table (stored directly)
-    // Use TRIM and case-insensitive comparison for production-ready matching
     if (customerNameToSearch) {
       const trimmedName = customerNameToSearch.trim();
       whereConditions.push(`LOWER(TRIM(i.customer_name)) = LOWER(?)`);
@@ -767,11 +701,9 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
     
     const whereClause = whereConditions.join(' OR ');
     
-    // Get invoices for customer with statuses that allow payments
-    // Include 'open', 'posted', 'active', 'submitted', 'draft' - these can receive payments
-    // Open = has outstanding balance OR not fully paid (production-ready: include even if balance column is 0)
     const invoices = await query(
       `SELECT 
+        i.id AS id,
         COALESCE(i.internal_invoice_no, i.invoice_number) AS invoiceID,
         i.key_id AS keyID,
         COALESCE(i.gst_tax_invoice_date, i.issue_date) AS invoiceDate,

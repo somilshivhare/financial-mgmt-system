@@ -2,7 +2,6 @@ import client from './client'
 
 export const getTransactions = async (params = {}) => {
   const { data } = await client.get('/payments', { params })
-  // Map server payments to finance transaction shape
   const transactions = (data.data?.data || data.data || []).map((p) => ({
     id: p.id,
     date: p.paid_at || p.created_at,

@@ -1,8 +1,3 @@
-/* ============================================
-   SUBSCRIPTION MANAGEMENT - PRODUCTION READY
-   ============================================
-   Enterprise Subscription Management Page
-   ============================================ */
 
 .subscription-page {
   width: 100%;
@@ -11,9 +6,6 @@
   overflow-x: hidden;
 }
 
-/* ============================================
-   PAGE HEADER
-   ============================================ */
 
 .subscription-header {
   display: flex;
@@ -53,9 +45,6 @@
   line-height: 1.5;
 }
 
-/* ============================================
-   CURRENT SUBSCRIPTION STATUS CARD
-   ============================================ */
 
 .subscription-status-card {
   background: #ffffff;
@@ -159,9 +148,6 @@
   color: var(--color-text-primary);
 }
 
-/* ============================================
-   SECTION HEADERS
-   ============================================ */
 
 .subscription-section {
   margin-bottom: 48px;
@@ -186,9 +172,6 @@
   line-height: 1.5;
 }
 
-/* ============================================
-   PLAN CARDS
-   ============================================ */
 
 .subscription-plans-grid {
   display: grid;
@@ -344,9 +327,6 @@
   margin-top: auto;
 }
 
-/* ============================================
-   BUTTONS
-   ============================================ */
 
 .subscription-btn {
   width: 100%;
@@ -425,9 +405,6 @@
   text-decoration: underline;
 }
 
-/* ============================================
-   BILLING INFORMATION
-   ============================================ */
 
 .subscription-billing-grid {
   display: grid;
@@ -504,9 +481,6 @@
   line-height: 1.6;
 }
 
-/* ============================================
-   INVOICES TABLE
-   ============================================ */
 
 .subscription-invoices-card {
   background: #ffffff;
@@ -620,9 +594,6 @@
   height: 16px;
 }
 
-/* ============================================
-   SUBSCRIPTION HISTORY
-   ============================================ */
 
 .subscription-history-card {
   background: #ffffff;
@@ -689,9 +660,6 @@
   text-align: right;
 }
 
-/* ============================================
-   MODAL
-   ============================================ */
 
 .subscription-modal-overlay {
   position: fixed;
@@ -832,9 +800,6 @@
   flex: 1;
 }
 
-/* ============================================
-   RESPONSIVE
-   ============================================ */
 
 @media (max-width: 767px) {
   .subscription-plan-card {

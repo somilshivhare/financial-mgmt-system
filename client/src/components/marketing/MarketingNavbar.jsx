@@ -9,12 +9,10 @@ export default function MarketingNavbar() {
 
   const close = () => setOpen(false)
 
-  // Close drawer when route changes
   useEffect(() => {
     setOpen(false)
   }, [location.pathname])
 
-  // Close drawer when resizing to desktop
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth > 980 && open) {
@@ -26,7 +24,6 @@ export default function MarketingNavbar() {
     return () => window.removeEventListener('resize', handleResize)
   }, [open])
 
-  // Close drawer when clicking outside (on backdrop)
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (open && window.innerWidth <= 980) {
@@ -44,7 +41,6 @@ export default function MarketingNavbar() {
     }
   }, [open])
 
-  // Prevent body scroll when drawer is open (only on mobile)
   useEffect(() => {
     if (open && window.innerWidth <= 980) {
       document.body.style.overflow = 'hidden'
@@ -122,7 +118,6 @@ export default function MarketingNavbar() {
         id="mobile-nav"
         aria-hidden={!open}
         onClick={(e) => {
-          // Close when clicking backdrop (outside drawer inner)
           if (e.target.id === 'mobile-nav') {
             setOpen(false)
           }

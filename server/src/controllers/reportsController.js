@@ -1,9 +1,6 @@
 const { apiSuccess, apiError } = require('../utils/apiResponse');
 const reportsService = require('../services/reportsService');
 
-/**
- * Get Sales Report
- */
 const getSalesReport = async (req, res, next) => {
   try {
     const filters = {
@@ -23,9 +20,6 @@ const getSalesReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Purchase Order Report
- */
 const getPOReport = async (req, res, next) => {
   try {
     const filters = {
@@ -45,9 +39,6 @@ const getPOReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Invoice Report
- */
 const getInvoiceReport = async (req, res, next) => {
   try {
     const filters = {
@@ -67,9 +58,6 @@ const getInvoiceReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Payment Report
- */
 const getPaymentReport = async (req, res, next) => {
   try {
     const filters = {
@@ -89,9 +77,6 @@ const getPaymentReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Collection Report
- */
 const getCollectionReport = async (req, res, next) => {
   try {
     const filters = {
@@ -111,9 +96,6 @@ const getCollectionReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Outstanding & Overdue Report
- */
 const getOutstandingReport = async (req, res, next) => {
   try {
     const filters = {
@@ -133,9 +115,6 @@ const getOutstandingReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Customer-wise Report
- */
 const getCustomerWiseReport = async (req, res, next) => {
   try {
     const filters = {
@@ -154,9 +133,6 @@ const getCustomerWiseReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Project-wise Report
- */
 const getProjectWiseReport = async (req, res, next) => {
   try {
     const filters = {
@@ -175,9 +151,6 @@ const getProjectWiseReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Aging Report
- */
 const getAgingReport = async (req, res, next) => {
   try {
     const filters = {
@@ -196,9 +169,6 @@ const getAgingReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Tax & GST Report
- */
 const getTaxGSTReport = async (req, res, next) => {
   try {
     const filters = {
@@ -217,9 +187,6 @@ const getTaxGSTReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Commission Report
- */
 const getCommissionReport = async (req, res, next) => {
   try {
     const filters = {
@@ -238,9 +205,6 @@ const getCommissionReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Reconciliation Report
- */
 const getReconciliationReport = async (req, res, next) => {
   try {
     const filters = {
@@ -260,9 +224,6 @@ const getReconciliationReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get Audit Log Report
- */
 const getAuditLogReport = async (req, res, next) => {
   try {
     const filters = {
@@ -278,9 +239,6 @@ const getAuditLogReport = async (req, res, next) => {
   }
 };
 
-/**
- * Get KPIs
- */
 const getKPIs = async (req, res, next) => {
   try {
     const filters = {

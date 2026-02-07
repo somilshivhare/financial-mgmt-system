@@ -6,7 +6,6 @@ export const getMasterDataByType = async (type, { companyId, status } = {}) => {
   if (companyId) params.set('companyId', companyId)
   if (status) params.set('status', status)
   const response = await client.get(`/master-data?${params.toString()}`)
-  // Extract the data array from the API response
   return response.data?.data || response.data || []
 }
 
@@ -32,7 +31,6 @@ export const saveMasterDataRecord = async (type, recordData) => {
 export const upsertMasterDataRecord = async (type, recordData) => {
   const response = await client.post(`/master-data/${type}/upsert`, recordData)
   
-  // Trigger refresh event for Master Data Records page
   if (response.data?.data) {
     window.dispatchEvent(new CustomEvent('masterDataUpdated', { 
       detail: { type, record: response.data.data } 
@@ -79,26 +77,16 @@ export const publishDraftMasterData = async (draftCompanyId) => {
   return response.data
 }
 
-/**
- * Check if a master data step is locked (has saved data in backend)
- * Returns true if the step has been saved and should be locked
- */
 export const isStepLocked = async (type) => {
   try {
     const response = await client.get(`/master-data/latest?type=${type}`)
-    // If latest record exists, step is locked
     return !!(response.data?.data)
   } catch (error) {
-    // If error, assume not locked (allow editing)
     console.warn(`[MasterData] Failed to check lock status for ${type}:`, error)
     return false
   }
 }
 
-/**
- * Get locked status for all steps
- * Returns an object with step types as keys and boolean locked status as values
- */
 export const getAllStepsLockedStatus = async () => {
   const FORM_TYPES = ['company-profile', 'customer-profile', 'consignee-profile', 'payer-profile', 'employee-profile', 'payment-terms']
   
@@ -116,7 +104,6 @@ export const getAllStepsLockedStatus = async () => {
         const [type, locked] = result.value
         statusMap[type] = locked
       } else {
-        // On error, assume not locked
         statusMap[FORM_TYPES[index]] = false
       }
     })
@@ -124,7 +111,6 @@ export const getAllStepsLockedStatus = async () => {
     return statusMap
   } catch (error) {
     console.error('[MasterData] Failed to check all steps lock status:', error)
-    // Return all false on error (allow editing)
     return FORM_TYPES.reduce((acc, type) => {
       acc[type] = false
       return acc

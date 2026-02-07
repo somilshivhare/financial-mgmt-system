@@ -59,7 +59,6 @@ function MoMEntry() {
       setLoading(true)
       const mom = await momService.getMoMById(id)
       if (mom) {
-        // Format datetime for datetime-local input (YYYY-MM-DDTHH:mm)
         let formattedDateTime = ''
         if (mom.meeting_date) {
           const date = new Date(mom.meeting_date)
@@ -124,7 +123,6 @@ function MoMEntry() {
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }))
     }
@@ -191,7 +189,6 @@ function MoMEntry() {
     try {
       setLoading(true)
       
-      // Prepare data for backend
       const momData = {
         title: formData.title,
         meeting_date: new Date(formData.datetime).toISOString(),

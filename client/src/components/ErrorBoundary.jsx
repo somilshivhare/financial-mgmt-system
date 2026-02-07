@@ -8,25 +8,20 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI
     return { hasError: true, error }
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log error to console for debugging
     console.error('ErrorBoundary caught an error:', error, errorInfo)
     this.setState({
       error,
       errorInfo,
     })
     
-    // You can also log the error to an error reporting service here
-    // Example: logErrorToService(error, errorInfo)
   }
 
   handleReset = () => {
     this.setState({ hasError: false, error: null, errorInfo: null })
-    // Optionally reload the page
     if (this.props.resetOnError) {
       window.location.reload()
     }
@@ -34,12 +29,10 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      // Custom fallback UI
       if (this.props.fallback) {
         return this.props.fallback(this.state.error, this.handleReset)
       }
 
-      // Default fallback UI
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
           <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">

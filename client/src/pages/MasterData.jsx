@@ -35,7 +35,6 @@ function MasterData() {
   const [statusFilter, setStatusFilter] = useState('all') // all | draft | published
   const [editLoadingId, setEditLoadingId] = useState(null)
   
-  // Refresh data when navigating to this page
   useEffect(() => {
     if (location.pathname === '/master-data') {
       loadMasterData()
@@ -48,7 +47,6 @@ function MasterData() {
     loadAggregatedMasterData()
   }, [loadMasterData, loadAggregatedMasterData])
 
-  // Listen for master data updates (e.g., after form submission)
   useEffect(() => {
     const handleUpdate = () => {
       loadMasterData()
@@ -57,7 +55,6 @@ function MasterData() {
 
     window.addEventListener('masterDataUpdated', handleUpdate)
     
-    // Also refresh when page becomes visible (user navigates back)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         loadMasterData()
@@ -87,7 +84,6 @@ function MasterData() {
     })
     if (!confirmed) return
     try {
-      // Delete the company profile (which represents this master data set)
       await deleteRecord('company-profile', companyId)
       loadAggregatedMasterData()
     } catch (error) {
@@ -95,8 +91,6 @@ function MasterData() {
     }
   }
 
-  // Edit opens the wizard through the index flow: index → step selection → form steps with prefilled values.
-  // For draft: resume that draft. For published: create a new draft copy, then open index with that draftId.
   const handleEdit = async (aggregatedData) => {
     if (!aggregatedData) return
     if ((aggregatedData.status || 'published') === 'draft') {
@@ -116,7 +110,6 @@ function MasterData() {
     }
   }
 
-  // Filter aggregated data list based on search query and status (draft / published)
   const filteredAggregatedDataList = useMemo(() => {
     if (!aggregatedDataList || aggregatedDataList.length === 0) return []
     
@@ -161,7 +154,6 @@ function MasterData() {
 
 
 
-  // Get completion status badges for each step
   const getCompletionBadges = (completionStatus) => {
     const stepLabels = {
       'company-profile': 'Company',
@@ -179,13 +171,11 @@ function MasterData() {
     }))
   }
   
-  // Get primary contact info from aggregated data
   const getPrimaryContact = (aggregated) => {
     if (!aggregated || !aggregated.stepData) {
       return { email: 'N/A', phone: 'N/A' }
     }
     
-    // Try to get from company-profile first, then customer-profile
     const companyData = aggregated.stepData['company-profile']
     if (companyData?.values) {
       return {
@@ -376,7 +366,6 @@ function MasterData() {
           ))}
         </div>
       ) : (
-        /* Empty state */
         <div className="md-empty-card">
           <div className="md-empty-icon">
             <FileText className="h-7 w-7" />

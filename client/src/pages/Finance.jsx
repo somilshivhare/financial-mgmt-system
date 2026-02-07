@@ -10,7 +10,6 @@ function Finance() {
     const fetchPayments = async () => {
       try {
         const response = await getAllPayments()
-        // Transform payments to transaction format for display
         const transactions = response.map(payment => ({
           id: payment.id,
           date: payment.paymentReceiptDate,

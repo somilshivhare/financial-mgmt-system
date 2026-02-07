@@ -1,14 +1,10 @@
 const { v4: uuidv4 } = require('uuid');
 const { query, transaction } = require('../db/query');
 
-/**
- * Generate unique ticket number (format: TCK-YYYY-NNNNN)
- */
 const generateTicketNumber = async () => {
   const currentYear = new Date().getFullYear();
   
   return transaction(async (conn) => {
-    // Get or create counter for current year
     const [counterRow] = await conn.execute(
       'SELECT counter FROM support_ticket_counter WHERE year = ? FOR UPDATE',
       [currentYear]
@@ -24,28 +20,22 @@ const generateTicketNumber = async () => {
       counter = counterRow[0].counter;
     }
     
-    // Increment counter
     counter += 1;
     await conn.execute(
       'UPDATE support_ticket_counter SET counter = ?, updated_at = NOW() WHERE year = ?',
       [counter, currentYear]
     );
     
-    // Format: TCK-YYYY-NNNNN (5 digits)
     const ticketNumber = `TCK-${currentYear}-${String(counter).padStart(5, '0')}`;
     return ticketNumber;
   });
 };
 
-/**
- * Create a new support ticket
- */
 const createTicket = async (ticketData, userId) => {
   const ticketId = uuidv4();
   const ticketNumber = await generateTicketNumber();
   
   return transaction(async (conn) => {
-    // Insert ticket
     await conn.execute(
       `INSERT INTO support_tickets 
        (id, ticket_number, user_id, category, priority, subject, description, status, created_at)
@@ -61,7 +51,6 @@ const createTicket = async (ticketData, userId) => {
       ]
     );
     
-    // Log creation in history
     const historyId = uuidv4();
     await conn.execute(
       `INSERT INTO support_ticket_history 
@@ -75,7 +64,6 @@ const createTicket = async (ticketData, userId) => {
       ]
     );
     
-    // Get created ticket
     const [tickets] = await conn.execute(
       `SELECT 
         t.*,
@@ -93,9 +81,6 @@ const createTicket = async (ticketData, userId) => {
   });
 };
 
-/**
- * Add attachments to a ticket
- */
 const addAttachments = async (ticketId, attachments, userId) => {
   return transaction(async (conn) => {
     const attachmentIds = [];
@@ -124,9 +109,6 @@ const addAttachments = async (ticketId, attachments, userId) => {
   });
 };
 
-/**
- * Get ticket by ID
- */
 const getTicketById = async (ticketId, userId, userRole) => {
   const tickets = await query(
     `SELECT 
@@ -148,7 +130,6 @@ const getTicketById = async (ticketId, userId, userRole) => {
   
   const ticket = tickets[0];
   
-  // Check access: users can only see their own tickets, admins can see all
   if (userRole !== 'admin' && ticket.user_id !== userId) {
     throw new Error('FORBIDDEN');
   }
@@ -156,9 +137,6 @@ const getTicketById = async (ticketId, userId, userRole) => {
   return formatTicket(ticket);
 };
 
-/**
- * List tickets for a user (or all tickets for admin)
- */
 const listTickets = async (userId, userRole, filters = {}) => {
   let sql = `
     SELECT 
@@ -173,13 +151,11 @@ const listTickets = async (userId, userRole, filters = {}) => {
   `;
   const params = [];
   
-  // Filter by user if not admin
   if (userRole !== 'admin') {
     sql += ' AND t.user_id = ?';
     params.push(userId);
   }
   
-  // Apply filters
   if (filters.status) {
     sql += ' AND t.status = ?';
     params.push(filters.status);
@@ -200,10 +176,8 @@ const listTickets = async (userId, userRole, filters = {}) => {
     params.push(filters.assignedTo);
   }
   
-  // Order by created_at desc
   sql += ' ORDER BY t.created_at DESC';
   
-  // Limit
   const limit = filters.limit || 50;
   sql += ' LIMIT ?';
   params.push(limit);
@@ -217,14 +191,9 @@ const listTickets = async (userId, userRole, filters = {}) => {
   return tickets.map(formatTicket);
 };
 
-/**
- * Get ticket history (replies and status changes)
- */
 const getTicketHistory = async (ticketId, userId, userRole) => {
-  // First verify access
   const ticket = await getTicketById(ticketId, userId, userRole);
   
-  // Get replies
   const replies = await query(
     `SELECT 
       r.*,
@@ -237,7 +206,6 @@ const getTicketHistory = async (ticketId, userId, userRole) => {
     [ticketId]
   );
   
-  // Get history (status changes, etc.)
   const history = await query(
     `SELECT 
       h.*,
@@ -249,7 +217,6 @@ const getTicketHistory = async (ticketId, userId, userRole) => {
     [ticketId]
   );
   
-  // Get attachments
   const attachments = await query(
     `SELECT 
       a.*,
@@ -269,15 +236,10 @@ const getTicketHistory = async (ticketId, userId, userRole) => {
   };
 };
 
-/**
- * Add a reply to a ticket
- */
 const addReply = async (ticketId, message, userId, userRole, isInternal = false) => {
   return transaction(async (conn) => {
-    // Verify ticket exists and user has access
     const ticket = await getTicketById(ticketId, userId, userRole);
     
-    // Only admins can add internal replies
     if (isInternal && userRole !== 'admin') {
       throw new Error('FORBIDDEN');
     }
@@ -290,7 +252,6 @@ const addReply = async (ticketId, message, userId, userRole, isInternal = false)
       [replyId, ticketId, userId, message, isInternal]
     );
     
-    // Log in history
     const historyId = uuidv4();
     await conn.execute(
       `INSERT INTO support_ticket_history
@@ -304,7 +265,6 @@ const addReply = async (ticketId, message, userId, userRole, isInternal = false)
       ]
     );
     
-    // If ticket is closed/resolved and user replies, reopen it
     if ((ticket.status === 'closed' || ticket.status === 'resolved') && !isInternal) {
       await updateTicketStatus(ticketId, 'open', userId, userRole, 'Reopened by user reply');
     }
@@ -325,12 +285,8 @@ const addReply = async (ticketId, message, userId, userRole, isInternal = false)
   });
 };
 
-/**
- * Update ticket status
- */
 const updateTicketStatus = async (ticketId, status, userId, userRole, notes = null) => {
   return transaction(async (conn) => {
-    // Get current ticket
     const [tickets] = await conn.execute(
       'SELECT * FROM support_tickets WHERE id = ?',
       [ticketId]
@@ -342,12 +298,10 @@ const updateTicketStatus = async (ticketId, status, userId, userRole, notes = nu
     
     const ticket = tickets[0];
     
-    // Check access: users can only update their own tickets to certain statuses
     if (userRole !== 'admin' && ticket.user_id !== userId) {
       throw new Error('FORBIDDEN');
     }
     
-    // Users can only close their own tickets, admins can set any status
     if (userRole !== 'admin' && status !== 'closed' && ticket.user_id !== userId) {
       throw new Error('FORBIDDEN');
     }
@@ -358,7 +312,6 @@ const updateTicketStatus = async (ticketId, status, userId, userRole, notes = nu
                       status === 'closed' ? 'closed' :
                       status === 'open' && oldStatus !== 'open' ? 'reopened' : 'status_changed';
     
-    // Update ticket
     const updateFields = ['status = ?', 'updated_at = NOW()'];
     const updateParams = [status];
     
@@ -384,7 +337,6 @@ const updateTicketStatus = async (ticketId, status, userId, userRole, notes = nu
       updateParams
     );
     
-    // Log in history
     const historyId = uuidv4();
     await conn.execute(
       `INSERT INTO support_ticket_history
@@ -402,14 +354,10 @@ const updateTicketStatus = async (ticketId, status, userId, userRole, notes = nu
     );
     
     
-    // Get updated ticket
     return getTicketById(ticketId, userId, userRole);
   });
 };
 
-/**
- * Assign ticket to admin
- */
 const assignTicket = async (ticketId, assignedTo, userId, userRole) => {
   if (userRole !== 'admin') {
     throw new Error('FORBIDDEN');
@@ -433,7 +381,6 @@ const assignTicket = async (ticketId, assignedTo, userId, userRole) => {
       [assignedTo, ticketId]
     );
     
-    // Log in history
     const historyId = uuidv4();
     await conn.execute(
       `INSERT INTO support_ticket_history
@@ -453,9 +400,6 @@ const assignTicket = async (ticketId, assignedTo, userId, userRole) => {
   });
 };
 
-/**
- * Update ticket priority
- */
 const updatePriority = async (ticketId, priority, userId, userRole) => {
   if (userRole !== 'admin') {
     throw new Error('FORBIDDEN');
@@ -479,7 +423,6 @@ const updatePriority = async (ticketId, priority, userId, userRole) => {
       [priority, ticketId]
     );
     
-    // Log in history
     const historyId = uuidv4();
     await conn.execute(
       `INSERT INTO support_ticket_history
@@ -499,9 +442,6 @@ const updatePriority = async (ticketId, priority, userId, userRole) => {
   });
 };
 
-/**
- * Format ticket for API response
- */
 const formatTicket = (ticket) => {
   if (!ticket) return null;
   
@@ -529,9 +469,6 @@ const formatTicket = (ticket) => {
   };
 };
 
-/**
- * Format reply for API response
- */
 const formatReply = (reply) => {
   if (!reply) return null;
   
@@ -548,9 +485,6 @@ const formatReply = (reply) => {
   };
 };
 
-/**
- * Format history entry for API response
- */
 const formatHistory = (history) => {
   if (!history) return null;
   
@@ -567,9 +501,6 @@ const formatHistory = (history) => {
   };
 };
 
-/**
- * Format attachment for API response
- */
 const formatAttachment = (attachment) => {
   if (!attachment) return null;
   

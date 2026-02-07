@@ -1,9 +1,7 @@
 const { pool } = require('./pool');
 
-// Mark problematic migrations as applied if they've been partially run
 const fixMigrations = async () => {
   try {
-    // Ensure migrations table exists
     await pool.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -12,7 +10,6 @@ const fixMigrations = async () => {
       )
     `);
 
-    // Check if 010_mom_enhancement.sql columns exist
     const [columns] = await pool.query(`
       SELECT COLUMN_NAME 
       FROM INFORMATION_SCHEMA.COLUMNS 
@@ -21,7 +18,6 @@ const fixMigrations = async () => {
       AND COLUMN_NAME IN ('meeting_type', 'agenda', 'status')
     `);
 
-    // If columns exist, mark migration as applied
     if (columns.length > 0) {
       const [existing] = await pool.query(
         'SELECT filename FROM schema_migrations WHERE filename = ?',

@@ -26,12 +26,10 @@ function Register({ onRegister }) {
   const isSubmittingRef = useRef(false)
   const submitButtonClickedRef = useRef(false)
 
-  // Prevent form submission on Enter key press in input fields
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && e.target.type !== 'submit' && e.target.tagName !== 'BUTTON') {
       e.preventDefault()
       e.stopPropagation()
-      // Focus on submit button to indicate user should click it
       const submitButton = e.target.form?.querySelector('button[type="submit"]')
       if (submitButton && !loading) {
         submitButton.focus()
@@ -39,10 +37,8 @@ function Register({ onRegister }) {
     }
   }
 
-  // Track when submit button is clicked
   const handleSubmitButtonClick = (e) => {
     submitButtonClickedRef.current = true
-    // Reset after form submission completes
     setTimeout(() => {
       submitButtonClickedRef.current = false
     }, 1000)
@@ -51,11 +47,9 @@ function Register({ onRegister }) {
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-    // Clear field error when user starts typing
     if (fieldErrors[name]) {
       setFieldErrors((prev) => ({ ...prev, [name]: '' }))
     }
-    // Clear general error
     if (error) setError('')
   }
 
@@ -122,17 +116,14 @@ function Register({ onRegister }) {
     e.preventDefault()
     e.stopPropagation()
     
-    // Only allow submission if submit button was clicked
     if (!submitButtonClickedRef.current) {
       return
     }
     
-    // Prevent double submission
     if (isSubmittingRef.current || loading) {
       return
     }
     
-    // Clear any existing timeout
     if (submitTimeoutRef.current) {
       clearTimeout(submitTimeoutRef.current)
     }
@@ -143,13 +134,10 @@ function Register({ onRegister }) {
       return
     }
 
-    // Set submitting flag and loading state
     isSubmittingRef.current = true
     setLoading(true)
 
     try {
-      // All new registrations automatically get 'user' role (role_id=2)
-      // Admin role cannot be assigned via public registration
       const response = await register(
         formData.email,
         formData.password,
@@ -166,7 +154,6 @@ function Register({ onRegister }) {
         companyName: formData.companyName,
       }
       
-      // Store remember me preference
       if (rememberMe) {
         localStorage.setItem('rememberRegistration', JSON.stringify({
           email: formData.email,
@@ -180,7 +167,6 @@ function Register({ onRegister }) {
       onRegister(userData)
       navigate('/dashboard')
     } catch (err) {
-      // Handle structured error responses
       let errorMessage = 'Registration failed. Please check your information and try again.'
       
       if (err.response?.data) {
@@ -203,7 +189,6 @@ function Register({ onRegister }) {
       setError(errorMessage)
       console.error('[Register] Error:', err)
     } finally {
-      // Add small delay before allowing resubmission to prevent rapid clicks
       submitTimeoutRef.current = setTimeout(() => {
         isSubmittingRef.current = false
         setLoading(false)
@@ -211,7 +196,6 @@ function Register({ onRegister }) {
     }
   }
   
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (submitTimeoutRef.current) {
@@ -220,7 +204,6 @@ function Register({ onRegister }) {
     }
   }, [])
 
-  // Load remembered registration data on mount
   useEffect(() => {
     const rememberedData = localStorage.getItem('rememberRegistration')
     if (rememberedData) {

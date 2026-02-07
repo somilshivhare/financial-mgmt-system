@@ -18,16 +18,13 @@ const getProfile = async (req, res, next) => {
       return res.status(404).json(apiError('User not found', 'ERR_NOT_FOUND'));
     }
 
-    // Get profile (may be null if table doesn't exist or profile not created)
     let profile = null;
     try {
       profile = await userService.getUserProfile(userId);
     } catch (err) {
       console.warn('Failed to get user profile:', err.message);
-      // Continue without profile data
     }
     
-    // Get active sessions (may be empty if table doesn't exist)
     let sessions = [];
     try {
       sessions = await userService.getActiveUserSessions(userId);
@@ -35,7 +32,6 @@ const getProfile = async (req, res, next) => {
       console.warn('Failed to get sessions:', err.message);
     }
     
-    // Get login history (may be empty if table doesn't exist)
     let loginHistory = [];
     try {
       loginHistory = await userService.getUserLoginHistory(userId, 10);
@@ -43,7 +39,6 @@ const getProfile = async (req, res, next) => {
       console.warn('Failed to get login history:', err.message);
     }
     
-    // Get preferences (may be empty if table doesn't exist)
     let preferences = [];
     try {
       preferences = await userService.getUserPreferences(userId);
@@ -70,7 +65,6 @@ const getProfile = async (req, res, next) => {
       },
       profile: profile || {},
       sessions: sessions.map((s, index) => {
-        // Mark the most recent session (first in list, sorted by last_activity_at DESC) as current
         const isCurrent = index === 0;
         
         return {
@@ -121,14 +115,11 @@ const updateProfile = async (req, res, next) => {
       date_format,
     } = req.body;
 
-    // RBAC: Only admins can change company_name
-    // Regular users cannot update company_name even if they send it
     let finalCompanyName = null;
     if (req.user.role === 'admin' && company_name !== undefined) {
       finalCompanyName = company_name;
     }
 
-    // Update user's full_name if provided (only if user has permission)
     if (name && name.trim()) {
       await query(
         'UPDATE users SET full_name = ?, updated_by = ?, updated_at = NOW() WHERE id = ?',
@@ -136,7 +127,6 @@ const updateProfile = async (req, res, next) => {
       );
     }
 
-    // Update user profile
     await userService.upsertUserProfile(userId, {
       phone,
       mobile,
@@ -154,7 +144,6 @@ const updateProfile = async (req, res, next) => {
       date_format,
     }, userId); // Pass userId for audit tracking
 
-    // Update preferences if provided
     if (timezone) {
       await userService.setUserPreference(userId, 'timezone', timezone);
     }
@@ -165,7 +154,6 @@ const updateProfile = async (req, res, next) => {
       await userService.setUserPreference(userId, 'date_format', date_format);
     }
 
-    // Log activity
     await userService.logUserActivity(userId, {
       action_type: 'profile_updated',
       action_description: 'Updated user profile',
@@ -201,31 +189,25 @@ const uploadProfilePhoto = async (req, res, next) => {
       const userId = req.user.id;
       const fileUrl = `/uploads/profiles/${req.file.filename}`;
 
-      // Get existing profile to check for old photo
       const existingProfile = await userService.getUserProfile(userId);
       let oldPhotoPath = null;
       if (existingProfile && existingProfile.profile_picture_url) {
-        // Extract filename from URL
         const oldFilename = existingProfile.profile_picture_url.split('/').pop();
         oldPhotoPath = path.join(__dirname, '../../uploads/profiles', oldFilename);
       }
 
-      // Update profile with new photo URL
       await userService.upsertUserProfile(userId, {
         profile_picture_url: fileUrl,
       }, userId);
 
-      // Delete old photo if it exists
       if (oldPhotoPath && fs.existsSync(oldPhotoPath)) {
         try {
           fs.unlinkSync(oldPhotoPath);
         } catch (unlinkErr) {
           console.warn('Failed to delete old profile photo:', unlinkErr);
-          // Don't fail the request if old photo deletion fails
         }
       }
 
-      // Log activity
       await userService.logUserActivity(userId, {
         action_type: 'profile_photo_updated',
         action_description: 'Updated profile photo',
@@ -237,7 +219,6 @@ const uploadProfilePhoto = async (req, res, next) => {
 
       res.json(apiSuccess({ photoUrl: fileUrl }, 'Profile photo uploaded successfully'));
     } catch (err) {
-      // Clean up uploaded file on error
       if (req.file && fs.existsSync(req.file.path)) {
         try {
           fs.unlinkSync(req.file.path);
@@ -274,7 +255,6 @@ const revokeSession = async (req, res, next) => {
     const { sessionId } = req.params;
     const userId = req.user.id;
     
-    // Verify session belongs to user
     const sessions = await userService.getActiveUserSessions(userId);
     const session = sessions.find((s) => s.id === sessionId);
     
@@ -334,7 +314,6 @@ const updatePassword = async (req, res, next) => {
       return res.status(400).json(apiError('New password must be at least 8 characters', 'ERR_INVALID_PASSWORD'));
     }
 
-    // Get user's current password hash
     const { query } = require('../db/query');
     const users = await query('SELECT password_hash FROM users WHERE id = ?', [userId]);
     const user = users[0];
@@ -343,26 +322,21 @@ const updatePassword = async (req, res, next) => {
       return res.status(404).json(apiError('User not found', 'ERR_NOT_FOUND'));
     }
 
-    // Verify current password
     const isValid = await bcrypt.compare(currentPassword, user.password_hash);
     if (!isValid) {
       return res.status(401).json(apiError('Current password is incorrect', 'ERR_INVALID_PASSWORD'));
     }
 
-    // Hash new password
     const newPasswordHash = await bcrypt.hash(newPassword, env.BCRYPT_ROUNDS);
 
-    // Update password
     await query('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?', [newPasswordHash, userId]);
 
-    // Update security settings
     await userService.updateUserSecuritySettings(userId, {
       password_changed_at: new Date(),
       last_password_change_at: new Date(),
       failed_login_attempts: 0,
     });
 
-    // Log activity
     await userService.logUserActivity(userId, {
       action_type: 'password_changed',
       action_description: 'User changed password',

@@ -1,8 +1,5 @@
 const { query } = require('../db/query');
 
-/**
- * Build WHERE clause for date range filters
- */
 const buildDateFilter = (dateFrom, dateTo, dateField = 'created_at') => {
   const conditions = [];
   const params = [];
@@ -17,9 +14,6 @@ const buildDateFilter = (dateFrom, dateTo, dateField = 'created_at') => {
   return { conditions, params };
 };
 
-/**
- * Build WHERE clause for common filters
- */
 const buildCommonFilters = (filters) => {
   const conditions = [];
   const params = [];
@@ -37,12 +31,10 @@ const buildCommonFilters = (filters) => {
     tablePrefix = '', // e.g., 'i.' for invoices, 'po.' for purchase_orders
   } = filters;
 
-  // Date range
   const dateFilter = buildDateFilter(dateFrom, dateTo, dateField);
   conditions.push(...dateFilter.conditions);
   params.push(...dateFilter.params);
 
-  // Customer filter - try both main table and joined customer table
   if (customerId) {
     if (tablePrefix) {
       conditions.push(`${tablePrefix}customer_id = ?`);
@@ -52,7 +44,6 @@ const buildCommonFilters = (filters) => {
     params.push(customerId);
   }
 
-  // Project filter (if project_id exists in table)
   if (projectId) {
     if (tablePrefix) {
       conditions.push(`${tablePrefix}project_id = ?`);
@@ -62,25 +53,21 @@ const buildCommonFilters = (filters) => {
     params.push(projectId);
   }
 
-  // Business Unit filter (via customer)
   if (businessUnitId) {
     conditions.push('c.business_unit_id = ?');
     params.push(businessUnitId);
   }
 
-  // Segment filter (via customer)
   if (segmentId) {
     conditions.push('c.segment_id = ?');
     params.push(segmentId);
   }
 
-  // Region filter (via customer)
   if (regionId) {
     conditions.push('c.region_id = ?');
     params.push(regionId);
   }
 
-  // User filter
   if (userId) {
     if (tablePrefix) {
       conditions.push(`${tablePrefix}created_by = ?`);
@@ -90,7 +77,6 @@ const buildCommonFilters = (filters) => {
     params.push(userId);
   }
 
-  // Status filter
   if (status) {
     if (tablePrefix) {
       conditions.push(`${tablePrefix}status = ?`);
@@ -103,9 +89,6 @@ const buildCommonFilters = (filters) => {
   return { conditions, params };
 };
 
-/**
- * Get Sales Report
- */
 const getSalesReport = async (filters = {}) => {
   try {
     const { conditions, params } = buildCommonFilters({ ...filters, dateField: 'i.issue_date', tablePrefix: 'i.' });
@@ -144,7 +127,6 @@ const getSalesReport = async (filters = {}) => {
     params
   );
 
-    // Calculate summary
     const summary = salesData.reduce(
       (acc, row) => {
         acc.totalInvoices += 1;
@@ -167,9 +149,6 @@ const getSalesReport = async (filters = {}) => {
   }
 };
 
-/**
- * Get Purchase Order Report
- */
 const getPOReport = async (filters = {}) => {
   const { conditions, params } = buildCommonFilters({ ...filters, dateField: 'po.issue_date', tablePrefix: 'po.' });
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -218,18 +197,11 @@ const getPOReport = async (filters = {}) => {
   return { data: poData, summary };
 };
 
-/**
- * Get Invoice Report
- */
 const getInvoiceReport = async (filters = {}) => {
   return getSalesReport(filters); // Same as sales report
 };
 
-/**
- * Get Payment Report
- */
 const getPaymentReport = async (filters = {}) => {
-  // For payments, customer_id is on invoice, so we need special handling
   const conditions = [];
   const params = [];
   const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'p.paid_at');
@@ -313,11 +285,7 @@ const getPaymentReport = async (filters = {}) => {
   return { data: paymentData, summary };
 };
 
-/**
- * Get Collection Report
- */
 const getCollectionReport = async (filters = {}) => {
-  // For collections, customer_id is on invoice
   const conditions = [];
   const params = [];
   const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'cp.target_date');
@@ -388,9 +356,6 @@ const getCollectionReport = async (filters = {}) => {
   return { data: collectionData, summary };
 };
 
-/**
- * Get Outstanding & Overdue Report
- */
 const getOutstandingReport = async (filters = {}) => {
   const { conditions, params } = buildCommonFilters({ ...filters, tablePrefix: 'i.' });
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -441,11 +406,7 @@ const getOutstandingReport = async (filters = {}) => {
   return { data: outstandingData, summary };
 };
 
-/**
- * Get Customer-wise Report
- */
 const getCustomerWiseReport = async (filters = {}) => {
-  // Special handling for customer-wise report
   const conditions = [];
   const params = [];
   const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'i.issue_date');
@@ -516,18 +477,10 @@ const getCustomerWiseReport = async (filters = {}) => {
   return { data: customerData, summary };
 };
 
-/**
- * Get Project-wise Report (if project_id exists in invoices/POs)
- */
 const getProjectWiseReport = async (filters = {}) => {
-  // For now, return customer-wise as projects may not be separate entities
-  // This can be enhanced if project_id is added to invoices/POs
   return getCustomerWiseReport(filters);
 };
 
-/**
- * Get Aging Report (30/60/90+ days)
- */
 const getAgingReport = async (filters = {}) => {
   const { conditions, params } = buildCommonFilters({ ...filters, tablePrefix: 'i.' });
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -588,9 +541,6 @@ const getAgingReport = async (filters = {}) => {
   return { data: agingData, summary };
 };
 
-/**
- * Get Tax & GST Report
- */
 const getTaxGSTReport = async (filters = {}) => {
   const { conditions, params } = buildCommonFilters({ ...filters, dateField: 'i.issue_date', tablePrefix: 'i.' });
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -652,12 +602,7 @@ const getTaxGSTReport = async (filters = {}) => {
   return { data: taxData, summary };
 };
 
-/**
- * Get Commission Report (Sales & Collection Agents)
- */
 const getCommissionReport = async (filters = {}) => {
-  // This assumes commission tracking fields exist in invoices/payments
-  // Adjust based on actual schema
   const { conditions, params } = buildCommonFilters({ ...filters, dateField: 'i.issue_date' });
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -680,7 +625,6 @@ const getCommissionReport = async (filters = {}) => {
     params
   );
 
-  // Calculate commission (example: 2% on sales, 1% on collections)
   const summary = commissionData.reduce(
     (acc, row) => {
       acc.totalUsers += 1;
@@ -696,11 +640,7 @@ const getCommissionReport = async (filters = {}) => {
   return { data: commissionData, summary };
 };
 
-/**
- * Get Bank & Payment Reconciliation Report
- */
 const getReconciliationReport = async (filters = {}) => {
-  // Similar to payment report
   const conditions = [];
   const params = [];
   const dateFilter = buildDateFilter(filters.dateFrom, filters.dateTo, 'p.paid_at');
@@ -790,9 +730,6 @@ const getReconciliationReport = async (filters = {}) => {
   return { data: reconciliationData, summary };
 };
 
-/**
- * Get Audit/Activity Log Report
- */
 const getAuditLogReport = async (filters = {}) => {
   const { dateFrom, dateTo, userId, actionType } = filters;
   const conditions = [];
@@ -854,9 +791,6 @@ const getAuditLogReport = async (filters = {}) => {
   return { data: auditData, summary };
 };
 
-/**
- * Get KPIs for Reports Dashboard
- */
 const getKPIs = async (filters = {}) => {
   try {
     const { dateFrom, dateTo } = filters;

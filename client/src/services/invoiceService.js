@@ -1,11 +1,6 @@
-/**
- * Invoice Service
- * Manages Invoice data, Invoice ID generation, and calculations
- */
 
 import * as invoiceApi from '../api/invoice'
 
-// Generate unique Invoice ID based on business rules (placeholder when API not used)
 export const generateInvoiceID = (invoiceType = 'REG', businessUnit = 'MAIN', financialYear = null) => {
   if (!financialYear) {
     const now = new Date()
@@ -17,7 +12,6 @@ export const generateInvoiceID = (invoiceType = 'REG', businessUnit = 'MAIN', fi
   return `INV-${invoiceType}-${businessUnit}-${fyShort}-XXXX`
 }
 
-// Fallback: generate a number with digits (no XXXX) when API is unavailable
 function fallbackInvoiceNumber(invoiceType = 'REG', businessUnit = 'MAIN') {
   const now = new Date()
   const year = now.getFullYear()
@@ -29,7 +23,6 @@ function fallbackInvoiceNumber(invoiceType = 'REG', businessUnit = 'MAIN') {
   return `INV-${invoiceType}-${businessUnit}-${fyShort}-${seq}`
 }
 
-// Fetch next internal invoice number from backend (real sequence, e.g. INV-REG-MAIN-20252026-0001)
 export const fetchNextInvoiceNumber = async (invoiceType = 'REG', businessUnit = 'MAIN') => {
   try {
     const next = await invoiceApi.getNextInvoiceNumber({ invoiceType, businessUnit })
@@ -41,17 +34,13 @@ export const fetchNextInvoiceNumber = async (invoiceType = 'REG', businessUnit =
   }
 }
 
-// Get all invoices (returns array). Handles every API shape so list always shows when data exists.
 function unwrapInvoiceList(response) {
   if (!response) return [];
   
-  // If response is directly the array
   if (Array.isArray(response)) return response;
   
-  // If response is the standard { success, data: [...] } from invoiceApi.js
   if (response.data && Array.isArray(response.data)) return response.data;
   
-  // If response is the raw backend response { success, data: { data: [...] } }
   const nestedData = response.data?.data || response.data;
   if (Array.isArray(nestedData)) return nestedData;
   
@@ -68,7 +57,6 @@ export const getAllInvoices = async () => {
   }
 }
 
-// Get invoice by Invoice ID
 export const getInvoiceByID = async (invoiceID) => {
   try {
     const response = await invoiceApi.getInvoiceByInvoiceNumber(invoiceID)
@@ -79,7 +67,6 @@ export const getInvoiceByID = async (invoiceID) => {
   }
 }
 
-// Get invoices by PO Number (Key ID)
 export const getInvoicesByPONumber = async (poNumber) => {
   try {
     const response = await invoiceApi.getInvoicesByPONumber(poNumber)
@@ -90,7 +77,6 @@ export const getInvoicesByPONumber = async (poNumber) => {
   }
 }
 
-// Save invoice
 export const saveInvoice = async (invoiceData) => {
   try {
     let response
@@ -100,10 +86,8 @@ export const saveInvoice = async (invoiceData) => {
       response = await invoiceApi.createInvoice(invoiceData)
     }
 
-    // Extract invoice data from response (handle nested structure: { success, data: { data: invoice } } or { data: invoice })
     const invoice = response?.data?.data || response?.data || response
     
-    // Ensure status is preserved from submission (especially for new invoices)
     const invoiceWithStatus = {
       ...invoice,
       status: invoice?.status || invoiceData.status || (invoiceData.id ? 'open' : 'posted')
@@ -111,31 +95,23 @@ export const saveInvoice = async (invoiceData) => {
 
     console.log('[InvoiceService] Saved invoice with status:', invoiceWithStatus.status, 'from payload:', invoiceData.status)
 
-    // Note: Event dispatch is handled in InvoiceEntry.jsx to ensure proper timing
-    // Don't dispatch here to avoid duplicate events
 
     return invoiceWithStatus
   } catch (error) {
     console.error('Failed to save invoice:', error)
-    // Re-throw so caller can read error.response?.data?.message
     throw error
   }
 }
 
-// Calculate invoice values
-// MUST be synchronous (used in useMemo in UI)
 export const calculateInvoiceValues = (formData) => {
   const basicRate = parseFloat(formData.basicRate || 0)
   const qty = parseFloat(formData.qty || 0)
   const freightRate = parseFloat(formData.freightRate || 0)
 
-  // Basic Value = Basic Rate × Qty
   const basicValue = basicRate * qty
 
-  // Freight Value = Freight Rate × Qty
   const freightValue = freightRate * qty
 
-  // GST Calculations
   const sgstRate = parseFloat(formData.sgstRate || 0)
   const cgstRate = parseFloat(formData.cgstRate || 0)
   const igstRate = parseFloat(formData.igstRate || 0)
@@ -148,10 +124,8 @@ export const calculateInvoiceValues = (formData) => {
 
   const totalGST = sgstValue + cgstValue + igstValue + ugstValue
 
-  // Subtotal = Basic Value + Freight Value
   const subtotal = basicValue + freightValue
 
-  // Total Invoice Value = Subtotal + Total GST
   const totalInvoiceValue = subtotal + totalGST
 
   return {
@@ -167,8 +141,6 @@ export const calculateInvoiceValues = (formData) => {
   }
 }
 
-// Calculate due dates and amounts
-// MUST be synchronous (used in useMemo in UI)
 export const calculateDueDates = (invoiceDate, paymentTerms, totalInvoiceValue) => {
   if (!invoiceDate || !paymentTerms) {
     return {
@@ -184,19 +156,15 @@ export const calculateDueDates = (invoiceDate, paymentTerms, totalInvoiceValue) 
   const invoice = new Date(invoiceDate)
   const total = parseFloat(totalInvoiceValue || 0)
 
-  // Parse payment terms - handle various formats:
-  // "30, 60, 90" or "30 days, 60 days" or "Net 30" or just numbers
   let terms = []
 
   if (typeof paymentTerms === 'string') {
-    // Extract numbers from the string
     const numbers = paymentTerms.match(/\d+/g)
     if (numbers) {
       terms = numbers.map((n) => parseInt(n, 10)).filter((n) => !isNaN(n) && n > 0)
     }
   }
 
-  // If no terms found, default to single payment
   if (terms.length === 0) {
     terms = [0] // Immediate payment
   }
@@ -205,7 +173,6 @@ export const calculateDueDates = (invoiceDate, paymentTerms, totalInvoiceValue) 
   const secondDueDays = terms[1] || 0
   const thirdDueDays = terms[2] || 0
 
-  // Calculate due dates
   const firstDue = new Date(invoice)
   firstDue.setDate(firstDue.getDate() + firstDueDays)
 
@@ -219,7 +186,6 @@ export const calculateDueDates = (invoiceDate, paymentTerms, totalInvoiceValue) 
     thirdDue.setDate(thirdDue.getDate() + thirdDueDays)
   }
 
-  // Calculate due amounts (equal distribution)
   const numStages = Math.max(1, terms.length)
   const firstDueAmount = total > 0 ? (total / numStages).toFixed(2) : '0.00'
   const secondDueAmount = terms.length > 1 && total > 0 ? (total / numStages).toFixed(2) : '0.00'
@@ -235,7 +201,6 @@ export const calculateDueDates = (invoiceDate, paymentTerms, totalInvoiceValue) 
   }
 }
 
-// Calculate days outstanding
 export const calculateDaysOutstanding = (dueDate, receiptDate = null) => {
   if (!dueDate) return 0
 
@@ -248,7 +213,6 @@ export const calculateDaysOutstanding = (dueDate, receiptDate = null) => {
   return diffDays
 }
 
-// Calculate due status
 export const calculateDueStatus = (dueDate, receivedAmount, dueAmount) => {
   const days = calculateDaysOutstanding(dueDate)
   const received = parseFloat(receivedAmount || 0)
@@ -266,11 +230,9 @@ export const calculateDueStatus = (dueDate, receivedAmount, dueAmount) => {
   return { status: 'not-due', overdue: false, notDue: true, daysUntilDue: Math.abs(days) }
 }
 
-// Delete invoice
 export const deleteInvoice = async (id) => {
   try {
     const response = await invoiceApi.deleteInvoice(id)
-    // Trigger deleted event
     window.dispatchEvent(new CustomEvent('invoiceDeleted', { detail: { id } }))
     return response?.data ?? response
   } catch (error) {

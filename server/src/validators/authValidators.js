@@ -4,7 +4,6 @@ const registerSchema = z.object({
   fullName: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(8),
-  // Optional: backend will use safe default (viewer) if missing or invalid
   roleId: z.number().int().positive().optional(),
 });
 

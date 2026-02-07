@@ -12,7 +12,6 @@ import { getInvoiceById, updateInvoice } from '../api/invoice'
 import { INDIA_STATES } from '../utils/indiaStates'
 import '../styles/InvoiceEntry.css'
 
-// Field type constants
 const FIELD_TYPES = {
   MANUAL: 'manual',
   DROPDOWN: 'dropdown',
@@ -20,7 +19,6 @@ const FIELD_TYPES = {
   CALCULATED: 'calculated', // System calculated, non-editable
 }
 
-// Invoice Type options
 const INVOICE_TYPES = ['REG', 'EXP', 'TAX', 'PRO', 'Other']
 const BUSINESS_UNITS = ['MAIN', 'UNIT1', 'UNIT2', 'UNIT3', 'Other']
 const SEGMENTS = ['Domestic', 'Export']
@@ -181,7 +179,6 @@ function InvoiceEntry() {
     ? values
     : INITIAL_INVOICE_FORM_DATA
 
-  // Load master data and PO entries
   useEffect(() => {
     setCustomers(getCustomers())
     setPaymentTerms(getPaymentTerms())
@@ -189,7 +186,6 @@ function InvoiceEntry() {
     setPayers(getPayers())
     setEmployees(getEmployees())
     
-    // Load PO numbers for Key ID dropdown
     ;(async () => {
       setPONumbersLoading(true)
       try {
@@ -204,7 +200,6 @@ function InvoiceEntry() {
     })()
   }, [getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees])
   
-  // Load payment data from Payment Advice (payments linked to invoice for this PO)
   const loadPaymentData = async (poNumber) => {
     try {
       const invoices = await invoiceService.getInvoicesByPONumber(poNumber)
@@ -254,7 +249,6 @@ function InvoiceEntry() {
     }
   }
   
-  // Load existing invoice data when editing (ID present)
   useEffect(() => {
     if (id) {
       const loadInvoice = async () => {
@@ -264,7 +258,6 @@ function InvoiceEntry() {
           if (invoiceData) {
             const invoice = invoiceData.data || invoiceData
             
-            // Transform invoice data to form format
             setFormData(prev => ({
               ...prev,
               keyID: invoice.key_id || invoice.keyID || invoice.po_number || '',
@@ -330,7 +323,6 @@ function InvoiceEntry() {
               receiptDate3rdDue: formatDateForInput(invoice.third_receipt_date || invoice.receiptDate3rdDue || ''),
             }))
             
-            // Load payment data for this invoice
             if (invoice.id || id) {
               loadPaymentData(invoice.key_id || invoice.keyID || invoice.po_number || '')
             }
@@ -343,7 +335,6 @@ function InvoiceEntry() {
     }
   }, [id, getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees])
   
-  // Auto-generate Internal Invoice No (real number from backend or fallback – never leave XXXX)
   useEffect(() => {
     const type = formData.invoiceType || 'REG'
     const bu = formData.businessUnit || 'MAIN'
@@ -358,7 +349,6 @@ function InvoiceEntry() {
     }
   }, [formData.invoiceType, formData.businessUnit, formData.internalInvoiceNo])
   
-  // Format date to YYYY-MM-DD for inputs (from ISO string or Date)
   const formatDateForInput = (val) => {
     if (val === undefined || val === null) return ''
     const str = typeof val === 'string' ? val.trim() : String(val)
@@ -367,7 +357,6 @@ function InvoiceEntry() {
     return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
   }
 
-  // Normalize BOQ unit to invoice dropdown value (e.g. "Metric Ton" -> "MT")
   const normalizeUnit = (u) => {
     if (!u || typeof u !== 'string') return ''
     const s = String(u).trim().toUpperCase()
@@ -375,7 +364,6 @@ function InvoiceEntry() {
     return map[s] || (UNITS.includes(s) ? s : (UNITS.includes(u) ? u : u))
   }
 
-  // Handle PO Number (Key ID) selection - Auto-populate all linked fields from PO + Master Data
   const handleKeyIDChange = async (e) => {
     const poNumber = e.target.value
     if (!poNumber) {
@@ -443,7 +431,6 @@ function InvoiceEntry() {
       const customerName = customer?.name ?? customer?.values?.customerName ?? customer?.customerName ?? poEntry.customerName ?? ''
       const accountManagerName = accountManager?.values?.nameOfEmployee ?? accountManager?.name ?? ''
       const paymentTermsDesc = terms?.values?.paymentTermsDescription ?? terms?.values?.termName ?? poEntry.poPaymentTerms ?? ''
-      // Fallback segment/region/zone from customer Master Data when not on PO
       const segment = poEntry.segment || customer?.segment || customer?.values?.segment || customer?.fullRecord?.values?.segment || ''
       const region = poEntry.region || customer?.values?.region || customer?.fullRecord?.values?.region || ''
       const zone = poEntry.zone || customer?.values?.zone || customer?.fullRecord?.values?.zone || ''
@@ -517,7 +504,6 @@ function InvoiceEntry() {
     }
   }
   
-  // Calculate all values when inputs change
   const calculatedValues = useMemo(() => {
     return invoiceService.calculateInvoiceValues(formData)
   }, [
@@ -530,7 +516,6 @@ function InvoiceEntry() {
     formData.ugstRate,
   ])
   
-  // Calculate due dates and amounts
   const dueCalculations = useMemo(() => {
     return invoiceService.calculateDueDates(
       formData.gstTaxInvoiceDate || new Date().toISOString().split('T')[0],
@@ -539,7 +524,6 @@ function InvoiceEntry() {
     )
   }, [formData.gstTaxInvoiceDate, formData.paymentTerms, calculatedValues.totalInvoiceValue])
   
-  // Calculate balances and status for each due stage
   const calculateDueStage = (dueDate, dueAmount, receivedAmount, receiptDate) => {
     if (!dueDate || !dueAmount) {
       return {
@@ -565,7 +549,6 @@ function InvoiceEntry() {
     }
   }
   
-  // Compute due stage calculations
   const dueStageCalculations = useMemo(() => {
     const first = calculateDueStage(
       dueCalculations.firstDueDate || formData.firstDueDate,
@@ -608,7 +591,6 @@ function InvoiceEntry() {
     formData.receiptDate3rdDue,
   ])
   
-  // Merge all computed values for display
   const displayData = {
     ...formData,
     ...calculatedValues,
@@ -636,7 +618,6 @@ function InvoiceEntry() {
   
   const handleChange = (e) => {
     const { name, value } = e.target
-    // Key ID change must fetch PO and auto-fill Customer & PO details
     if (name === 'keyID') {
       handleKeyIDChange(e)
       return
@@ -644,21 +625,18 @@ function InvoiceEntry() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  // Handle Consignee selection from dropdown
   const handleConsigneeChange = (e) => {
     const consigneeId = e.target.value
     if (!consigneeId) {
       setFormData((prev) => ({
         ...prev,
         consigneeId: '',
-        // Don't clear name/address and city - allow manual entry to persist
       }))
       return
     }
     
     const consignee = consignees.find((c) => c.id === consigneeId)
     if (consignee) {
-      // Build address from consignee data
       const consigneeName = consignee.values?.consigneeName || ''
       const consigneeAddress = consignee.values?.consigneeAddress || ''
       const addressParts = [consigneeName, consigneeAddress].filter(Boolean)
@@ -674,21 +652,18 @@ function InvoiceEntry() {
     }
   }
 
-  // Handle Payer selection from dropdown
   const handlePayerChange = (e) => {
     const payerId = e.target.value
     if (!payerId) {
       setFormData((prev) => ({
         ...prev,
         payerId: '',
-        // Don't clear name/address and city - allow manual entry to persist
       }))
       return
     }
     
     const payer = payers.find((p) => p.id === payerId)
     if (payer) {
-      // Build address from payer data
       const payerName = payer.values?.payerName || ''
       const payerAddress = payer.values?.payerAddress || ''
       const addressParts = [payerName, payerAddress].filter(Boolean)
@@ -704,7 +679,6 @@ function InvoiceEntry() {
     }
   }
 
-  // Handle Transporter selection from dropdown
   const handleTransporterChange = (e) => {
     const transporterId = e.target.value
     if (!transporterId) {
@@ -727,7 +701,6 @@ function InvoiceEntry() {
     }
   }
 
-  // Handle Invoice Receipt Person selection from dropdown
   const handleInvoiceReceiptPersonChange = (e) => {
     const invoiceReceiptPersonId = e.target.value
     if (!invoiceReceiptPersonId) {
@@ -750,7 +723,6 @@ function InvoiceEntry() {
     }
   }
 
-  // Handle Payment Terms selection from dropdown
   const handlePaymentTermsChange = (e) => {
     const paymentTermsId = e.target.value
     if (!paymentTermsId) {
@@ -764,7 +736,6 @@ function InvoiceEntry() {
     
     const terms = paymentTerms.find((t) => t.id === paymentTermsId)
     if (terms) {
-      // Build payment terms description from the payment terms data
       const description = terms.values?.paymentTermsDescription || ''
       setFormData((prev) => ({
         ...prev,
@@ -774,7 +745,6 @@ function InvoiceEntry() {
     }
   }
 
-  // Handle Payment Text selection from dropdown
   const handlePaymentTextChange = (e) => {
     const paymentTextId = e.target.value
     if (!paymentTextId) {
@@ -817,39 +787,31 @@ function InvoiceEntry() {
     showToast('Form reset', 'success')
   }
 
-  // Auto-fill sample data for manually filled fields only (not auto-generated or auto-filled)
   const handleAutoFill = () => {
-    // Get today's date for date fields
     const today = new Date().toISOString().split('T')[0]
     const futureDate = new Date()
     futureDate.setDate(futureDate.getDate() + 30)
     const futureDateStr = futureDate.toISOString().split('T')[0]
     
-    // Get first available IDs from master data
     const getFirstId = (list) => {
       return Array.isArray(list) && list.length > 0 ? list[0].id : ''
     }
     
-    // Auto-fill only manual fields (preserve auto-generated and auto-filled fields)
     setFormData((prev) => ({
       ...prev,
-      // Invoice Identification (manual fields only)
       gstTaxInvoiceNo: prev.gstTaxInvoiceNo || 'GST/INV/2025-26/001',
       gstTaxInvoiceDate: prev.gstTaxInvoiceDate || today,
       
-      // Customer & PO Details (manual fields only)
       region: prev.region || 'North',
       zone: prev.zone || 'North',
       salesOrderNo: prev.salesOrderNo || 'SO/2025-26/001',
       poDate: prev.poDate || today,
       
-      // Material & Supply Details
       materialDescriptionType: prev.materialDescriptionType || 'Goods',
       stateOfSupply: prev.stateOfSupply || 'Maharashtra',
       qty: prev.qty || '100',
       unit: prev.unit || 'MT',
       
-      // Tax & Value Calculations (manual rates only)
       basicRate: prev.basicRate || '50000',
       freightInvoiceNo: prev.freightInvoiceNo || 'FRT/2025-26/001',
       freightRate: prev.freightRate || '5000',
@@ -859,13 +821,11 @@ function InvoiceEntry() {
       ugstRate: prev.ugstRate || '0',
       tcs: prev.tcs || '0',
       
-      // Consignee & Payer Details (manual entry fields)
       consigneeNameAddress: prev.consigneeNameAddress || 'ABC Logistics Solutions\n123 Warehouse Complex, Industrial Estate\nMumbai, Maharashtra',
       consigneeCity: prev.consigneeCity || 'Mumbai',
       payerNameAddress: prev.payerNameAddress || 'XYZ Trading Company\n456 Commercial Street\nChennai, Tamil Nadu',
       payerCity: prev.payerCity || 'Chennai',
       
-      // Logistics & Transport
       lorryReceiptNo: prev.lorryReceiptNo || 'LR/2025-26/001',
       lorryReceiptDate: prev.lorryReceiptDate || today,
       ...(() => {
@@ -885,7 +845,6 @@ function InvoiceEntry() {
       deliveryChallanNo: prev.deliveryChallanNo || 'DC/2025-26/001',
       deliveryChallanDate: prev.deliveryChallanDate || today,
       
-      // Material Inspection Dates
       materialInspectionRequestDate: prev.materialInspectionRequestDate || today,
       inspectionOfferDate: prev.inspectionOfferDate || futureDateStr,
       materialInspectionDate: prev.materialInspectionDate || futureDateStr,
@@ -895,14 +854,12 @@ function InvoiceEntry() {
       lastDateOfDispatch: prev.lastDateOfDispatch || futureDateStr,
       invoiceReadyDate: prev.invoiceReadyDate || futureDateStr,
       
-      // Courier Details
       courierDocumentNo: prev.courierDocumentNo || 'COURIER/2025-26/001',
       courierDocumentDate: prev.courierDocumentDate || today,
       courierCompanyName: prev.courierCompanyName || 'Blue Dart Express',
       billSentToPersonName: prev.billSentToPersonName || 'John Doe',
       billSentDate: prev.billSentDate || today,
       
-      // Material Receipt Dates
       lastDateOfMaterialReceipt: prev.lastDateOfMaterialReceipt || today,
       invoiceReceiptDate: prev.invoiceReceiptDate || today,
       ...(() => {
@@ -918,7 +875,6 @@ function InvoiceEntry() {
       })(),
       materialVerificationDate: prev.materialVerificationDate || today,
       
-      // Processing Dates
       jvrDate: prev.jvrDate || today,
       srnDate: prev.srnDate || today,
       mrcDate: prev.mrcDate || today,
@@ -926,7 +882,6 @@ function InvoiceEntry() {
       invoiceForwardedToHODate: prev.invoiceForwardedToHODate || today,
       invoiceForwardedForPaymentDate: prev.invoiceForwardedForPaymentDate || today,
       
-      // TDS Fields
       itTDS2Percent: prev.itTDS2Percent || '0',
       itTDS1Percent194Q: prev.itTDS1Percent194Q || '0',
       lcessBoq1Percent: prev.lcessBoq1Percent || '0',
@@ -934,7 +889,6 @@ function InvoiceEntry() {
       tdsOnCGST1Percent: prev.tdsOnCGST1Percent || '0',
       tdsOnSGST1Percent: prev.tdsOnSGST1Percent || '0',
       
-      // Deductions & Adjustments
       excessSupplyQty: prev.excessSupplyQty || '0',
       interestOnAdvance: prev.interestOnAdvance || '0',
       anyHold: prev.anyHold || 'No',
@@ -951,7 +905,6 @@ function InvoiceEntry() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // Validate required fields
     if (!formData.keyID) {
       showToast('Key ID (PO Number) is mandatory. Please select a PO Number.', 'error')
       return
@@ -967,9 +920,7 @@ function InvoiceEntry() {
       return
     }
     
-    // Save invoice with all computed values. Send poId when available so backend validates from single source.
     try {
-      // Ensure totalInvoiceValue is included and is a valid number
       const calculatedTotal = parseFloat(displayData.totalInvoiceValue || calculatedValues.totalInvoiceValue || formData.totalInvoiceValue || 0)
       const finalTotalInvoiceValue = isNaN(calculatedTotal) ? 0 : calculatedTotal
       
@@ -978,7 +929,6 @@ function InvoiceEntry() {
       const invoiceData = {
         ...formData,
         ...displayData,
-        // Explicitly set total_amount and totalInvoiceValue to ensure they're sent
         total_amount: finalTotalInvoiceValue,
         totalInvoiceValue: finalTotalInvoiceValue,
         key_id: formData.keyID, // Store Key ID for reporting
@@ -990,23 +940,18 @@ function InvoiceEntry() {
       
       let savedInvoice
       if (id) {
-        // Update existing invoice
         const response = await updateInvoice(id, invoiceData)
         savedInvoice = response?.data || response
-        // Ensure the rest of the app (Dashboard/Reports/Indexes) refreshes on edit as well
         try {
           window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { invoice: savedInvoice } }))
         } catch (e) {
           console.warn('[InvoiceEntry] Failed to dispatch invoiceUpdated event:', e)
         }
       } else {
-        // Create new invoice
         savedInvoice = await invoiceService.saveInvoice(invoiceData)
         
-        // Extract invoice from nested response structure
         const invoiceFromResponse = savedInvoice?.data?.data || savedInvoice?.data || savedInvoice
         
-        // Ensure status is explicitly set to 'posted' for new invoices
         const invoiceWithStatus = {
           ...invoiceFromResponse,
           status: invoiceFromResponse?.status || invoiceData.status || 'posted'
@@ -1014,15 +959,12 @@ function InvoiceEntry() {
         
         console.log('[InvoiceEntry] Created invoice with status:', invoiceWithStatus.status, invoiceWithStatus)
         
-        // Dispatch event immediately with correct status
         window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { invoice: invoiceWithStatus } }))
         
-        // Also refresh from backend to ensure consistency
         try {
           const refreshedInvoice = await getInvoiceById(invoiceWithStatus?.id || savedInvoice?.id)
           const refreshedData = refreshedInvoice?.data?.data || refreshedInvoice?.data || refreshedInvoice
           if (refreshedData) {
-            // Use refreshed data but ensure status is 'posted' if it was set
             const finalInvoice = {
               ...refreshedData,
               status: refreshedData.status || invoiceData.status || 'posted'
@@ -1032,18 +974,15 @@ function InvoiceEntry() {
           }
         } catch (e) {
           console.warn('[InvoiceEntry] Failed to refresh invoice after save:', e)
-          // Already dispatched above, so continue
         }
       }
       
-      // Re-fetch the saved invoice to ensure UI is synced with backend
       if (savedInvoice?.id || id) {
         try {
           const refreshedInvoice = await getInvoiceById(savedInvoice?.id || id)
           const invoiceData = refreshedInvoice?.data || refreshedInvoice
           if (invoiceData) {
             const invoice = invoiceData.data || invoiceData
-            // Update form with refreshed data
             setFormData(prev => ({
               ...prev,
               gstTaxInvoiceNo: invoice.gst_tax_invoice_no || invoice.gstTaxInvoiceNo || prev.gstTaxInvoiceNo,
@@ -1055,11 +994,9 @@ function InvoiceEntry() {
           }
         } catch (refreshError) {
           console.warn('[InvoiceEntry] Failed to refresh invoice after save:', refreshError)
-          // Continue anyway - save was successful
         }
       }
       
-      // Use the invoice with correct status for the success message
       const finalInvoice = savedInvoice?.data?.data || savedInvoice?.data || savedInvoice
       const invoiceNumber = finalInvoice?.invoice_number || finalInvoice?.internal_invoice_no || finalInvoice?.internalInvoiceNo || formData.internalInvoiceNo || ''
       const invoiceStatus = finalInvoice?.status || invoiceData.status || 'posted'
@@ -1069,7 +1006,6 @@ function InvoiceEntry() {
       showToast(`Invoice ${invoiceNumber} saved successfully!`, 'success')
       if (typeof clearLocalDraft === 'function') clearLocalDraft()
       
-      // Small delay to ensure events are processed before navigation
       setTimeout(() => {
         navigate('/invoices', { state: { fromCreate: true, invoiceStatus }, replace: false })
       }, 100)
@@ -1086,7 +1022,6 @@ function InvoiceEntry() {
     }
   }
   
-  // Render field based on type
   const renderField = (fieldName, label, type = FIELD_TYPES.MANUAL, options = [], placeholder = '', required = false) => {
     const isReadOnly = type === FIELD_TYPES.DEFAULT || type === FIELD_TYPES.CALCULATED || isViewMode
     const isCalculated = type === FIELD_TYPES.CALCULATED

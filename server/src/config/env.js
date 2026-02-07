@@ -10,7 +10,6 @@ const required = (key, fallback = undefined) => {
   return value;
 };
 
-// Production-safe required: throws error if missing in production, allows fallback in development
 const requiredProduction = (key) => {
   const value = process.env[key];
   const isProduction = process.env.NODE_ENV === 'production';
@@ -19,7 +18,6 @@ const requiredProduction = (key) => {
     throw new Error(`Missing required env var ${key} in production environment`);
   }
   
-  // In development, allow undefined but warn
   if (!value || value === '') {
     if (!isProduction) {
       console.warn(`Warning: ${key} is not set. This will cause errors in production.`);
@@ -45,7 +43,6 @@ const env = {
   RATE_LIMIT_MAX: Number(process.env.RATE_LIMIT_MAX || 300),
   AUTH_RATE_LIMIT_MAX: Number(process.env.AUTH_RATE_LIMIT_MAX || 50), // Auth requests per window in production
   AUTH_RATE_LIMIT_WINDOW_MS: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
-  // CORS configuration - comma-separated list of allowed origins
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
     : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:5173', 'http://localhost:3000']),

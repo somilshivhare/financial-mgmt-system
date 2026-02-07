@@ -32,6 +32,7 @@ import Notifications from './pages/Notifications'
 import Settings from './pages/Settings'
 import Meetings from './pages/Meetings'
 import Reports from './pages/Reports'
+import AdminDashboard from './pages/AdminDashboard'
 import AppLayout from './layouts/AppLayout'
 import { MasterDataProvider } from './contexts/MasterDataContext'
 import { AIAssistantProvider } from './contexts/AIAssistantContext'
@@ -49,7 +50,6 @@ function App() {
   const [user, setUser] = useState(null)
 
   useEffect(() => {
-    // Load user from localStorage on mount
     try {
       const storedUser = localStorage.getItem('user')
       if (storedUser) {
@@ -166,6 +166,7 @@ function App() {
                 <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
                 <Route path="/meetings" element={<ErrorBoundary><Meetings /></ErrorBoundary>} />
                 <Route path="/reports" element={<ErrorBoundary><Reports /></ErrorBoundary>} />
+                <Route path="/admin-dashboard" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
                 <Route path="/mom/new" element={<ErrorBoundary><MoMEntry /></ErrorBoundary>} />
                 <Route path="/mom/edit/:id" element={<ErrorBoundary><MoMEntry /></ErrorBoundary>} />
               </Route>

@@ -40,13 +40,11 @@ const getMeetingById = async (id) => {
   const [meeting] = await query('SELECT * FROM meetings WHERE id = ?', [id]);
   if (!meeting) return null;
   
-  // Get participants
   const participants = await query(
     'SELECT * FROM meeting_participants WHERE meeting_id = ?',
     [id]
   );
   
-  // Get action items
   const actionItems = await query(
     'SELECT * FROM meeting_minutes WHERE meeting_id = ? ORDER BY created_at ASC',
     [id]
@@ -70,7 +68,6 @@ const createMeeting = async (payload, userId) => {
   return await transaction(async (trx) => {
     const id = uuidv4();
     
-    // Insert meeting
     await trx.query(
       `INSERT INTO meetings (
         id, title, meeting_date, meeting_type, owner_user_id, 
@@ -92,7 +89,6 @@ const createMeeting = async (payload, userId) => {
       ],
     );
     
-    // Insert participants
     if (payload.participants && payload.participants.length > 0) {
       for (const participant of payload.participants) {
         await trx.query(
@@ -109,7 +105,6 @@ const createMeeting = async (payload, userId) => {
       }
     }
     
-    // Insert action items
     if (payload.actionItems && payload.actionItems.length > 0) {
       for (const item of payload.actionItems) {
         if (item.task && item.task.trim()) {
@@ -138,7 +133,6 @@ const createMeeting = async (payload, userId) => {
 
 const updateMeeting = async (id, payload, userId) => {
   return await transaction(async (trx) => {
-    // Update meeting
     await trx.query(
       `UPDATE meetings SET
         title = ?,
@@ -166,11 +160,9 @@ const updateMeeting = async (id, payload, userId) => {
       ],
     );
     
-    // Delete existing participants and action items
     await trx.query('DELETE FROM meeting_participants WHERE meeting_id = ?', [id]);
     await trx.query('DELETE FROM meeting_minutes WHERE meeting_id = ?', [id]);
     
-    // Insert new participants
     if (payload.participants && payload.participants.length > 0) {
       for (const participant of payload.participants) {
         await trx.query(
@@ -187,7 +179,6 @@ const updateMeeting = async (id, payload, userId) => {
       }
     }
     
-    // Insert new action items
     if (payload.actionItems && payload.actionItems.length > 0) {
       for (const item of payload.actionItems) {
         if (item.task && item.task.trim()) {

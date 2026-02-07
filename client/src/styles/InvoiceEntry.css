@@ -1,8 +1,3 @@
-/* ============================================
-   INVOICE ENTRY PAGE - PRODUCTION READY
-   ============================================
-   Professional Invoice Entry Form
-   ============================================ */
 
 .invoice-entry-page {
   width: 100%;
@@ -11,9 +6,6 @@
   overflow-x: hidden;
 }
 
-/* ============================================
-   PAGE HEADER
-   ============================================ */
 
 .invoice-entry-header {
   display: flex;
@@ -147,9 +139,6 @@
   height: 16px;
 }
 
-/* ============================================
-   FORM CONTAINER
-   ============================================ */
 
 .invoice-entry-form {
   display: flex;
@@ -160,9 +149,6 @@
   width: 100%;
 }
 
-/* ============================================
-   FORM SECTIONS
-   ============================================ */
 
 .invoice-entry-section {
   background: var(--color-bg-primary);
@@ -208,9 +194,6 @@
   color: var(--color-primary);
 }
 
-/* ============================================
-   FORM GRID - MOBILE FIRST
-   ============================================ */
 
 .invoice-entry-form-grid {
   display: grid;
@@ -241,9 +224,6 @@
   }
 }
 
-/* ============================================
-   FORM LABELS
-   ============================================ */
 
 .invoice-entry-label {
   font-size: var(--font-size-sm);
@@ -264,9 +244,6 @@
   font-style: italic;
 }
 
-/* ============================================
-   FORM INPUTS
-   ============================================ */
 
 .invoice-entry-input,
 .invoice-entry-select,
@@ -309,7 +286,6 @@
   min-height: 44px;
 }
 
-/* Read-only inputs */
 .invoice-entry-input-readonly {
   background: #f8fafc !important; /* Very light blue-grey */
   color: #1e293b !important; /* Slate 800 - very dark for visibility */
@@ -350,9 +326,6 @@
   border-color: var(--color-danger);
 }
 
-/* ============================================
-   DUE STAGE SECTIONS
-   ============================================ */
 
 .invoice-entry-due-stage {
   margin-top: var(--space-6);
@@ -389,9 +362,6 @@
   border-bottom-color: var(--color-primary);
 }
 
-/* ============================================
-   FORM ACTIONS
-   ============================================ */
 
 .invoice-entry-actions {
   display: flex;
@@ -469,9 +439,6 @@
   transform: translateY(1px);
 }
 
-/* ============================================
-   INVOICE INDEX PAGE (LISTING)
-   ============================================ */
 
 .invoice-entry-index-page {
   width: 100%;
@@ -590,7 +557,6 @@
   font-size: var(--font-size-base);
 }
 
-/* Search and Filter Toolbar */
 .invoice-entry-index-toolbar {
   display: flex;
   gap: var(--space-4);
@@ -710,7 +676,6 @@
   color: var(--color-primary);
 }
 
-/* Filter Panel */
 .invoice-entry-index-filters {
   display: flex;
   gap: var(--space-4);
@@ -792,7 +757,6 @@
   color: var(--color-primary-hover);
 }
 
-/* Table Styles */
 .invoice-entry-index-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--color-border);
@@ -958,9 +922,6 @@
   }
 }
 
-/* ============================================
-   MOBILE RESPONSIVE ADJUSTMENTS
-   ============================================ */
 
 @media (max-width: 767px) {
   .invoice-entry-section {

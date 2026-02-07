@@ -43,12 +43,10 @@ function MasterDataView() {
   }, [loadAggregatedMasterData])
 
   useEffect(() => {
-    // Find the specific company's aggregated data
     if (companyId && aggregatedDataList.length > 0) {
       const found = aggregatedDataList.find(item => item.companyId === companyId || item.id === companyId)
       setAggregatedData(found || null)
     } else if (!companyId && aggregatedDataList.length > 0) {
-      // If no companyId, show the first one
       setAggregatedData(aggregatedDataList[0])
     } else {
       setAggregatedData(null)
@@ -56,7 +54,6 @@ function MasterDataView() {
   }, [companyId, aggregatedDataList])
 
   useEffect(() => {
-    // Expand all completed sections by default
     if (aggregatedData?.completionStatus) {
       const expanded = {}
       Object.entries(aggregatedData.completionStatus).forEach(([step, completed]) => {
@@ -170,10 +167,8 @@ function MasterDataView() {
             {isCompleted ? (
               <div className="md-view-section-fields">
                 {Object.entries(values).map(([key, value]) => {
-                  // Skip logoPreviews as it's handled separately
                   if (key === 'logoPreviews') return null
                   
-                  // Format field label
                   const label = key
                     .replace(/([A-Z])/g, ' $1')
                     .replace(/^./, str => str.toUpperCase())

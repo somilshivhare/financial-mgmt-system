@@ -1,10 +1,8 @@
 import axios from 'axios'
 import { getApiUrl } from '../config/api'
 
-// Get full API URL with /api/v1 path
 const API_BASE_URL = getApiUrl()
 
-// Log API base URL in development for debugging
 if (import.meta.env.DEV) {
   console.log(`[API Client] Using base URL: ${API_BASE_URL}`)
 }
@@ -22,19 +20,15 @@ client.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
-  // Don't set Content-Type for FormData - let browser set it with boundary
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type']
   }
   return config
 })
 
-// Add response interceptor for error handling
 client.interceptors.response.use(
   (response) => {
-    // Validate response data is valid JSON/object
     if (response.data && typeof response.data === 'string') {
-      // Try to parse if it's a string
       try {
         response.data = JSON.parse(response.data)
       } catch (e) {
@@ -49,7 +43,6 @@ client.interceptors.response.use(
     return response
   },
   (error) => {
-    // Handle network errors first (no response = can't use server message)
     if (error.code === 'ERR_NETWORK' || !error.response) {
       if (import.meta.env.DEV) {
         console.error('Network error:', error.message)
@@ -64,11 +57,9 @@ client.interceptors.response.use(
       })
     }
 
-    // Handle HTTP errors
     const status = error.response?.status
     let data = error.response?.data
     
-    // Handle invalid JSON in error response
     if (typeof data === 'string') {
       try {
         data = JSON.parse(data)
@@ -82,7 +73,14 @@ client.interceptors.response.use(
     }
 
     if (status === 401) {
-      // Unauthorized - token might be invalid
+      const isLoginRequest = error.config?.url?.includes('/auth/login')
+      if (isLoginRequest) {
+        return Promise.reject({
+          message: data?.message || 'Invalid email or password. Please check your credentials and try again.',
+          code: data?.code || 'ERR_INVALID_CREDENTIALS',
+          status,
+        })
+      }
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       return Promise.reject({
@@ -132,7 +130,6 @@ client.interceptors.response.use(
       })
     }
 
-    // Return the error response data if available
     return Promise.reject({
       message: data?.message || error.message || 'An error occurred',
       code: data?.code || 'ERR_UNKNOWN',

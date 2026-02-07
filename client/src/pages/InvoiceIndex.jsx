@@ -22,10 +22,8 @@ function InvoiceIndex() {
   const [dateTo, setDateTo] = useState('')
   const [showFilters, setShowFilters] = useState(false)
 
-  // Ensure invoice row has shape expected by table (snake_case from API)
   const normalizeInvoiceRow = (inv) => (inv && typeof inv === 'object' ? { ...inv } : inv)
 
-  // Format date for display (DD-MM-YYYY)
   const formatDate = (dateVal) => {
     if (!dateVal) return 'N/A'
     try {
@@ -37,16 +35,13 @@ function InvoiceIndex() {
     }
   }
 
-  // Load invoices function - MUST be defined before useEffect
   const loadInvoices = async () => {
     try {
       setLoading(true)
       setLoadError(null)
-      // Clear existing invoices while loading to prevent stale empty state
       setInvoices([]) 
       const list = await invoiceService.getAllInvoices()
       console.log('[InvoiceIndex] Invoices loaded:', list?.length || 0, 'invoices')
-      // Log status of first few invoices for debugging
       if (Array.isArray(list) && list.length > 0) {
         list.slice(0, 3).forEach((inv, idx) => {
           console.log(`[InvoiceIndex] Invoice ${idx + 1}:`, inv.invoice_number || inv.internal_invoice_no, 'status:', inv.status)
@@ -62,15 +57,12 @@ function InvoiceIndex() {
     }
   }
 
-  // Initial load on mount - CRITICAL: always runs on page load
   useEffect(() => {
     loadInvoices()
   }, [])
 
-  // Refetch whenever we navigate back to this page (after create/edit navigation)
   useEffect(() => {
     if (location.pathname === '/invoices') {
-      // Small delay to ensure backend has processed the update
       const timer = setTimeout(() => {
         loadInvoices()
       }, 200)
@@ -78,7 +70,6 @@ function InvoiceIndex() {
     }
   }, [location.pathname, location.state])
 
-  // Refetch on invoice events; update existing invoice or prepend new invoice for instant feedback
   useEffect(() => {
     const handleInvoiceUpdate = (e) => {
       const updatedInvoice = e?.detail?.invoice
@@ -87,16 +78,13 @@ function InvoiceIndex() {
           const normalized = normalizeInvoiceRow(updatedInvoice)
           const existsIndex = prev.findIndex((inv) => inv.id === updatedInvoice.id)
           if (existsIndex >= 0) {
-            // Update existing invoice with new data (especially status)
             const updated = [...prev]
             updated[existsIndex] = normalized
             return updated
           }
-          // Prepend new invoice
           return [normalized, ...prev]
         })
       }
-      // Always refresh from backend to ensure data consistency
       loadInvoices()
     }
     const handleInvoiceDeleted = () => loadInvoices()
@@ -108,7 +96,6 @@ function InvoiceIndex() {
     }
   }, [])
 
-  // Refetch when page becomes visible (tab focus)
   useEffect(() => {
     const handleVisibility = () => { if (document.visibilityState === 'visible') loadInvoices() }
     document.addEventListener('visibilitychange', handleVisibility)
@@ -118,7 +105,6 @@ function InvoiceIndex() {
   const filteredInvoices = useMemo(() => {
     let filtered = [...invoices]
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter((inv) => {
@@ -133,7 +119,6 @@ function InvoiceIndex() {
       })
     }
 
-    // Status filter
     if (statusFilter) {
       filtered = filtered.filter((inv) => {
         const status = (inv.status || 'open').toLowerCase()
@@ -146,7 +131,6 @@ function InvoiceIndex() {
       })
     }
 
-    // PO Number filter
     if (poNumberFilter) {
       const poQuery = poNumberFilter.toLowerCase()
       filtered = filtered.filter((inv) => {
@@ -155,13 +139,11 @@ function InvoiceIndex() {
       })
     }
 
-    // Helper to get pure date YYYY-MM-DD from any date value
     const getPureDate = (val) => {
       if (!val) return ''
       return typeof val === 'string' ? val.split('T')[0] : new Date(val).toISOString().split('T')[0]
     }
 
-    // Date range filter
     if (dateFrom) {
       filtered = filtered.filter((inv) => {
         const invDate = getPureDate(inv.issue_date || inv.gst_tax_invoice_date || inv.created_at)
@@ -191,12 +173,10 @@ function InvoiceIndex() {
     try {
       await invoiceService.deleteInvoice(invoiceId)
       showToast('Invoice deleted successfully', 'success')
-      // Service already triggers invoiceDeleted event, just reload the list
       loadInvoices()
     } catch (error) {
       console.error('Failed to delete invoice:', error)
       
-      // Show specific error messages based on error code
       let errorMessage = 'Failed to delete invoice. Please try again.'
       
       if (error?.code === 'ERR_INVOICE_HAS_PAYMENTS') {
@@ -384,7 +364,6 @@ function InvoiceIndex() {
                       <span className={`invoice-entry-index-status-badge invoice-entry-index-status-badge-${(invoice.status || 'open').toLowerCase()}`}>
                         {(() => {
                           const status = (invoice.status || 'open').toLowerCase()
-                          // Map status values to display labels
                           const statusLabels = {
                             'open': 'Open',
                             'draft': 'Draft',

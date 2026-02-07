@@ -1,15 +1,11 @@
 const { query } = require('../db/query');
 const { getCurrency } = require('../utils/settingsHelper');
 
-/**
- * Get comprehensive dashboard KPIs and data
- */
 const getDashboard = async (userId, filters = {}) => {
   const { dateFrom, dateTo } = filters;
   const dateConditions = [];
   const dateParams = [];
 
-  // Build date filter conditions
   if (dateFrom) {
     dateConditions.push('i.issue_date >= ?');
     dateParams.push(dateFrom);
@@ -20,7 +16,6 @@ const getDashboard = async (userId, filters = {}) => {
   }
   const dateWhere = dateConditions.length ? `WHERE ${dateConditions.join(' AND ')}` : '';
 
-  // Get currency from settings (with fallback if settings fail)
   let currency = 'INR';
   try {
     currency = await getCurrency();
@@ -28,8 +23,6 @@ const getDashboard = async (userId, filters = {}) => {
     console.warn('[Dashboard] Failed to get currency from settings, using default INR:', err.message);
   }
 
-  // Financial KPIs - All time totals
-  // Only pass dateParams if dateWhere is not empty
   let kpiData = [{ totalOutstanding: 0, totalCollected: 0, totalOverdue: 0, duesCurrentMonth: 0, totalBalance: 0, collectionTarget: 0, collectionAchieved: 0 }];
   try {
     const result = await query(
@@ -50,7 +43,6 @@ const getDashboard = async (userId, filters = {}) => {
     kpiData = result;
   } catch (err) {
     console.error('[Dashboard] Error fetching KPI data:', err.message);
-    // Continue with default values
   }
 
   const kpis = kpiData[0] || {};
@@ -58,8 +50,6 @@ const getDashboard = async (userId, filters = {}) => {
     ? ((kpis.collectionAchieved / kpis.collectionTarget) * 100).toFixed(2)
     : 0;
 
-  // Invoice insights - Status counts
-  // Only pass dateParams if dateWhere is not empty
   let invoicesByStatus = [];
   try {
     invoicesByStatus = await query(
@@ -73,8 +63,6 @@ const getDashboard = async (userId, filters = {}) => {
     console.error('[Dashboard] Error fetching invoices by status:', err.message);
   }
 
-  // Recent invoices (last 10)
-  // Only pass dateParams if dateWhere is not empty
   let recentInvoices = [];
   try {
     recentInvoices = await query(
@@ -100,8 +88,6 @@ const getDashboard = async (userId, filters = {}) => {
     console.error('[Dashboard] Error fetching recent invoices:', err.message);
   }
 
-  // Payment and collections summary
-  // Build proper WHERE clause with date conditions
   const followUpWhereConditions = ['i.balance > 0', 'i.due_date >= CURDATE()', "i.status NOT IN ('cancelled','paid')"];
   const followUpWhereParams = [];
   if (dateConditions.length > 0) {
@@ -131,7 +117,6 @@ const getDashboard = async (userId, filters = {}) => {
     console.error('[Dashboard] Error fetching upcoming follow-ups:', err.message);
   }
 
-  // Build overdue highlights WHERE clause
   const overdueWhereConditions = ['i.due_date < CURDATE()', 'i.balance > 0', "i.status NOT IN ('cancelled','paid')"];
   const overdueWhereParams = [];
   if (dateConditions.length > 0) {
@@ -183,9 +168,6 @@ const getDashboard = async (userId, filters = {}) => {
   };
 };
 
-/**
- * Get analytics data for charts
- */
 const getAnalytics = async (filters = {}) => {
   const { dateFrom, dateTo, period = 'monthly' } = filters;
   const dateConditions = [];
@@ -201,8 +183,6 @@ const getAnalytics = async (filters = {}) => {
   }
   const dateWhere = dateConditions.length ? `WHERE ${dateConditions.join(' AND ')}` : '';
 
-  // Monthly invoices vs collections
-  // Only pass dateParams if dateWhere is not empty
   const monthlyData = await query(
     `SELECT 
       DATE_FORMAT(i.issue_date, '%Y-%m') as month,
@@ -216,7 +196,6 @@ const getAnalytics = async (filters = {}) => {
     dateWhere ? dateParams : []
   );
 
-  // Outstanding trends (by month)
   const outstandingTrends = await query(
     `SELECT 
       DATE_FORMAT(i.issue_date, '%Y-%m') as month,
@@ -228,7 +207,6 @@ const getAnalytics = async (filters = {}) => {
     dateWhere ? dateParams : []
   );
 
-  // Realization percentages (collected vs invoiced)
   const realizationData = await query(
     `SELECT 
       DATE_FORMAT(i.issue_date, '%Y-%m') as month,
@@ -254,11 +232,7 @@ const getAnalytics = async (filters = {}) => {
   };
 };
 
-/**
- * Get subscription and storage usage
- */
 const getSubscriptionUsage = async (userId) => {
-  // Get user's subscription
   const [subscription] = await query(
     `SELECT s.*, sp.storage_limit_gb, sp.features
      FROM subscriptions s
@@ -269,7 +243,6 @@ const getSubscriptionUsage = async (userId) => {
     [userId, userId]
   );
 
-  // Get storage usage
   const [storageUsage] = await query(
     `SELECT 
       COALESCE(total_gb, 0) as storageUsedGb,

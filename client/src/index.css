@@ -2,10 +2,6 @@
 
 @import "tailwindcss";
 
-/* App shell requirements:
-   - occupy 100vh
-   - disable body scroll (scroll is handled by sidebar + main content independently)
-*/
 html,
 body,
 #root {
@@ -25,12 +21,10 @@ body {
   max-width: 100vw;
 }
 
-/* Preserve smooth scrolling for user-initiated scroll actions */
 html {
   scroll-behavior: smooth;
 }
 
-/* Ensure scroll containers can be scrolled smoothly by users */
 .app-main,
 .mkt-main {
   scroll-behavior: smooth;

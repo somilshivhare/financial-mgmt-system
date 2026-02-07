@@ -5,7 +5,6 @@ const register = async (req, res, next) => {
   try {
     const { fullName, email, password, roleId } = req.body;
     
-    // Validate required fields
     if (!fullName || !email || !password) {
       return res.status(400).json(apiError(
         'Missing required fields: fullName, email, and password are required',
@@ -14,7 +13,6 @@ const register = async (req, res, next) => {
       ));
     }
     
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json(apiError(
@@ -24,7 +22,6 @@ const register = async (req, res, next) => {
       ));
     }
     
-    // Validate password strength
     if (password.length < 8) {
       return res.status(400).json(apiError(
         'Password must be at least 8 characters long',
@@ -33,8 +30,6 @@ const register = async (req, res, next) => {
       ));
     }
     
-    // PRODUCTION FIX: Public registration must not assign admin/finance/operations.
-    // Default to viewer (5); only sales (4) and viewer (5) are allowed for self-registration.
     const safeRoleId = authService.getSafeRegistrationRoleId(roleId);
     
     const result = await authService.register(fullName, email, password, safeRoleId);
@@ -54,7 +49,6 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    // Ensure req.body exists and is an object
     if (!req.body || typeof req.body !== 'object') {
       return res.status(400).json(apiError(
         'Invalid request body',
@@ -63,11 +57,9 @@ const login = async (req, res, next) => {
       ));
     }
 
-    // Extract and validate email and password - ensure they are strings
     const email = typeof req.body.email === 'string' ? req.body.email.trim() : null;
     const password = typeof req.body.password === 'string' ? req.body.password : null;
     
-    // Validate required fields with explicit checks
     if (!email || email === '') {
       return res.status(400).json(apiError(
         'Email is required and must be a valid string',
@@ -84,7 +76,6 @@ const login = async (req, res, next) => {
       ));
     }
     
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json(apiError(
@@ -94,14 +85,12 @@ const login = async (req, res, next) => {
       ));
     }
     
-    // Get client IP with proper proxy handling - ensure non-undefined values
     const { getClientIp } = require('../middleware/rateLimit');
     const ip_address = getClientIp(req) || null;
     const user_agent = (req.headers['user-agent'] && typeof req.headers['user-agent'] === 'string') 
       ? req.headers['user-agent'] 
       : null;
     
-    // Ensure loginMetadata never contains undefined values
     const loginMetadata = {
       ip_address: ip_address || null,
       user_agent: user_agent || null,
@@ -135,7 +124,6 @@ const requestPasswordReset = async (req, res, next) => {
   try {
     const { email } = req.body;
     const result = await authService.requestPasswordReset(email);
-    // Always return success; do not leak whether email exists
     res.json(apiSuccess(result, 'If the email exists, a reset link has been generated'));
   } catch (err) {
     return next(err);

@@ -4,17 +4,10 @@ const { env } = require('../config/env');
 
 const router = express.Router();
 
-/**
- * Comprehensive health check endpoint
- * Returns 200 if API and database are healthy
- * Returns 503 if database is unavailable
- * Includes database connection status, pool stats, and error information
- */
 router.get('/', async (_req, res) => {
   try {
     const startTime = Date.now();
     
-    // Perform a fresh health check
     const dbHealthy = await performHealthCheck();
     const healthStatus = getHealthStatus();
     const responseTime = Date.now() - startTime;
@@ -38,11 +31,9 @@ router.get('/', async (_req, res) => {
       },
     };
     
-    // Return appropriate HTTP status code
     const statusCode = dbHealthy ? 200 : 503;
     res.status(statusCode).json(response);
   } catch (error) {
-    // If health check itself fails, return 503
     res.status(503).json({
       ok: false,
       status: 'unhealthy',
@@ -60,17 +51,10 @@ router.get('/', async (_req, res) => {
   }
 });
 
-/**
- * Database-only health check endpoint
- * Returns 200 if database is reachable and responsive
- * Returns 503 if database is unavailable
- * Uses minimal query (SELECT 1) for fast response
- */
 router.get('/db', async (_req, res) => {
   try {
     const startTime = Date.now();
     
-    // Perform a fresh health check
     const dbHealthy = await performHealthCheck();
     const healthStatus = getHealthStatus();
     const responseTime = Date.now() - startTime;
@@ -88,11 +72,9 @@ router.get('/db', async (_req, res) => {
       } : null,
     };
     
-    // Return appropriate HTTP status code
     const statusCode = dbHealthy ? 200 : 503;
     res.status(statusCode).json(response);
   } catch (error) {
-    // Return 503 Service Unavailable for database failures
     res.status(503).json({
       status: 'unhealthy',
       database: 'disconnected',

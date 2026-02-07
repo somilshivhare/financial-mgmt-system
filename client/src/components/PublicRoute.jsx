@@ -1,18 +1,11 @@
 import { Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 
-/**
- * PublicRoute Component
- * 
- * Redirects authenticated users away from public pages (like login, register)
- * but preserves their intended destination if they came from a protected route.
- */
 export default function PublicRoute({ children, redirectTo = '/dashboard' }) {
   const [isAuthenticated, setIsAuthenticated] = useState(null)
   const [isChecking, setIsChecking] = useState(true)
 
   useEffect(() => {
-    // Check authentication synchronously from localStorage
     const checkAuth = () => {
       try {
         const storedUser = localStorage.getItem('user')
@@ -31,7 +24,6 @@ export default function PublicRoute({ children, redirectTo = '/dashboard' }) {
     checkAuth()
   }, [])
 
-  // Show loading state while checking (prevents flash of redirect)
   if (isChecking) {
     return (
       <div style={{ 
@@ -59,11 +51,9 @@ export default function PublicRoute({ children, redirectTo = '/dashboard' }) {
     )
   }
 
-  // If authenticated, redirect away from public pages
   if (isAuthenticated) {
     return <Navigate to={redirectTo} replace />
   }
 
-  // User is not authenticated, show public content
   return children
 }

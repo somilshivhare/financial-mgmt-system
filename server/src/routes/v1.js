@@ -1,4 +1,7 @@
 const express = require('express');
+const { requireAuth } = require('../middleware/requireAuth');
+const { requireRole } = require('../middleware/requireRole');
+const { listUsers, getRecentLogins } = require('../controllers/adminController');
 const authRoutes = require('./v1/auth');
 const dashboardRoutes = require('./v1/dashboard');
 const masterDataRoutes = require('./v1/masterData');
@@ -13,10 +16,14 @@ const subscriptionRoutes = require('./v1/subscription');
 const userRoutes = require('./v1/user');
 const reportsRoutes = require('./v1/reports');
 const supportTicketsRoutes = require('./v1/supportTickets');
+const adminRoutes = require('./v1/admin');
 
 const router = express.Router();
 
 router.use('/auth', authRoutes);
+router.get('/admin/users', requireAuth, requireRole('admin'), listUsers);
+router.get('/admin/login-history', requireAuth, requireRole('admin'), getRecentLogins);
+router.use('/admin', adminRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/master-data', masterDataRoutes);
 router.use('/pos', poRoutes);

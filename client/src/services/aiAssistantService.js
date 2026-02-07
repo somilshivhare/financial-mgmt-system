@@ -1,13 +1,4 @@
-/**
- * AI Assistant Service
- * 
- * Analyzes business data and generates intelligent, context-aware responses
- * to help users understand their financial status and navigate the system.
- */
 
-/**
- * Format currency for display
- */
 const formatCurrency = (amount, currency = 'INR') => {
   if (!amount && amount !== 0) return 'N/A'
   const currencySymbols = {
@@ -25,9 +16,6 @@ const formatCurrency = (amount, currency = 'INR') => {
   }).format(amount).replace(currency, symbol)
 }
 
-/**
- * Get page-specific quick actions (for "What can I do here?")
- */
 const getPageQuickActions = (pathname) => {
   const actions = {
     '/dashboard': [
@@ -85,9 +73,6 @@ const getPageQuickActions = (pathname) => {
   ]
 }
 
-/**
- * Get page context based on current route
- */
 const getPageContext = (pathname) => {
   const contexts = {
     '/dashboard': {
@@ -157,7 +142,6 @@ const getPageContext = (pathname) => {
     },
   }
 
-  // Find matching context
   for (const [path, context] of Object.entries(contexts)) {
     if (pathname.startsWith(path)) {
       return context
@@ -171,9 +155,6 @@ const getPageContext = (pathname) => {
   }
 }
 
-/**
- * Generate comprehensive business summary
- */
 export const generateBusinessSummary = (dashboardData, currentPage) => {
   if (!dashboardData) {
     return {
@@ -199,10 +180,8 @@ export const generateBusinessSummary = (dashboardData, currentPage) => {
   const insights = []
   const recommendations = []
 
-  // Build summary
   let summary = `Here's a complete overview of your business right now:\n\n`
 
-  // Financial Health
   summary += `**Financial Overview:**\n`
   summary += `You have ${formatCurrency(totalOutstanding, currency)} in outstanding receivables. `
   summary += `So far, you've collected ${formatCurrency(totalCollected, currency)} in payments. `
@@ -226,7 +205,6 @@ export const generateBusinessSummary = (dashboardData, currentPage) => {
     summary += `This month, you have ${formatCurrency(duesCurrentMonth, currency)} coming due. `
   }
 
-  // Collection Performance
   if (collectionTarget > 0) {
     summary += `\n\n**Collection Performance:**\n`
     summary += `Your collection target is ${formatCurrency(collectionTarget, currency)}, and you've achieved ${targetAchieved.toFixed(1)}% of it. `
@@ -256,7 +234,6 @@ export const generateBusinessSummary = (dashboardData, currentPage) => {
     }
   }
 
-  // Invoice Status
   const invoiceStatus = invoiceInsights.byStatus || []
   if (invoiceStatus.length > 0) {
     summary += `\n\n**Invoice Status:**\n`
@@ -266,7 +243,6 @@ export const generateBusinessSummary = (dashboardData, currentPage) => {
     summary += `You have ${statusSummary} invoices. `
   }
 
-  // Upcoming Follow-ups
   const upcomingFollowUps = paymentsCollections.upcomingFollowUps || []
   if (upcomingFollowUps.length > 0) {
     summary += `\n\n**Upcoming Actions:**\n`
@@ -280,7 +256,6 @@ export const generateBusinessSummary = (dashboardData, currentPage) => {
     }
   }
 
-  // Recommendations based on data
   if (totalOutstanding > 0 && totalCollected === 0) {
     recommendations.push({
       priority: 'medium',
@@ -306,9 +281,6 @@ export const generateBusinessSummary = (dashboardData, currentPage) => {
   }
 }
 
-/**
- * Generate page-specific context and guidance
- */
 export const generatePageContext = (pathname, pageData) => {
   const context = getPageContext(pathname)
   
@@ -452,13 +424,9 @@ export const generatePageContext = (pathname, pageData) => {
   }
 }
 
-/**
- * Generate response to user query
- */
 export const generateResponse = (query, context) => {
   const lowerQuery = query.toLowerCase().trim()
 
-  // Handle overview/summary requests
   if (
     lowerQuery.includes('summary') ||
     lowerQuery.includes('overview') ||
@@ -482,7 +450,6 @@ export const generateResponse = (query, context) => {
     }
   }
 
-  // Handle specific questions
   if (lowerQuery.includes('outstanding') || lowerQuery.includes('receivables')) {
     const outstanding = context.dashboardData?.kpis?.totalOutstanding || 0
     const currency = context.dashboardData?.kpis?.currency || 'INR'
@@ -522,7 +489,6 @@ export const generateResponse = (query, context) => {
     }
   }
 
-  // "Take me to" / "Open" / "Go to" navigation
   if (
     lowerQuery.includes('take me to') ||
     lowerQuery.includes('open ') ||
@@ -566,7 +532,6 @@ export const generateResponse = (query, context) => {
     }
   }
 
-  // "What can I do here?" – page-specific actions
   if (
     lowerQuery.includes('what can i do') ||
     lowerQuery.includes('what can i do here') ||
@@ -589,7 +554,6 @@ export const generateResponse = (query, context) => {
   }
 
   if (lowerQuery.includes('how to') || lowerQuery.includes('how do i')) {
-    // Specific how-to with navigation
     if (lowerQuery.includes('record a payment') || lowerQuery.includes('record payment')) {
       return {
         response: `**How to record a payment:**\n\n• Go to **Payments** from the sidebar\n• Click **"New Payment"** or **"Record Payment"**\n• Select the customer and link the payment to the relevant invoice(s)\n• Enter the amount, date, and payment method\n• Save to update invoice balances and collection status\n\nI can take you to the Payments page to record a payment now.`,
@@ -648,7 +612,6 @@ export const generateResponse = (query, context) => {
     }
   }
 
-  // Default response
   const pageContext = generatePageContext(context.pathname, context.pageData)
   return {
     response: `I'm here to help! You can ask me:\n\n• **"Give me a summary"** – Overview of your business and receivables\n• **"What's overdue?"** – Check overdue invoices\n• **"Total outstanding?"** – See total receivables\n• **"How do I create an invoice?"** – Step-by-step guide\n• **"How do I record a payment?"** – Record a payment\n• **"How do I create a PO?"** – Create a purchase order\n• **"Open Collection Plan"** / **"Open Master Data"** / **"Open Reports"** – Go to that section\n• **"What can I do here?"** – Actions on this page\n• **"Show notifications"** – View notifications\n\nYou're on **${pageContext.pageName}**. ${pageContext.description}. What would you like to do?`,

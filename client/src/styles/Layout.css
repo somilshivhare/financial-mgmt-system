@@ -1,13 +1,7 @@
-/* ============================================
-   UNIFIED LAYOUT SYSTEM - PRODUCTION READY
-   ============================================
-   Spacing Scale: 8px system (4px, 8px, 16px, 24px, 32px, 40px, 48px)
-   ============================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* Spacing Scale (8px system) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -18,13 +12,11 @@
   --space-10: 40px;
   --space-12: 48px;
   
-  /* Layout Constants */
   --navbar-height: 56px;
   --sidebar-width-expanded: 260px;
   --sidebar-width-collapsed: 80px;
   --content-max-width: 100%;
   
-  /* Colors - NB Aurum Solutions App (aligned with marketing: trust, corporate) */
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #f8fafc;
   --color-bg-tertiary: #f1f5f9;
@@ -33,11 +25,9 @@
   --color-text-primary: #0f172a;
   --color-text-secondary: #334155;
   --color-text-tertiary: #64748b;
-  /* Primary = deep blue (trust, stability) */
   --color-primary: #0f4c81;
   --color-primary-hover: #0d3d6b;
   --color-primary-light: rgba(15, 76, 129, 0.08);
-  /* Accent = refined gold (Aurum) for highlights */
   --color-accent: #b8860b;
   --color-accent-hover: #9a7210;
   --color-success: #0d9488;
@@ -45,19 +35,16 @@
   --color-danger-hover: #991b1b;
   --color-warning: #b45309;
   
-  /* Shadows */
   --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
   --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
   --shadow-md: 0 4px 12px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -1px rgba(15, 23, 42, 0.04);
   --shadow-lg: 0 10px 24px -3px rgba(15, 23, 42, 0.1), 0 4px 8px -2px rgba(15, 23, 42, 0.05);
   
-  /* Border Radius */
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
   
-  /* Typography - matches marketing */
   --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
@@ -66,15 +53,11 @@
   --font-size-xl: 18px;
   --font-size-2xl: 24px;
   
-  /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ============================================
-   UNIFIED GRID LAYOUT CONTAINER
-   ============================================ */
 
 .app-layout {
   display: grid;
@@ -88,7 +71,6 @@
   font-family: var(--font-family);
 }
 
-/* Desktop: Sidebar visible */
 @media (min-width: 1024px) {
   .app-layout {
     grid-template-columns: var(--sidebar-width-expanded) 1fr;
@@ -99,9 +81,6 @@
   }
 }
 
-/* ============================================
-   NAVBAR - COMPACT DASHBOARD CONTROL BAR
-   ============================================ */
 
 .app-navbar {
   grid-column: 1 / -1;
@@ -115,7 +94,6 @@
   z-index: 100;
   position: relative;
   margin-bottom: 0;
-  /* Subtle divider - connects visually with sidebar */
   box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.02);
 }
 
@@ -137,7 +115,6 @@
   height: 100%;
 }
 
-/* Navbar Search */
 .navbar-search-wrapper {
   flex: 1;
   max-width: 500px;
@@ -227,7 +204,6 @@
   height: 100%;
 }
 
-/* Navbar Toggle Button - Compact */
 .navbar-button {
   display: inline-flex;
   align-items: center;
@@ -268,7 +244,6 @@
   height: 18px;
 }
 
-/* Logo Group - NB Aurum Solutions Branding */
 .navbar-logo-group {
   display: flex;
   align-items: center;
@@ -284,9 +259,9 @@
 }
 
 .navbar-logo {
-  height: 36px;
+  height: 50px;
   width: auto;
-  max-width: 140px;
+  max-width: 180px;
   display: block;
   flex-shrink: 0;
   object-fit: contain;
@@ -295,19 +270,18 @@
 
 @media (max-width: 1023px) {
   .navbar-logo {
-    height: 32px;
-    max-width: 120px;
+    height: 44px;
+    max-width: 160px;
   }
 }
 
 @media (max-width: 480px) {
   .navbar-logo {
-    height: 28px;
-    max-width: 100px;
+    height: 38px;
+    max-width: 130px;
   }
 }
 
-/* User Menu - Clickable */
 .navbar-user-button {
   display: flex;
   align-items: center;
@@ -364,9 +338,6 @@
   flex-shrink: 0;
 }
 
-/* ============================================
-   GLOBAL FORM ELEMENTS
-   ============================================ */
 
 select, 
 .po-entry-select, 
@@ -401,7 +372,6 @@ select:hover:not(:disabled) {
   border-color: var(--color-text-tertiary);
 }
 
-/* Navbar Dropdowns - Modern Refinement */
 .navbar-dropdown {
   position: absolute;
   top: calc(100% + var(--space-2));
@@ -493,7 +463,6 @@ select:hover:not(:disabled) {
   color: var(--color-danger);
 }
 
-/* User Menu Dropdown Specifics */
 .navbar-dropdown-user {
   min-width: 240px;
 }
@@ -514,7 +483,6 @@ select:hover:not(:disabled) {
   border-color: var(--color-primary);
 }
 
-/* Notification Item Refinement */
 .navbar-notification-item {
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-lg);
@@ -610,9 +578,6 @@ select:hover:not(:disabled) {
   text-decoration: underline;
 }
 
-/* ============================================
-   SIDEBAR - CONNECTED TO NAVBAR, NO GAP
-   ============================================ */
 
 .app-sidebar {
   grid-column: 1;
@@ -635,18 +600,15 @@ select:hover:not(:disabled) {
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  /* Remove any top padding to connect with navbar */
   padding-top: 0;
 }
 
-/* Sidebar Navigation - Starts immediately, no brand section */
 .sidebar-nav {
   flex: 1 1 auto;
   min-height: 0;
   padding: var(--space-4) 0;
   overflow-y: auto;
   overflow-x: hidden;
-  /* Support for Firefox scrollbar */
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
 }
@@ -742,7 +704,6 @@ select:hover:not(:disabled) {
   display: none;
 }
 
-/* Sidebar Footer */
 .sidebar-footer {
   border-top: 1px solid var(--color-border-light);
   background: var(--color-bg-tertiary);
@@ -786,7 +747,6 @@ select:hover:not(:disabled) {
   display: none;
 }
 
-/* Sidebar Scrollbar - Modern Minimal Design */
 .app-sidebar-content::-webkit-scrollbar,
 .sidebar-nav::-webkit-scrollbar {
   width: 5px;
@@ -812,9 +772,6 @@ select:hover:not(:disabled) {
   background-clip: content-box;
 }
 
-/* ============================================
-   MAIN CONTENT AREA
-   ============================================ */
 
 .app-main {
   grid-column: 2;
@@ -844,7 +801,6 @@ select:hover:not(:disabled) {
   }
 }
 
-/* Main Content Scrollbar - Refined */
 .app-main::-webkit-scrollbar {
   width: 8px;
 }
@@ -865,13 +821,8 @@ select:hover:not(:disabled) {
   background-clip: content-box;
 }
 
-/* ============================================
-   MOBILE RESPONSIVE - Mobile First Approach
-   ============================================ */
 
-/* Mobile & Tablet: Sidebar is fixed overlay drawer */
 @media (max-width: 1023px) {
-  /* Sidebar is fixed overlay, not in layout flow */
   .app-sidebar {
     position: fixed;
     left: 0;
@@ -884,7 +835,6 @@ select:hover:not(:disabled) {
     transition: transform var(--transition-base);
     margin: 0;
     padding: 0;
-    /* Remove from grid */
     grid-column: none;
     grid-row: none;
   }
@@ -893,7 +843,6 @@ select:hover:not(:disabled) {
     transform: translateX(0);
   }
   
-  /* Main content takes full width, no sidebar space reserved */
   .app-main {
     grid-column: 1;
     grid-row: 2;
@@ -907,7 +856,6 @@ select:hover:not(:disabled) {
     overflow-y: auto;
   }
   
-  /* Main content container - full width, zero sidebar offset, edge-to-edge */
   .app-main-content {
     padding-top: var(--space-4);
     padding-bottom: var(--space-4);
@@ -922,7 +870,6 @@ select:hover:not(:disabled) {
     position: relative;
   }
   
-  /* Ensure all page containers use full width and remove any sidebar offset */
   .app-main-content > * {
     width: 100%;
     max-width: 100%;
@@ -931,7 +878,6 @@ select:hover:not(:disabled) {
     margin-right: 0 !important;
   }
   
-  /* Remove any calc-based widths or sidebar references that might cause overflow */
   .app-main-content > * > * {
     max-width: 100%;
     margin-left: 0;
@@ -958,12 +904,10 @@ select:hover:not(:disabled) {
     padding-right: 0;
   }
   
-  /* Hide search on mobile */
   .navbar-search-wrapper {
     display: none;
   }
   
-  /* Adjust dropdowns for mobile */
   .navbar-dropdown {
     right: 0;
     min-width: 240px;
@@ -971,7 +915,6 @@ select:hover:not(:disabled) {
   }
 }
 
-/* Desktop: Sidebar visible in grid */
 @media (min-width: 1024px) {
   .app-sidebar {
     grid-column: 1;
@@ -998,7 +941,6 @@ select:hover:not(:disabled) {
   }
 }
 
-/* Mobile Overlay */
 .mobile-overlay {
   position: fixed;
   inset: 0;
