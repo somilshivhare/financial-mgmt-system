@@ -155,6 +155,111 @@ export default function About() {
           </div>
         </div>
       </section>
+
+      {/* In-House vs Outsourced Comparison */}
+      <section className="mkt-section-full" aria-labelledby="comparison-heading">
+        <div className="mkt-container mkt-container-wide">
+          <div className="mkt-page-head">
+            <h2 id="comparison-heading" className="mkt-section-heading">In-House vs. Outsourced: A Detailed Comparison</h2>
+            <p className="mkt-lead">
+              Understanding the true cost differential between maintaining an internal collection team versus partnering with NB Aurum Solutions reveals compelling financial logic. The comparison extends beyond simple salary figures to encompass total cost of ownership, success rates, scalability, and strategic impact on your organization's focus and effectiveness.
+            </p>
+          </div>
+          <div className="mkt-card" style={{ marginTop: 48 }}>
+            <div className="mkt-pricing-table-wrapper">
+              <table className="mkt-pricing-table" role="table" aria-label="In-House vs Outsourced comparison">
+                <thead>
+                  <tr>
+                    <th scope="col">Feature</th>
+                    <th scope="col">In-House Team</th>
+                    <th scope="col">NB Aurum Solutions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Cost Structure</strong></td>
+                    <td>High fixed costs: Salaries, benefits, office space, travel expenses</td>
+                    <td>Variable costs: Performance-based 'No Collection, No Fee' model</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Expertise Level</strong></td>
+                    <td>Generalists good at accounting but lack on-ground liaison skills</td>
+                    <td>Specialists with deep-rooted knowledge of PSU/Utility protocols</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Scalability</strong></td>
+                    <td>Difficult: Hiring staff for project surges is slow and costly</td>
+                    <td>Instant: Handle multiple states and high volumes immediately</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Team Focus</strong></td>
+                    <td>Divided: Busy with new billings, payroll, and internal audits</td>
+                    <td>Dedicated: 100% focus on moving your file and realizing payment</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Relationship Risk</strong></td>
+                    <td>High: Direct follow-ups can create friction with clients</td>
+                    <td>Low: Acts as professional mediator/buffer, preserving brand image</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Success Rate</strong></td>
+                    <td>Often stalls at follow-up stage due to lack of local presence</td>
+                    <td>High success via 'Pole-to-Pole' on-ground persistence</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Recovery Rate</strong></td>
+                    <td>60-70% with manual follow-ups</td>
+                    <td>90-100% with expert liaison and specialized tracking</td>
+                  </tr>
+                  <tr>
+                    <td><strong>DSO (Days Sales Outstanding)</strong></td>
+                    <td>120+ days typical cycle time</td>
+                    <td>60-90 days accelerated realization</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Bad Debt Risk</strong></td>
+                    <td>High: Files often get 'forgotten' in routine workflows</td>
+                    <td>Minimal: Persistent tracking prevents aging into write-offs</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Legal/Arbitration Cost</strong></td>
+                    <td>High if disputes aren't mediated effectively</td>
+                    <td>Low: Pre-legal mediation expertise resolves most issues</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginTop: 48 }}>
+              <h3 style={{ marginTop: 0, marginBottom: 16 }}>Time-Value of Money Analysis</h3>
+              <p className="mkt-body">
+                In the Solar and Power sectors, where capital costs are high, delayed collections have a real financial impact. If ₹5 Crores is stuck with a DISCOM for an extra 6 months, the cost of capital at 10% interest equals ₹25 Lakhs in lost interest and working capital alone. NB Aurum Solutions' 'Pole-to-Pole' persistence reduces collection cycles by 30-45%, saving clients lakhs in interest costs that often exceed our success fee—making the partnership cashflow positive from day one.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Our Seamless Onboarding Process */}
+      <section className="mkt-section-full" aria-labelledby="onboarding-heading">
+        <div className="mkt-container mkt-container-wide">
+          <div className="mkt-page-head">
+            <h2 id="onboarding-heading" className="mkt-section-heading">Our Seamless Onboarding Process</h2>
+          </div>
+          <div style={{ marginTop: 48, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <img
+              src="/upscaled_4k_image.png"
+              alt="Our Seamless Onboarding Process - Consultation, Sign & Authorize, Activate Service"
+              style={{
+                maxWidth: '100%',
+                height: 'auto',
+                borderRadius: 'var(--mkt-radius-md)',
+                boxShadow: 'var(--mkt-shadow-md)'
+              }}
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </section>
     </>
   )
 }

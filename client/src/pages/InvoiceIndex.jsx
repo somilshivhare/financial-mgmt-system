@@ -288,6 +288,7 @@ function InvoiceIndex() {
               selected={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
               placeholderText="From Date"
+              maxDate={dateTo || undefined}
             />
           </div>
 
@@ -297,6 +298,7 @@ function InvoiceIndex() {
               selected={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
               placeholderText="To Date"
+              minDate={dateFrom || undefined}
             />
           </div>
 

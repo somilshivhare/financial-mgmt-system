@@ -38,7 +38,7 @@ export default function Contact() {
                 <div className="mkt-contact-line">
                   <span className="mkt-contact-key">Head office</span>
                   <span className="mkt-contact-val">
-                    NB Aurum Solutions Pvt. Ltd.
+                    NB Aurum Solutions
                     <br />
                     Lower Ground Floor, LGF-17, Krishna Apra D Mall,
                     <br />
@@ -53,7 +53,7 @@ export default function Contact() {
                 </div>
                 <div className="mkt-contact-line">
                   <span className="mkt-contact-key">Phone</span>
-                  <span className="mkt-contact-val">+91 99674 50118</span>
+                  <span className="mkt-contact-val">+91 98608 94146</span>
                 </div>
                 <div className="mkt-contact-line">
                   <span className="mkt-contact-key">Hours</span>
@@ -107,7 +107,7 @@ export default function Contact() {
                     id="contact-phone"
                     name="phone"
                     type="tel"
-                    placeholder="+91 99674 50118"
+                    placeholder="+91 98608 94146"
                     autoComplete="tel"
                   />
                 </div>

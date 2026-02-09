@@ -84,7 +84,7 @@ export default function MarketingFooter() {
 
       <div className="mkt-footer-bottom">
         <div className="mkt-footer-meta">
-          <span>© {new Date().getFullYear()} NB Aurum Solutions Pvt. Ltd. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} NB Aurum Solutions All rights reserved.</span>
         </div>
         <div className="mkt-footer-trust">
           <div className="mkt-footer-trust-item">

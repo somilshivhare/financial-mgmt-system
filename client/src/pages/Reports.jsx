@@ -473,6 +473,7 @@ function Reports() {
                   selected={filters.dateFrom}
                   onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
                   placeholderText="From Date"
+                  maxDate={filters.dateTo || undefined}
                 />
               </div>
               <div className="reports-filter-group">
@@ -481,6 +482,7 @@ function Reports() {
                   selected={filters.dateTo}
                   onChange={(e) => handleFilterChange('dateTo', e.target.value)}
                   placeholderText="To Date"
+                  minDate={filters.dateFrom || undefined}
                 />
               </div>
               <div className="reports-filter-group">

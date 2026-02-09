@@ -15,7 +15,7 @@ export const useAIAssistant = () => {
 
 export const AIAssistantProvider = ({ children }) => {
   const location = useLocation()
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(true)
   const [hasSeenIntroduction, setHasSeenIntroduction] = useState(() => {
     try {
       return localStorage.getItem('aiAssistant_introductionSeen') === 'true'

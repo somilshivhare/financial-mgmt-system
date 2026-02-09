@@ -18,7 +18,6 @@
     "lucide-react": "^0.562.0",
     "pdfkit": "^0.17.2",
     "react": "^19.2.0",
-    "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.1.4",
     "recharts": "^3.7.0",

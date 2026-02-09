@@ -1,16 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { X } from 'lucide-react'
 
 const navLinkClass = ({ isActive }) => `mkt-nav-link ${isActive ? 'is-active' : ''}`
 
 export default function MarketingNavbar() {
   const [open, setOpen] = useState(false)
+  const [servicesOpen, setServicesOpen] = useState(false)
+  const [mobileServicesOpen, setMobileServicesOpen] = useState(false)
   const location = useLocation()
+  const servicesRef = useRef(null)
 
   const close = () => setOpen(false)
 
   useEffect(() => {
     setOpen(false)
+    setMobileServicesOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
@@ -52,6 +57,18 @@ export default function MarketingNavbar() {
     }
   }, [open])
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (servicesRef.current && !servicesRef.current.contains(e.target)) {
+        setServicesOpen(false)
+      }
+    }
+    if (servicesOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [servicesOpen])
+
   return (
     <header className="mkt-nav" role="banner">
       <div className="mkt-nav-inner">
@@ -76,6 +93,38 @@ export default function MarketingNavbar() {
           <NavLink to="/about" className={navLinkClass} onClick={close}>
             About
           </NavLink>
+          <div className="mkt-nav-dropdown" ref={servicesRef}>
+            <button
+              className={`mkt-nav-link mkt-nav-dropdown-toggle ${servicesOpen ? 'is-open' : ''}`}
+              onClick={() => setServicesOpen(!servicesOpen)}
+              aria-expanded={servicesOpen}
+              aria-haspopup="true"
+            >
+              Services
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', transition: 'transform 0.2s' }}>
+                <path d="M3 4.5l3 3 3-3" />
+              </svg>
+            </button>
+            {servicesOpen && (
+              <div className="mkt-nav-dropdown-menu">
+                <Link to="/services/strategic-liaison-documentation" className="mkt-nav-dropdown-item" onClick={() => { close(); setServicesOpen(false); }}>
+                  Strategic Liaison & Documentation
+                </Link>
+                <Link to="/services/aggressive-payment-realization" className="mkt-nav-dropdown-item" onClick={() => { close(); setServicesOpen(false); }}>
+                  Aggressive Payment Realization
+                </Link>
+                <Link to="/services/dispute-claim-management" className="mkt-nav-dropdown-item" onClick={() => { close(); setServicesOpen(false); }}>
+                  Dispute & Claim Management
+                </Link>
+                <Link to="/services/mis-reporting-compliance" className="mkt-nav-dropdown-item" onClick={() => { close(); setServicesOpen(false); }}>
+                  MIS, Reporting & Compliance
+                </Link>
+                <Link to="/services/ai-integrated-saas-platform" className="mkt-nav-dropdown-item" onClick={() => { close(); setServicesOpen(false); }}>
+                  AI Integrated SaaS Platform
+                </Link>
+              </div>
+            )}
+          </div>
           <NavLink to="/who-we-are" className={navLinkClass} onClick={close}>
             Who we are
           </NavLink>
@@ -128,13 +177,56 @@ export default function MarketingNavbar() {
           aria-label="Mobile navigation"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="mkt-nav-drawer-links">
+          <div className="mkt-nav-drawer-links" style={{ paddingTop: 20 }}>
+            <h2 style={{ margin: 0, marginBottom: 16, padding: '0 20px', fontSize: '1.25rem', fontWeight: 700, color: 'var(--mkt-text)' }}>Menu</h2>
             <NavLink to="/" className={navLinkClass} onClick={close}>
               Home
             </NavLink>
             <NavLink to="/about" className={navLinkClass} onClick={close}>
               About
             </NavLink>
+            <div className="mkt-nav-drawer-dropdown">
+              <button
+                type="button"
+                className={`mkt-nav-drawer-dropdown-toggle ${mobileServicesOpen ? 'is-open' : ''}`}
+                onClick={() => setMobileServicesOpen(!mobileServicesOpen)}
+                aria-expanded={mobileServicesOpen}
+              >
+                <span>Services</span>
+                <svg 
+                  width="16" 
+                  height="16" 
+                  viewBox="0 0 16 16" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                  className="mkt-nav-drawer-dropdown-icon"
+                >
+                  <path d="M6 4l4 4-4 4" />
+                </svg>
+              </button>
+              {mobileServicesOpen && (
+                <div className="mkt-nav-drawer-dropdown-menu">
+                  <Link to="/services/strategic-liaison-documentation" className="mkt-nav-drawer-link" onClick={() => { close(); setMobileServicesOpen(false); }}>
+                    Strategic Liaison & Documentation
+                  </Link>
+                  <Link to="/services/aggressive-payment-realization" className="mkt-nav-drawer-link" onClick={() => { close(); setMobileServicesOpen(false); }}>
+                    Aggressive Payment Realization
+                  </Link>
+                  <Link to="/services/dispute-claim-management" className="mkt-nav-drawer-link" onClick={() => { close(); setMobileServicesOpen(false); }}>
+                    Dispute & Claim Management
+                  </Link>
+                  <Link to="/services/mis-reporting-compliance" className="mkt-nav-drawer-link" onClick={() => { close(); setMobileServicesOpen(false); }}>
+                    MIS, Reporting & Compliance
+                  </Link>
+                  <Link to="/services/ai-integrated-saas-platform" className="mkt-nav-drawer-link" onClick={() => { close(); setMobileServicesOpen(false); }}>
+                    AI Integrated SaaS Platform
+                  </Link>
+                </div>
+              )}
+            </div>
             <NavLink to="/who-we-are" className={navLinkClass} onClick={close}>
               Who we are
             </NavLink>
