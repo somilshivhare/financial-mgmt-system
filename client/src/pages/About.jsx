@@ -1,7 +1,15 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useMarketingLanguage } from '../contexts/MarketingLanguageContext'
+import { useInView } from '../hooks/useInView'
 
 export default function About() {
+  const { t } = useMarketingLanguage()
+  const [missionRef, missionInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
+  const [complianceRef, complianceInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
+  const [valuesRef, valuesInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
+  const [differentiatesRef, differentiatesInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
+
   useEffect(() => {
     document.title = 'About NB Aurum Solutions – Payment Collections & Consultancy'
     const metaDescription = document.querySelector('meta[name="description"]')
@@ -12,251 +20,234 @@ export default function About() {
 
   return (
     <>
+      {/* Hero Section */}
       <section className="mkt-section-full" aria-labelledby="about-heading">
         <div className="mkt-container mkt-container-wide">
           <div className="mkt-page-head">
-            <h1 id="about-heading" className="mkt-section-heading">About NB Aurum Solutions</h1>
+            <div className="mkt-eyebrow" aria-hidden="true">About Us</div>
+            <h1 id="about-heading" className="mkt-section-heading">{t('about.heading')}</h1>
             <p className="mkt-lead">
-              Your trusted partner in payment collections and consultancy—specializing in Power, Solar, Telecom, Railways, PSU's and Government projects across India.
+              {t('about.lead')}
             </p>
           </div>
-
-          <div className="mkt-illustration-block">
-            <div>
-              <h2 style={{ marginTop: 0 }}>Our mission</h2>
-              <p className="mkt-body">
-                We bring discipline, transparency, and results to payment realization and collections. We believe in set processes right the first time, strong customer relationships, full policy and document compliance, and a "Never say No" attitude—so your cash flow is secure and your contracts close cleanly.
-              </p>
-              <h3 style={{ marginTop: 32 }}>What we stand for</h3>
-              <p className="mkt-body">
-                NB Aurum Solutions is built on 20+ years of expertise. We focus on strategic liaison, aggressive payment realization, dispute management, and MIS-led compliance—so you get end-to-end service from a single point of contact while your team focuses on growth.
-              </p>
-              <Link to="/who-we-are" className="mkt-btn mkt-btn-ghost" style={{ marginTop: 24 }}>
-                Who we are
-              </Link>
+          <div className="mkt-strengths-metrics" style={{ marginTop: 64 }}>
+            <div className="mkt-metric-item">
+              <div className="mkt-metric-number">20+</div>
+              <div className="mkt-metric-title">Years of Experience</div>
+              <div className="mkt-metric-desc">Two decades navigating B2G payment landscapes</div>
             </div>
-            <div className="mkt-image-placeholder caption" aria-hidden="true">
-              <span>Mission</span>
-              <div className="mkt-image-caption">Integrity first · Proven results</div>
+            <div className="mkt-metric-item">
+              <div className="mkt-metric-number">100%</div>
+              <div className="mkt-metric-title">Commitment</div>
+              <div className="mkt-metric-desc">Committed to complete payment recovery</div>
+            </div>
+            <div className="mkt-metric-item">
+              <div className="mkt-metric-number">PAN</div>
+              <div className="mkt-metric-title">India Coverage</div>
+              <div className="mkt-metric-desc">Nationwide network across all states</div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mkt-section-full muted" aria-labelledby="compliance-heading">
-        <div className="mkt-container mkt-container-wide">
+      {/* Mission Section */}
+      <section className="mkt-section-full muted" aria-labelledby="mission-heading" ref={missionRef}>
+        <div className={`mkt-container mkt-container-wide mkt-reveal ${missionInView ? 'mkt-reveal-visible' : ''}`}>
           <div className="mkt-page-head">
-            <h2 id="compliance-heading" className="mkt-section-heading">Compliance, security & transparency</h2>
+            <h2 id="mission-heading" className="mkt-section-heading">{t('about.mission.title')}</h2>
             <p className="mkt-lead">
-              Full policy and document compliance, ethical recovery practices, and data transparency—so you can trust every step.
+              {t('about.mission.text')}
+            </p>
+          </div>
+          <div className="mkt-card" style={{ marginTop: 48, position: 'relative', overflow: 'hidden' }}>
+            <div className="mkt-strength-number" style={{ fontSize: '8rem', fontWeight: 800, color: 'var(--mkt-primary)', opacity: 0.05, position: 'absolute', top: -20, right: -20, lineHeight: 1 }} aria-hidden="true">01</div>
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <h3 className="mkt-strength-title" style={{ fontSize: '1.75rem', marginBottom: 24, marginTop: 0 }}>{t('about.mission.standFor')}</h3>
+              <p className="mkt-strength-text" style={{ fontSize: '1.1rem', lineHeight: 1.8, marginBottom: 32 }}>
+                {t('about.mission.standForText')}
+              </p>
+              <Link to="/who-we-are" className="mkt-btn mkt-btn-primary">
+                {t('about.mission.whoWeAre')}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Compliance Section */}
+      <section className="mkt-section-full" aria-labelledby="compliance-heading" ref={complianceRef}>
+        <div className={`mkt-container mkt-container-wide mkt-reveal ${complianceInView ? 'mkt-reveal-visible' : ''}`}>
+          <div className="mkt-page-head">
+            <h2 id="compliance-heading" className="mkt-section-heading">{t('about.compliance.heading')}</h2>
+            <p className="mkt-lead">
+              {t('about.compliance.lead')}
             </p>
           </div>
           <div className="mkt-grid-3" style={{ marginTop: 48 }}>
             <div className="mkt-card">
-              <h3>Compliance & controls</h3>
+              <div className="mkt-benefit-item-icon" aria-hidden="true" style={{ marginBottom: 20 }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+              </div>
+              <h3 className="mkt-benefit-item-title" style={{ marginTop: 0 }}>{t('about.compliance.complianceControls.title')}</h3>
               <p className="mkt-body">
-                Activities adhere strictly to policy, documentation standards, and ethical recovery practices. Regular MIS reports, invoice trackers, aging analysis, and reconciliation statements keep everything audit-ready.
+                {t('about.compliance.complianceControls.text')}
               </p>
             </div>
             <div className="mkt-card">
-              <h3>Data & confidentiality</h3>
+              <div className="mkt-benefit-item-icon" aria-hidden="true" style={{ marginBottom: 20 }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </div>
+              <h3 className="mkt-benefit-item-title" style={{ marginTop: 0 }}>{t('about.compliance.dataConfidentiality.title')}</h3>
               <p className="mkt-body">
-                Your business data stays confidential. We use hardened processes, clear authorization, and a single point of contact so internal resources can focus on growth while we manage liaison and recovery.
+                {t('about.compliance.dataConfidentiality.text')}
               </p>
             </div>
             <div className="mkt-card">
-              <h3>Scalability</h3>
+              <div className="mkt-benefit-item-icon" aria-hidden="true" style={{ marginBottom: 20 }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                  <polyline points="17 6 23 6 23 12" />
+                </svg>
+              </div>
+              <h3 className="mkt-benefit-item-title" style={{ marginTop: 0 }}>{t('about.compliance.scalability.title')}</h3>
               <p className="mkt-body">
-                PAN-India capability with a nationwide network of professionals. We scale with your project footprint—Power, Solar, Telecom, Railways, PSUs and Government—without compromising on relationship management or compliance.
+                {t('about.compliance.scalability.text')}
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mkt-section-full" aria-labelledby="values-heading">
-        <div className="mkt-container mkt-container-wide">
+      {/* Values Section */}
+      <section className="mkt-section-full muted" aria-labelledby="values-heading" ref={valuesRef}>
+        <div className={`mkt-container mkt-container-wide mkt-reveal ${valuesInView ? 'mkt-reveal-visible' : ''}`}>
           <div className="mkt-page-head">
-            <h2 id="values-heading" className="mkt-section-heading">Our journey and values</h2>
+            <h2 id="values-heading" className="mkt-section-heading">{t('about.values.heading')}</h2>
             <p className="mkt-lead">
-              From foundation to today—how we work and what we stand for.
+              {t('about.values.lead')}
             </p>
           </div>
           <div className="mkt-grid-2" style={{ marginTop: 48 }}>
-            <div className="mkt-card">
-              <h3>How we deliver</h3>
-              <ul className="mkt-timeline">
-                <li>
-                  <span className="mkt-timeline-dot" aria-hidden="true" />
-                  <div>
-                    <strong>Strategic liaison</strong>
-                    <p>Utility and authority coordination, technical submission, and operational streamlining so projects don't delay.</p>
-                  </div>
-                </li>
-                <li>
-                  <span className="mkt-timeline-dot" aria-hidden="true" />
-                  <div>
-                    <strong>Payment realization</strong>
-                    <p>Lifecycle billing, asset recovery (retention, EMD, BGs), and risk-free collection on a No Collection, No Fee basis.</p>
-                  </div>
-                </li>
-                <li>
-                  <span className="mkt-timeline-dot" aria-hidden="true" />
-                  <div>
-                    <strong>Dispute & closure</strong>
-                    <p>Dispute resolution, diplomatic negotiation, and support until full contract closure with reconciliation and certification.</p>
-                  </div>
-                </li>
-              </ul>
+            <div className="mkt-card" style={{ position: 'relative', overflow: 'hidden' }}>
+              <div className="mkt-strength-number" style={{ fontSize: '6rem', fontWeight: 800, color: 'var(--mkt-primary)', opacity: 0.05, position: 'absolute', top: -10, right: -10, lineHeight: 1 }} aria-hidden="true">02</div>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <h3 className="mkt-strength-title" style={{ fontSize: '1.5rem', marginBottom: 24, marginTop: 0 }}>{t('about.values.howWeDeliver.title')}</h3>
+                <ul className="mkt-timeline">
+                  <li>
+                    <span className="mkt-timeline-dot" aria-hidden="true" />
+                    <div>
+                      <strong className="mkt-strength-subtitle">{t('about.values.howWeDeliver.strategicLiaison.title')}</strong>
+                      <p className="mkt-strength-text">{t('about.values.howWeDeliver.strategicLiaison.text')}</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="mkt-timeline-dot" aria-hidden="true" />
+                    <div>
+                      <strong className="mkt-strength-subtitle">{t('about.values.howWeDeliver.paymentRealization.title')}</strong>
+                      <p className="mkt-strength-text">{t('about.values.howWeDeliver.paymentRealization.text')}</p>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="mkt-timeline-dot" aria-hidden="true" />
+                    <div>
+                      <strong className="mkt-strength-subtitle">{t('about.values.howWeDeliver.disputeClosure.title')}</strong>
+                      <p className="mkt-strength-text">{t('about.values.howWeDeliver.disputeClosure.text')}</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
             </div>
-            <div className="mkt-card">
-              <h3>Core values</h3>
-              <ul className="mkt-benefit-list">
-                <li>Integrity first—process-driven compliance and ethical recovery.</li>
-                <li>Set processes right the first time; no shortcuts.</li>
-                <li>Diplomatic yet firm negotiation to preserve long-term relationships.</li>
-                <li>Full transparency through MIS and regular reporting.</li>
-              </ul>
-              <div className="mkt-image-placeholder" style={{ marginTop: 24, aspectRatio: '16/9' }} aria-hidden="true">
-                <span>Values</span>
+            <div className="mkt-card" style={{ position: 'relative', overflow: 'hidden' }}>
+              <div className="mkt-strength-number" style={{ fontSize: '6rem', fontWeight: 800, color: 'var(--mkt-primary)', opacity: 0.05, position: 'absolute', top: -10, right: -10, lineHeight: 1 }} aria-hidden="true">03</div>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <h3 className="mkt-strength-title" style={{ fontSize: '1.5rem', marginBottom: 24, marginTop: 0 }}>{t('about.values.coreValues.title')}</h3>
+                <ul className="mkt-benefit-list" style={{ listStyle: 'none', padding: 0 }}>
+                  <li style={{ paddingLeft: 24, position: 'relative', marginBottom: 16 }}>
+                    <span style={{ position: 'absolute', left: 0, top: 6, width: 6, height: 6, borderRadius: '50%', background: 'var(--mkt-primary)' }} aria-hidden="true" />
+                    <p className="mkt-body" style={{ margin: 0 }}>{t('about.values.coreValues.value1')}</p>
+                  </li>
+                  <li style={{ paddingLeft: 24, position: 'relative', marginBottom: 16 }}>
+                    <span style={{ position: 'absolute', left: 0, top: 6, width: 6, height: 6, borderRadius: '50%', background: 'var(--mkt-primary)' }} aria-hidden="true" />
+                    <p className="mkt-body" style={{ margin: 0 }}>{t('about.values.coreValues.value2')}</p>
+                  </li>
+                  <li style={{ paddingLeft: 24, position: 'relative', marginBottom: 16 }}>
+                    <span style={{ position: 'absolute', left: 0, top: 6, width: 6, height: 6, borderRadius: '50%', background: 'var(--mkt-primary)' }} aria-hidden="true" />
+                    <p className="mkt-body" style={{ margin: 0 }}>{t('about.values.coreValues.value3')}</p>
+                  </li>
+                  <li style={{ paddingLeft: 24, position: 'relative', marginBottom: 16 }}>
+                    <span style={{ position: 'absolute', left: 0, top: 6, width: 6, height: 6, borderRadius: '50%', background: 'var(--mkt-primary)' }} aria-hidden="true" />
+                    <p className="mkt-body" style={{ margin: 0 }}>{t('about.values.coreValues.value4')}</p>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mkt-section-full muted">
-        <div className="mkt-container mkt-container-wide">
+      {/* What Differentiates Section */}
+      <section className="mkt-section-full" aria-labelledby="differentiates-heading" ref={differentiatesRef}>
+        <div className={`mkt-container mkt-container-wide mkt-reveal ${differentiatesInView ? 'mkt-reveal-visible' : ''}`}>
           <div className="mkt-page-head">
-            <h2 className="mkt-section-heading">What differentiates NB Aurum Solutions</h2>
+            <h2 id="differentiates-heading" className="mkt-section-heading">{t('about.differentiates.heading')}</h2>
             <p className="mkt-lead">
-              Unmatched domain expertise, nationwide capability, and a reputation-preserving approach.
+              {t('about.differentiates.lead')}
             </p>
           </div>
-          <div className="mkt-grid-3" style={{ marginTop: 48 }}>
-            <div className="mkt-card">
-              <h3>Domain expertise</h3>
-              <p className="mkt-body">
-                Targeted sector experience in government companies, railways and PSUs. Deep process knowledge that improves internal reporting and MIS accuracy.
-              </p>
+          <div className="mkt-strengths-grid" style={{ marginTop: 48 }}>
+            <div className="mkt-strength-card">
+              <div className="mkt-strength-number">1</div>
+              <h3 className="mkt-strength-title">{t('about.differentiates.domainExpertise.title')}</h3>
+              <div className="mkt-strength-content">
+                <p className="mkt-strength-text" style={{ marginTop: 0 }}>
+                  {t('about.differentiates.domainExpertise.text')}
+                </p>
+              </div>
             </div>
-            <div className="mkt-card">
-              <h3>PAN-India capability</h3>
-              <p className="mkt-body">
-                Nationwide network of professionals and strong relationship management to resolve complex payment bottlenecks—wherever your projects are.
-              </p>
+            <div className="mkt-strength-card">
+              <div className="mkt-strength-number">2</div>
+              <h3 className="mkt-strength-title">{t('about.differentiates.panIndia.title')}</h3>
+              <div className="mkt-strength-content">
+                <p className="mkt-strength-text" style={{ marginTop: 0 }}>
+                  {t('about.differentiates.panIndia.text')}
+                </p>
+              </div>
             </div>
-            <div className="mkt-card">
-              <h3>Risk-free model</h3>
-              <p className="mkt-body">
-                Outcome-based pricing, zero upfront cost, and performance-driven recovery. You pay when we deliver—so adoption is seamless and low-risk.
-              </p>
+            <div className="mkt-strength-card">
+              <div className="mkt-strength-number">3</div>
+              <h3 className="mkt-strength-title">{t('about.differentiates.riskFree.title')}</h3>
+              <div className="mkt-strength-content">
+                <p className="mkt-strength-text" style={{ marginTop: 0 }}>
+                  {t('about.differentiates.riskFree.text')}
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* In-House vs Outsourced Comparison */}
-      <section className="mkt-section-full" aria-labelledby="comparison-heading">
+      {/* Get started CTA */}
+      <section className="mkt-section-full primary" aria-labelledby="get-started-heading">
         <div className="mkt-container mkt-container-wide">
           <div className="mkt-page-head">
-            <h2 id="comparison-heading" className="mkt-section-heading">In-House vs. Outsourced: A Detailed Comparison</h2>
-            <p className="mkt-lead">
-              Understanding the true cost differential between maintaining an internal collection team versus partnering with NB Aurum Solutions reveals compelling financial logic. The comparison extends beyond simple salary figures to encompass total cost of ownership, success rates, scalability, and strategic impact on your organization's focus and effectiveness.
+            <h2 id="get-started-heading" className="mkt-section-heading">{t('about.getStarted.heading')}</h2>
+            <p className="mkt-lead" style={{ color: 'rgba(255,255,255,0.9)' }}>
+              {t('about.getStarted.lead')}
             </p>
           </div>
-          <div className="mkt-card" style={{ marginTop: 48 }}>
-            <div className="mkt-pricing-table-wrapper">
-              <table className="mkt-pricing-table" role="table" aria-label="In-House vs Outsourced comparison">
-                <thead>
-                  <tr>
-                    <th scope="col">Feature</th>
-                    <th scope="col">In-House Team</th>
-                    <th scope="col">NB Aurum Solutions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td><strong>Cost Structure</strong></td>
-                    <td>High fixed costs: Salaries, benefits, office space, travel expenses</td>
-                    <td>Variable costs: Performance-based 'No Collection, No Fee' model</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Expertise Level</strong></td>
-                    <td>Generalists good at accounting but lack on-ground liaison skills</td>
-                    <td>Specialists with deep-rooted knowledge of PSU/Utility protocols</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Scalability</strong></td>
-                    <td>Difficult: Hiring staff for project surges is slow and costly</td>
-                    <td>Instant: Handle multiple states and high volumes immediately</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Team Focus</strong></td>
-                    <td>Divided: Busy with new billings, payroll, and internal audits</td>
-                    <td>Dedicated: 100% focus on moving your file and realizing payment</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Relationship Risk</strong></td>
-                    <td>High: Direct follow-ups can create friction with clients</td>
-                    <td>Low: Acts as professional mediator/buffer, preserving brand image</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Success Rate</strong></td>
-                    <td>Often stalls at follow-up stage due to lack of local presence</td>
-                    <td>High success via 'Pole-to-Pole' on-ground persistence</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Recovery Rate</strong></td>
-                    <td>60-70% with manual follow-ups</td>
-                    <td>90-100% with expert liaison and specialized tracking</td>
-                  </tr>
-                  <tr>
-                    <td><strong>DSO (Days Sales Outstanding)</strong></td>
-                    <td>120+ days typical cycle time</td>
-                    <td>60-90 days accelerated realization</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Bad Debt Risk</strong></td>
-                    <td>High: Files often get 'forgotten' in routine workflows</td>
-                    <td>Minimal: Persistent tracking prevents aging into write-offs</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Legal/Arbitration Cost</strong></td>
-                    <td>High if disputes aren't mediated effectively</td>
-                    <td>Low: Pre-legal mediation expertise resolves most issues</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div style={{ marginTop: 48 }}>
-              <h3 style={{ marginTop: 0, marginBottom: 16 }}>Time-Value of Money Analysis</h3>
-              <p className="mkt-body">
-                In the Solar and Power sectors, where capital costs are high, delayed collections have a real financial impact. If ₹5 Crores is stuck with a DISCOM for an extra 6 months, the cost of capital at 10% interest equals ₹25 Lakhs in lost interest and working capital alone. NB Aurum Solutions' 'Pole-to-Pole' persistence reduces collection cycles by 30-45%, saving clients lakhs in interest costs that often exceed our success fee—making the partnership cashflow positive from day one.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Our Seamless Onboarding Process */}
-      <section className="mkt-section-full" aria-labelledby="onboarding-heading">
-        <div className="mkt-container mkt-container-wide">
-          <div className="mkt-page-head">
-            <h2 id="onboarding-heading" className="mkt-section-heading">Our Seamless Onboarding Process</h2>
-          </div>
-          <div style={{ marginTop: 48, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <img
-              src="/upscaled_4k_image.png"
-              alt="Our Seamless Onboarding Process - Consultation, Sign & Authorize, Activate Service"
-              style={{
-                maxWidth: '100%',
-                height: 'auto',
-                borderRadius: 'var(--mkt-radius-md)',
-                boxShadow: 'var(--mkt-shadow-md)'
-              }}
-              loading="lazy"
-            />
+          <div style={{ marginTop: 48, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16 }}>
+            <Link to="/register" className="mkt-btn mkt-btn-primary mkt-btn-lg" style={{ background: '#fff', color: 'var(--mkt-primary)' }}>
+              {t('about.getStarted.getStarted')}
+            </Link>
+            <Link to="/contact" className="mkt-btn mkt-btn-ghost mkt-btn-lg" style={{ borderColor: 'rgba(255,255,255,0.5)', color: '#fff' }}>
+              {t('about.getStarted.getInTouch')}
+            </Link>
           </div>
         </div>
       </section>

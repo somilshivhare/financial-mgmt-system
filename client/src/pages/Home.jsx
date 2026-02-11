@@ -1,8 +1,107 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import { useInView } from '../hooks/useInView'
+import { useMarketingLanguage } from '../contexts/MarketingLanguageContext'
+
+const FAQ_DISPLAY_COUNT = 5
 
 export default function Home() {
+  const { t } = useMarketingLanguage()
+
+  /* Hero carousel: slide 1 = local; rest = Unsplash (free high-res images) */
+  const HERO_SLIDES = [
+    {
+      id: 1,
+      image: '/hero.png',
+      eyebrow: t('home.hero.slide1.eyebrow'),
+      title: t('home.hero.slide1.title'),
+      lead: t('home.hero.slide1.lead'),
+      tagline: t('home.hero.slide1.tagline'),
+      ctaPrimary: t('home.hero.slide1.ctaPrimary'),
+      ctaPrimaryTo: '/contact',
+      ctaSecondary: t('home.hero.slide1.ctaSecondary'),
+      ctaSecondaryTo: '/register',
+    },
+    {
+      id: 2,
+      image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=85',
+      eyebrow: t('home.hero.slide2.eyebrow'),
+      title: t('home.hero.slide2.title'),
+      lead: t('home.hero.slide2.lead'),
+      tagline: t('home.hero.slide2.tagline'),
+      ctaPrimary: t('home.hero.slide2.ctaPrimary'),
+      ctaPrimaryTo: '/who-we-are',
+      ctaSecondary: t('home.hero.slide2.ctaSecondary'),
+      ctaSecondaryTo: '/contact',
+    },
+    {
+      id: 3,
+      image: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1920&q=85',
+      eyebrow: t('home.hero.slide3.eyebrow'),
+      title: t('home.hero.slide3.title'),
+      lead: t('home.hero.slide3.lead'),
+      tagline: t('home.hero.slide3.tagline'),
+      ctaPrimary: t('home.hero.slide3.ctaPrimary'),
+      ctaPrimaryTo: '/services/strategic-liaison-documentation',
+      ctaSecondary: t('home.hero.slide3.ctaSecondary'),
+      ctaSecondaryTo: '/contact',
+    },
+    {
+      id: 4,
+      image: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1920&q=85',
+      eyebrow: t('home.hero.slide4.eyebrow'),
+      title: t('home.hero.slide4.title'),
+      lead: t('home.hero.slide4.lead'),
+      tagline: t('home.hero.slide4.tagline'),
+      ctaPrimary: t('home.hero.slide4.ctaPrimary'),
+      ctaPrimaryTo: '/services/strategic-liaison-documentation',
+      ctaSecondary: t('home.hero.slide4.ctaSecondary'),
+      ctaSecondaryTo: '/contact',
+    },
+    {
+      id: 5,
+      image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1920&q=85',
+      eyebrow: t('home.hero.slide5.eyebrow'),
+      title: t('home.hero.slide5.title'),
+      lead: t('home.hero.slide5.lead'),
+      tagline: t('home.hero.slide5.tagline'),
+      ctaPrimary: t('home.hero.slide5.ctaPrimary'),
+      ctaPrimaryTo: '/who-we-are',
+      ctaSecondary: t('home.hero.slide5.ctaSecondary'),
+      ctaSecondaryTo: '/contact',
+    },
+    {
+      id: 6,
+      image: 'https://assets.upstox.com/content/assets/images/news/ntpc.jpg',
+      eyebrow: t('home.hero.slide6.eyebrow'),
+      title: t('home.hero.slide6.title'),
+      lead: t('home.hero.slide6.lead'),
+      tagline: t('home.hero.slide6.tagline'),
+      ctaPrimary: t('home.hero.slide6.ctaPrimary'),
+      ctaPrimaryTo: '/contact',
+      ctaSecondary: t('home.hero.slide6.ctaSecondary'),
+      ctaSecondaryTo: '/pricing',
+    },
+  ]
+
+  const LATEST_UPDATES = [
+    t('home.updates.update1'),
+    t('home.updates.update2'),
+    t('home.updates.update3'),
+    t('home.updates.update4'),
+    t('home.updates.update5'),
+    t('home.updates.update6'),
+    t('home.updates.update7'),
+    t('home.updates.update8'),
+  ]
   const [openFaq, setOpenFaq] = useState(null)
+  const [heroIndex, setHeroIndex] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [servicesRef, servicesInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
+  const [showcaseRef, showcaseInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
+  const [outsourceRef, outsourceInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
+  const [faqRef, faqInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
+  const [cashflowRef, cashflowInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
 
   useEffect(() => {
     document.title = 'NB Aurum Solutions – Your Trusted Partner in Payment Collections & Consultancy'
@@ -12,211 +111,338 @@ export default function Home() {
     }
   }, [])
 
-  /* Showcase images: using high-quality stock images from Unsplash */
+  useEffect(() => {
+    const t = setInterval(() => {
+      setHeroIndex((i) => (i + 1) % HERO_SLIDES.length)
+    }, 6000)
+    return () => clearInterval(t)
+  }, [])
+
+  const goToSlide = (index) => setHeroIndex(Math.max(0, Math.min(index, HERO_SLIDES.length - 1)))
+
+  const handleSearch = (e) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      // Navigate to services page with search query or handle search
+      window.location.href = `/services?search=${encodeURIComponent(searchQuery.trim())}`
+    }
+  }
+
+  const clearSearch = () => {
+    setSearchQuery('')
+  }
+
+  /* Showcase images: using high-quality stock images from Unsplash; PSU card uses logos */
   const showcaseItems = [
-    { id: 1, image: 'https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=800&h=520&fit=crop', title: 'Power & Utilities', caption: 'State Electricity Boards & utilities' },
-    { id: 2, image: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&h=520&fit=crop', title: 'Solar Projects', caption: 'Renewable energy & solar sector' },
-    { id: 3, image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=520&fit=crop', title: 'Telecom', caption: 'Telecom & infrastructure' },
-    { id: 4, image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&h=520&fit=crop', title: 'Railways', caption: 'Railway projects & PSUs' },
-    { id: 5, image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&h=520&fit=crop', title: 'PSU & Government', caption: 'PSU & government projects' },
-    { id: 6, image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=520&fit=crop', title: 'Consultancy', caption: 'Documentation & liaison' },
+    { id: 1, image: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800&h=520&fit=crop', title: t('home.showcase.powerUtilities'), caption: t('home.showcase.powerCaption') },
+    { id: 2, image: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&h=520&fit=crop', title: t('home.showcase.solarProjects'), caption: t('home.showcase.solarCaption') },
+    { id: 3, image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=520&fit=crop', title: t('home.showcase.telecom'), caption: t('home.showcase.telecomCaption') },
+    { id: 4, image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/DelhiMetroYellowLine2.JPG/500px-DelhiMetroYellowLine2.JPG', title: t('home.showcase.railways'), caption: t('home.showcase.railwaysCaption') },
+    { id: 5, image: 'https://assets.upstox.com/content/assets/images/news/ntpc.jpg', title: t('home.showcase.psuGovernment'), caption: t('home.showcase.psuCaption') },
+    { id: 6, image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=520&fit=crop', title: t('home.showcase.consultancy'), caption: t('home.showcase.consultancyCaption') },
   ]
 
   const faqs = [
-    { q: 'Will recovery damage relationships?', a: 'Diplomatic negotiation preserves long-term partnerships.' },
-    { q: 'How does "No Collection, No Fee" work?', a: 'Payment only upon successful recovery.' },
-    { q: 'Why outsource with an internal accounts team?', a: 'Outsourcing provides on-ground expertise and converts fixed costs.' },
-    { q: 'How is DSO improved?', a: 'Aggressive compliant follow-ups on progressive and final bills.' },
-    { q: 'How are disputes handled?', a: 'Contract deep-dive and neutral mediation.' },
-    { q: 'Assistance with retention and guarantees?', a: 'Specialized tracking and release support.' },
-    { q: 'Status updates?', a: 'Regular MIS reporting.' },
-    { q: 'What is the pole-to-pole model?', a: 'End-to-end lifecycle management.' },
-    { q: 'Categorizing delays?', a: 'Intelligence-based classification.' },
-    { q: 'Geographic coverage?', a: 'PAN-India capability.' },
-    { q: 'Budget-related delays?', a: 'Compliance readiness and prioritization support.' },
-    { q: 'Technology use?', a: 'Hybrid tracking and personal liaison.' },
-    { q: 'Contract closure support?', a: 'Reconciliation and certification.' },
-    { q: 'GST/tax reconciliation?', a: 'Documentation alignment and audit readiness.' },
-    { q: 'Key outsourcing benefits?', a: 'Faster collections, systematic tracking, ethical recovery.' },
-    { q: 'Loss of control concerns?', a: 'Full transparency and partnership oversight.' },
+    { q: t('home.faq.q1'), a: t('home.faq.a1') },
+    { q: t('home.faq.q2'), a: t('home.faq.a2') },
+    { q: t('home.faq.q3'), a: t('home.faq.a3') },
+    { q: t('home.faq.q4'), a: t('home.faq.a4') },
+    { q: t('home.faq.q5'), a: t('home.faq.a5') },
+    { q: t('home.faq.q6'), a: t('home.faq.a6') },
+    { q: t('home.faq.q7'), a: t('home.faq.a7') },
+    { q: t('home.faq.q8'), a: t('home.faq.a8') },
+    { q: t('home.faq.q9'), a: t('home.faq.a9') },
+    { q: t('home.faq.q10'), a: t('home.faq.a10') },
+    { q: t('home.faq.q11'), a: t('home.faq.a11') },
+    { q: t('home.faq.q12'), a: t('home.faq.a12') },
+    { q: t('home.faq.q13'), a: t('home.faq.a13') },
+    { q: t('home.faq.q14'), a: t('home.faq.a14') },
+    { q: t('home.faq.q15'), a: t('home.faq.a15') },
+    { q: t('home.faq.q16'), a: t('home.faq.a16') },
   ]
 
   return (
     <>
-      {/* Hero */}
-      <section className="mkt-hero" aria-labelledby="hero-heading">
-        <div className="mkt-container mkt-container-wide">
-          <div className="mkt-hero-grid">
-            <div className="mkt-hero-copy mkt-animate-in">
-              <div className="mkt-eyebrow" aria-hidden="true">
-                Payment Collections & Consultancy
-              </div>
-              <h1 id="hero-heading">
-                Your Trusted Partner in Payment Collections & Consultancy
-              </h1>
-              <p className="mkt-lead">
-                Specialization in Power, Solar, Telecom, Railways, PSU's & Government Projects – PAN India
-              </p>
-              <p className="mkt-lead" style={{ marginTop: 8, fontWeight: 600 }}>
-                20+ Years Expertise | Proven Results | Integrity First
-              </p>
-              <div className="mkt-hero-actions">
-                <Link to="/contact" className="mkt-btn mkt-btn-primary mkt-btn-lg">
-                  Get in touch
-                </Link>
-                <Link to="/register" className="mkt-btn mkt-btn-ghost mkt-btn-lg">
-                  Get started
-                </Link>
-              </div>
-              <div className="mkt-trust" role="list">
-                <div className="mkt-trust-item" role="listitem"><span className="mkt-dot" aria-hidden="true" /><span>Set processes right the first time</span></div>
-                <div className="mkt-trust-item" role="listitem"><span className="mkt-dot" aria-hidden="true" /><span>Full policy & document compliance</span></div>
-                <div className="mkt-trust-item" role="listitem"><span className="mkt-dot" aria-hidden="true" /><span>"Never say No" attitude</span></div>
+      {/* Hero – modern horizontal carousel with global background images */}
+      <section className="mkt-hero-carousel" aria-labelledby="hero-heading">
+        <div className="mkt-hero-track" style={{ transform: `translateX(-${heroIndex * 100}%)` }}>
+          {HERO_SLIDES.map((slide) => (
+            <div
+              key={slide.id}
+              className="mkt-hero-slide"
+              style={{ backgroundImage: `url(${slide.image})` }}
+              aria-hidden={slide.id !== HERO_SLIDES[heroIndex].id}
+            >
+              <div className="mkt-hero-slide-overlay" />
+              <div className="mkt-container mkt-container-wide mkt-hero-slide-inner">
+                <div className="mkt-hero-slide-content">
+                  <div className="mkt-eyebrow mkt-hero-slide-eyebrow" aria-hidden="true">
+                    {slide.eyebrow}
+                  </div>
+                  <h1 id="hero-heading" className="mkt-hero-slide-title">
+                    {slide.title}
+                  </h1>
+                  <p className="mkt-hero-slide-lead">{slide.lead}</p>
+                  <p className="mkt-hero-slide-tagline">{slide.tagline}</p>
+                  <div className="mkt-hero-actions">
+                    <Link to={slide.ctaPrimaryTo} className="mkt-btn mkt-btn-primary mkt-btn-lg">
+                      {slide.ctaPrimary}
+                    </Link>
+                    <Link to={slide.ctaSecondaryTo} className="mkt-btn mkt-btn-ghost mkt-btn-lg">
+                      {slide.ctaSecondary}
+                    </Link>
+                  </div>
+                  <div className="mkt-hero-search-bar-below">
+                    <form className="hero-search-bar-transparent" onSubmit={handleSearch}>
+                      <div className="hero-search-input-wrapper">
+                        <svg className="hero-search-icon-left" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="11" cy="11" r="8"></circle>
+                          <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                        <input 
+                          type="text" 
+                          className="hero-search-input" 
+                          placeholder="Search for services, sectors, or locations..."
+                          aria-label="Search"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                          <button type="button" className="hero-search-clear" onClick={clearSearch} aria-label="Clear search">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <line x1="18" y1="6" x2="6" y2="18"></line>
+                              <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                      <button type="submit" className="hero-search-submit">
+                        <span>Search</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                      </button>
+                    </form>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mkt-hero-visual mkt-animate-in mkt-animate-in-delay-2">
-              <div className="mkt-visual-card">
-                <div className="mkt-visual-top">
-                  <div className="mkt-visual-title">Our Philosophy</div>
-                </div>
-                <ul className="mkt-benefit-list" style={{ margin: 0, paddingLeft: '1.25rem' }}>
-                  <li>Set processes right the first time</li>
-                  <li>Build strong customer relationships</li>
-                  <li>Ensure full policy & document compliance</li>
-                  <li>Deliver end-to-end service</li>
-                  <li>"Never say No" attitude</li>
-                </ul>
-              </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="mkt-hero-arrow mkt-hero-arrow-prev"
+          onClick={() => goToSlide(heroIndex - 1)}
+          aria-label="Previous slide"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+        <button
+          type="button"
+          className="mkt-hero-arrow mkt-hero-arrow-next"
+          onClick={() => goToSlide(heroIndex + 1)}
+          aria-label="Next slide"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+        </button>
+        <div className="mkt-hero-dots" role="tablist" aria-label="Hero slides">
+          {HERO_SLIDES.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              role="tab"
+              aria-selected={i === heroIndex}
+              aria-label={`Slide ${i + 1}`}
+              className={`mkt-hero-dot ${i === heroIndex ? 'is-active' : ''}`}
+              onClick={() => goToSlide(i)}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* Latest updates – horizontal moving bar */}
+      <section className="mkt-updates-bar" aria-label="Latest updates">
+        <div className="mkt-updates-bar-inner">
+          <span className="mkt-updates-bar-label">{t('home.updates.latest')}</span>
+          <div className="mkt-updates-bar-wrap">
+            <div className="mkt-updates-bar-track">
+              {[...LATEST_UPDATES, ...LATEST_UPDATES].map((item, i) => (
+                <span key={i} className="mkt-updates-bar-item">
+                  {item}
+                </span>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Core Services */}
-      <section className="mkt-section-full muted" aria-labelledby="services-heading">
-        <div className="mkt-container mkt-container-wide">
+      {/* Core Services – horizontal scrolling row (right to left) */}
+      <section className="mkt-section-full muted mkt-services-scroll-section" aria-labelledby="services-heading" ref={servicesRef}>
+        <div className={`mkt-container mkt-container-wide mkt-reveal ${servicesInView ? 'mkt-reveal-visible' : ''}`}>
           <div className="mkt-page-head">
-            <h2 id="services-heading" className="mkt-section-heading">Core Services We Provide</h2>
+            <h2 id="services-heading" className="mkt-section-heading">{t('home.services.heading')}</h2>
             <p className="mkt-lead" style={{ marginTop: 20, textAlign: 'left', maxWidth: '100%' }}>
-              Our comprehensive suite of services addresses every stage of the B2G payment lifecycle, from initial documentation to final fund realization. We act as your strategic partner, navigating the complex bureaucratic landscape so your team can focus on core business operations.
+              {t('home.services.lead')}
             </p>
           </div>
-          <div className="mkt-services-grid" style={{ marginTop: 48 }}>
-            <Link to="/services/strategic-liaison-documentation" className="mkt-service-card mkt-animate-in" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div className="mkt-service-icon">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
-                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
-                  <path d="M9 12h6"></path>
-                  <path d="M9 16h6"></path>
-                  <path d="M9 8h6"></path>
-                  <circle cx="12" cy="20" r="1"></circle>
-                  <path d="M12 19v-3"></path>
-                </svg>
+        </div>
+        <div className="mkt-services-scroll-wrap" aria-hidden="false">
+          <div className="mkt-services-scroll-track">
+            {[1, 2].map((copy) => (
+              <div key={copy} className="mkt-services-scroll-row">
+                <Link to="/services/strategic-liaison-documentation" className="mkt-service-card-compact">
+                  <div className="mkt-service-card-compact-icon mkt-service-card-compact-icon--illustration">
+                    <img src="/coreservices-1.png" alt="" />
+                  </div>
+                  <h3 className="mkt-service-card-compact-title">{t('home.services.strategicLiaison.title')}</h3>
+                  <div className="mkt-service-card-compact-desc">
+                    <p><strong>{t('home.services.strategicLiaison.utilityCoordination')}</strong> {t('home.services.strategicLiaison.utilityDesc')}</p>
+                    <p><strong>{t('home.services.strategicLiaison.technicalSubmission')}</strong> {t('home.services.strategicLiaison.technicalDesc')}</p>
+                    <p><strong>{t('home.services.strategicLiaison.operationalStreamlining')}</strong> {t('home.services.strategicLiaison.operationalDesc')}</p>
+                  </div>
+                  <span className="mkt-service-card-compact-view-more">{t('home.services.strategicLiaison.viewMore')}</span>
+                </Link>
+                <Link to="/services/aggressive-payment-realization" className="mkt-service-card-compact">
+                  <div className="mkt-service-card-compact-icon mkt-service-card-compact-icon--illustration">
+                    <img src="/coreservices-2.png" alt="" />
+                  </div>
+                  <h3 className="mkt-service-card-compact-title">{t('home.services.aggressivePayment.title')}</h3>
+                  <div className="mkt-service-card-compact-desc">
+                    <p><strong>{t('home.services.aggressivePayment.lifecycleBilling')}</strong> {t('home.services.aggressivePayment.lifecycleDesc')}</p>
+                    <p><strong>{t('home.services.aggressivePayment.assetRecovery')}</strong> {t('home.services.aggressivePayment.assetDesc')}</p>
+                    <p><strong>{t('home.services.aggressivePayment.riskFreeCollection')}</strong> {t('home.services.aggressivePayment.riskFreeDesc')}</p>
+                  </div>
+                  <span className="mkt-service-card-compact-view-more">{t('home.services.aggressivePayment.viewMore')}</span>
+                </Link>
+                <Link to="/services/dispute-claim-management" className="mkt-service-card-compact">
+                  <div className="mkt-service-card-compact-icon mkt-service-card-compact-icon--illustration">
+                    <img src="/coreservices-3.png" alt="" />
+                  </div>
+                  <h3 className="mkt-service-card-compact-title">{t('home.services.disputeClaim.title')}</h3>
+                  <div className="mkt-service-card-compact-desc">
+                    <p><strong>{t('home.services.disputeClaim.resolutionExpert')}</strong> {t('home.services.disputeClaim.resolutionDesc')}</p>
+                    <p><strong>{t('home.services.disputeClaim.caseAssessment')}</strong> {t('home.services.disputeClaim.caseDesc')}</p>
+                    <p><strong>{t('home.services.disputeClaim.diplomaticNegotiation')}</strong> {t('home.services.disputeClaim.diplomaticDesc')}</p>
+                  </div>
+                  <span className="mkt-service-card-compact-view-more">{t('home.services.disputeClaim.viewMore')}</span>
+                </Link>
+                <Link to="/services/mis-reporting-compliance" className="mkt-service-card-compact">
+                  <div className="mkt-service-card-compact-icon mkt-service-card-compact-icon--illustration">
+                    <img src="/coreservices-4.png" alt="" />
+                  </div>
+                  <h3 className="mkt-service-card-compact-title">{t('home.services.misReporting.title')}</h3>
+                  <div className="mkt-service-card-compact-desc">
+                    <p><strong>{t('home.services.misReporting.dataTransparency')}</strong> {t('home.services.misReporting.dataDesc')}</p>
+                    <p><strong>{t('home.services.misReporting.fullCompliance')}</strong> {t('home.services.misReporting.complianceDesc')}</p>
+                    <p><strong>{t('home.services.misReporting.singlePoint')}</strong> {t('home.services.misReporting.singlePointDesc')}</p>
+                  </div>
+                  <span className="mkt-service-card-compact-view-more">{t('home.services.misReporting.viewMore')}</span>
+                </Link>
+                <Link to="/services/ai-integrated-saas-platform" className="mkt-service-card-compact">
+                  <div className="mkt-service-card-compact-icon mkt-service-card-compact-icon--illustration">
+                    <img src="/coreservices-5.png" alt="" />
+                  </div>
+                  <h3 className="mkt-service-card-compact-title">{t('home.services.aiSaaS.title')}</h3>
+                  <div className="mkt-service-card-compact-desc">
+                    <p><strong>{t('home.services.aiSaaS.intelligentAutomation')}</strong> {t('home.services.aiSaaS.intelligentDesc')}</p>
+                    <p><strong>{t('home.services.aiSaaS.realTimeDashboards')}</strong> {t('home.services.aiSaaS.realTimeDesc')}</p>
+                  </div>
+                  <span className="mkt-service-card-compact-view-more">{t('home.services.aiSaaS.viewMore')}</span>
+                </Link>
               </div>
-              <h3 className="mkt-service-title">Strategic Liaison & Documentation</h3>
-              <ul className="mkt-service-list">
-                <li><strong>Utility & Authority Coordination:</strong> Acts as the primary interface with State Electricity Boards, Railways, Solar, PSU and Telecom customers.</li>
-                <li><strong>Technical Submission:</strong> Management of tender documents, Bank Guarantees (BGs), technical drawings and documentation compliance.</li>
-                <li><strong>Operational Streamlining:</strong> Oversight of inspection report submission and issuance of Delivery Instructions (DI) to prevent project delays.</li>
-              </ul>
-            </Link>
-            <Link to="/services/aggressive-payment-realization" className="mkt-service-card mkt-animate-in mkt-animate-in-delay-1" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div className="mkt-service-icon">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                  <path d="M12 11h.01"></path>
-                  <path d="M8 11h.01"></path>
-                  <path d="M16 11h.01"></path>
-                </svg>
-              </div>
-              <h3 className="mkt-service-title">Aggressive Payment Realization</h3>
-              <ul className="mkt-service-list">
-                <li><strong>Lifecycle Billing:</strong> Persistent follow-up for progressive payments and final bills.</li>
-                <li><strong>Asset Recovery:</strong> Dedicated focus on release of retention money, EMD, Advance Bank Guarantees and Performance Bank Guarantees.</li>
-                <li><strong>Risk-Free Collection:</strong> Specialized overdue payment recovery provided on a "No Collection, No Fee" basis.</li>
-              </ul>
-            </Link>
-            <Link to="/services/dispute-claim-management" className="mkt-service-card mkt-animate-in mkt-animate-in-delay-2" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div className="mkt-service-icon">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="9" cy="7" r="4"></circle>
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                  <path d="M22 22l-5-5"></path>
-                  <path d="M17 22l5-5"></path>
-                </svg>
-              </div>
-              <h3 className="mkt-service-title">Dispute & Claim Management</h3>
-              <ul className="mkt-service-list">
-                <li><strong>Resolution Expert:</strong> Handling contractual disputes, penalties and late delivery (L.D.) charges to avoid costly arbitration or legal intervention.</li>
-                <li><strong>Case Assessment:</strong> Comprehensive analysis of debtor history to distinguish cash-flow issues and deliberate stalling.</li>
-                <li><strong>Diplomatic Negotiation:</strong> Firm yet courteous negotiation to recover funds while preserving long-term business relationships.</li>
-              </ul>
-            </Link>
-            <Link to="/services/mis-reporting-compliance" className="mkt-service-card mkt-animate-in mkt-animate-in-delay-3" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div className="mkt-service-icon">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="20" x2="18" y2="10"></line>
-                  <line x1="12" y1="20" x2="12" y2="4"></line>
-                  <line x1="6" y1="20" x2="6" y2="14"></line>
-                  <rect x="2" y="2" width="20" height="20" rx="2"></rect>
-                </svg>
-              </div>
-              <h3 className="mkt-service-title">MIS, Reporting & Compliance</h3>
-              <ul className="mkt-service-list">
-                <li><strong>Data Transparency:</strong> Regular MIS reports including invoice trackers, aging analysis and reconciliation statements.</li>
-                <li><strong>Full Compliance:</strong> Activities adhere strictly to policy, documentation standards and ethical recovery practices.</li>
-                <li><strong>Single Point of Contact:</strong> Dedicated team managing stakeholders while internal resources focus on growth.</li>
-              </ul>
-            </Link>
-            <Link to="/services/ai-integrated-saas-platform" className="mkt-service-card mkt-animate-in mkt-animate-in-delay-4" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div className="mkt-service-icon">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                  <line x1="8" y1="21" x2="16" y2="21"></line>
-                  <line x1="12" y1="17" x2="12" y2="21"></line>
-                  <path d="M7 8h10"></path>
-                  <path d="M7 12h10"></path>
-                  <circle cx="12" cy="15" r="1"></circle>
-                </svg>
-              </div>
-              <h3 className="mkt-service-title">AI Integrated SaaS Platform for AR Management</h3>
-              <ul className="mkt-service-list">
-                <li><strong>Intelligent Automation:</strong> AI-powered workflows for invoice processing, aging analysis, and automated follow-up reminders to accelerate collections.</li>
-                <li><strong>Predictive Analytics:</strong> Machine learning models to predict payment delays, identify high-risk accounts, and optimize collection strategies.</li>
-                <li><strong>Real-Time Dashboards:</strong> Comprehensive AR management dashboards with real-time visibility into receivables, DSO metrics, and collection performance.</li>
-                <li><strong>Seamless Integration:</strong> Cloud-based SaaS platform that integrates with existing ERP systems, enabling end-to-end accounts receivable management.</li>
-              </ul>
-            </Link>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Our Work in Action – showcase images */}
-      <section className="mkt-section-full home-showcase" aria-labelledby="showcase-heading">
+      {/* Company Stats Section */}
+      <section className="mkt-section-full home-stats-section" aria-labelledby="stats-heading">
         <div className="mkt-container mkt-container-wide">
-          <div className="mkt-page-head">
-            <h2 id="showcase-heading" className="mkt-section-heading">Our Work in Action</h2>
-            <p className="mkt-lead">Sectors and projects we serve across PAN India</p>
+          <div className="home-stats-header">
+            <h2 id="stats-heading" className="home-stats-title">Our Achievements</h2>
+          </div>
+          <div className="home-stats-grid">
+            <div className="home-stat-item">
+              <div className="home-stat-number">20+</div>
+              <div className="home-stat-label">Years of Experienced Professionals</div>
+            </div>
+            <div className="home-stat-divider"></div>
+            <div className="home-stat-item">
+              <div className="home-stat-number">PAN</div>
+              <div className="home-stat-label">India Coverage</div>
+            </div>
+            <div className="home-stat-divider"></div>
+            <div className="home-stat-item">
+              <div className="home-stat-number">95%</div>
+              <div className="home-stat-label">Risk-Free Model</div>
+            </div>
+            <div className="home-stat-divider"></div>
+            <div className="home-stat-item">
+              <div className="home-stat-number">24/7</div>
+              <div className="home-stat-label">Support Available</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Our Work in Action – showcase */}
+      <section className="mkt-section-full home-showcase" aria-labelledby="showcase-heading" ref={showcaseRef}>
+        <div className={`mkt-container mkt-container-wide mkt-reveal ${showcaseInView ? 'mkt-reveal-visible' : ''}`}>
+          <div className="home-showcase-head">
+            <span className="home-showcase-eyebrow">{t('home.showcase.eyebrow')}</span>
+            <h2 id="showcase-heading" className="home-showcase-title">{t('home.showcase.title')}</h2>
+            <p className="home-showcase-lead">{t('home.showcase.lead')}</p>
           </div>
           <div className="home-showcase-grid">
             {showcaseItems.map((item, i) => (
-              <figure key={item.id} className="home-showcase-item mkt-animate-in" style={{ animationDelay: `${i * 0.08}s` }}>
+              <figure key={item.id} className="home-showcase-item mkt-animate-in" style={{ animationDelay: `${i * 0.06}s` }}>
+                <span className="home-showcase-number" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
                 <div className="home-showcase-image-wrap">
-                  <img
-                    src={item.image}
-                    alt={`${item.title} - ${item.caption}`}
-                    className="home-showcase-image"
-                    loading="lazy"
-                    onError={(e) => { e.target.src = `https://placehold.co/800x520/0f172a/cbd5e1?text=${encodeURIComponent(item.title)}` }}
-                  />
+                  {item.logos ? (
+                    <div className="home-showcase-psu-logos" aria-label={`${item.title}: ${item.logos.map((l) => (typeof l === 'string' ? l : l.name)).join(', ')}`}>
+                      {item.logos.map((logo) => {
+                        const name = typeof logo === 'string' ? logo : logo.name
+                        const image = typeof logo === 'object' && logo.image ? logo.image : null
+                        const imageFallback = typeof logo === 'object' && logo.imageFallback ? logo.imageFallback : null
+                        return (
+                          <div key={name} className={`home-showcase-psu-logo${image ? ' home-showcase-psu-logo--image-only' : ''}`}>
+                            {image ? (
+                              <img
+                                src={image}
+                                alt={name}
+                                className="home-showcase-psu-logo-img"
+                                loading="lazy"
+                                onError={(e) => {
+                                  if (imageFallback && !e.target.dataset.fallbackTried) {
+                                    e.target.dataset.fallbackTried = '1'
+                                    e.target.src = imageFallback
+                                  } else {
+                                    e.target.style.display = 'none'
+                                  }
+                                }}
+                              />
+                            ) : null}
+                            {!image ? <span className="home-showcase-psu-logo-text">{name}</span> : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <>
+                      <img
+                        src={item.image}
+                        alt={`${item.title} — ${item.caption}`}
+                        className="home-showcase-image"
+                        loading="lazy"
+                        onError={(e) => { e.target.src = `https://placehold.co/800x520/0f172a/cbd5e1?text=${encodeURIComponent(item.title)}` }}
+                      />
+                      <div className="home-showcase-image-overlay" aria-hidden="true" />
+                    </>
+                  )}
                 </div>
                 <figcaption className="home-showcase-caption">
-                  <strong>{item.title}</strong>
-                  <span>{item.caption}</span>
+                  <span className="home-showcase-caption-label">{item.caption}</span>
+                  <strong className="home-showcase-caption-title">{item.title}</strong>
                 </figcaption>
               </figure>
             ))}
@@ -228,136 +454,201 @@ export default function Home() {
       <section className="mkt-section-full" aria-labelledby="strengths-heading">
         <div className="mkt-container mkt-container-wide">
           <div className="mkt-page-head" style={{ textAlign: 'left', marginBottom: 48 }}>
-            <h2 id="strengths-heading" className="mkt-section-heading" style={{ textAlign: 'left', marginBottom: 20 }}>Our Strategic Strengths</h2>
+            <h2 id="strengths-heading" className="mkt-section-heading" style={{ textAlign: 'left', marginBottom: 20 }}>{t('home.strengths.heading')}</h2>
             <p className="mkt-lead" style={{ textAlign: 'left', maxWidth: '100%', marginTop: 0 }}>
-              What sets NB Aurum Solutions apart is not just our service offerings, but the depth of expertise and strategic approach we bring to every engagement. With decades of specialized experience in the B2G sector, we've developed proprietary methodologies that consistently deliver superior results for our clients.
+              {t('home.strengths.lead')}
             </p>
           </div>
           <div className="mkt-strengths-grid" style={{ marginTop: 48 }}>
             <div className="mkt-strength-card">
               <div className="mkt-strength-number">1</div>
-              <h3 className="mkt-strength-title">Unmatched Domain Expertise</h3>
+              <h3 className="mkt-strength-title">{t('home.strengths.strength1.title')}</h3>
               <div className="mkt-strength-content">
                 <div className="mkt-strength-item">
-                  <strong className="mkt-strength-subtitle">Targeted Sector Experience:</strong>
-                  <p className="mkt-strength-text">We possess decades of hands-on experience navigating the specific payment cycles, bureaucratic processes, and operational nuances of Government Companies, Railways, and Public Sector Units across India.</p>
+                  <strong className="mkt-strength-subtitle">{t('home.strengths.strength1.subtitle1')}</strong>
+                  <p className="mkt-strength-text">{t('home.strengths.strength1.text1')}</p>
                 </div>
                 <div className="mkt-strength-item">
-                  <strong className="mkt-strength-subtitle">Deep Process Knowledge:</strong>
-                  <p className="mkt-strength-text">We go far beyond simple follow-ups by establishing comprehensive internal reporting processes that dramatically improve overall MIS accuracy, financial forecasting, and corporate performance metrics.</p>
+                  <strong className="mkt-strength-subtitle">{t('home.strengths.strength1.subtitle2')}</strong>
+                  <p className="mkt-strength-text">{t('home.strengths.strength1.text2')}</p>
                 </div>
               </div>
             </div>
             <div className="mkt-strength-card">
               <div className="mkt-strength-number">2</div>
-              <h3 className="mkt-strength-title">Nationwide Operational Capability</h3>
+              <h3 className="mkt-strength-title">{t('home.strengths.strength2.title')}</h3>
               <div className="mkt-strength-content">
                 <div className="mkt-strength-item">
-                  <strong className="mkt-strength-subtitle">PAN India Network:</strong>
-                  <p className="mkt-strength-text">Our operational reach extends across every state in India, supported by an extensive network of expert professionals who understand regional nuances, local protocols, and state-specific administrative procedures.</p>
+                  <strong className="mkt-strength-subtitle">{t('home.strengths.strength2.subtitle1')}</strong>
+                  <p className="mkt-strength-text">{t('home.strengths.strength2.text1')}</p>
                 </div>
                 <div className="mkt-strength-item">
-                  <strong className="mkt-strength-subtitle">Effective Relationship Management:</strong>
-                  <p className="mkt-strength-text">We focus on developing strong, professional relationships with key decision-makers at every level, enabling us to find a "way out" for even the most complex payment bottlenecks and bureaucratic deadlocks.</p>
+                  <strong className="mkt-strength-subtitle">{t('home.strengths.strength2.subtitle2')}</strong>
+                  <p className="mkt-strength-text">{t('home.strengths.strength2.text2')}</p>
                 </div>
               </div>
             </div>
             <div className="mkt-strength-card">
               <div className="mkt-strength-number">3</div>
-              <h3 className="mkt-strength-title">Integrity-First Philosophy</h3>
+              <h3 className="mkt-strength-title">{t('home.strengths.strength3.title')}</h3>
               <div className="mkt-strength-content">
                 <div className="mkt-strength-item">
-                  <strong className="mkt-strength-subtitle">Process-Driven Success:</strong>
-                  <p className="mkt-strength-text">We believe in setting processes right the first time to ensure full policy compliance, complete documentation, and ethical recovery practices that protect your reputation and build trust with government entities.</p>
+                  <strong className="mkt-strength-subtitle">{t('home.strengths.strength3.subtitle1')}</strong>
+                  <p className="mkt-strength-text">{t('home.strengths.strength3.text1')}</p>
                 </div>
                 <div className="mkt-strength-item">
-                  <strong className="mkt-strength-subtitle">Resilient Attitude:</strong>
-                  <p className="mkt-strength-text">Our signature "Never Say No" approach ensures we thrive in the most complex environments, persistently working through challenges to achieve 100% realization for our clients without compromising professional standards.</p>
+                  <strong className="mkt-strength-subtitle">{t('home.strengths.strength3.subtitle2')}</strong>
+                  <p className="mkt-strength-text">{t('home.strengths.strength3.text2')}</p>
                 </div>
               </div>
             </div>
           </div>
           <div className="mkt-strengths-metrics" style={{ marginTop: 64 }}>
             <div className="mkt-metric-item">
-              <div className="mkt-metric-number">20+</div>
-              <div className="mkt-metric-title">Years of Experience</div>
-              <div className="mkt-metric-desc">Two decades navigating B2G payment landscapes</div>
+              <div className="mkt-metric-number">{t('home.strengths.metrics.years')}</div>
+              <div className="mkt-metric-title">{t('home.strengths.metrics.yearsTitle')}</div>
+              <div className="mkt-metric-desc">{t('home.strengths.metrics.yearsDesc')}</div>
             </div>
             <div className="mkt-metric-item">
-              <div className="mkt-metric-number">100%</div>
-              <div className="mkt-metric-title">Realization Goal</div>
-              <div className="mkt-metric-desc">Committed to complete payment recovery</div>
+              <div className="mkt-metric-number">{t('home.strengths.metrics.realization')}</div>
+              <div className="mkt-metric-title">{t('home.strengths.metrics.realizationTitle')}</div>
+              <div className="mkt-metric-desc">{t('home.strengths.metrics.realizationDesc')}</div>
             </div>
             <div className="mkt-metric-item">
-              <div className="mkt-metric-number">0</div>
-              <div className="mkt-metric-title">Upfront Costs</div>
-              <div className="mkt-metric-desc">Risk-free "No Collection, No Fee" model</div>
+              <div className="mkt-metric-number">{t('home.strengths.metrics.upfront')}</div>
+              <div className="mkt-metric-title">{t('home.strengths.metrics.upfrontTitle')}</div>
+              <div className="mkt-metric-desc">{t('home.strengths.metrics.upfrontDesc')}</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Key Benefits + Model */}
+      {/* Key Benefits of Partnership */}
       <section className="mkt-section-full muted" aria-labelledby="benefits-heading">
         <div className="mkt-container mkt-container-wide">
           <div className="mkt-page-head">
-            <h2 id="benefits-heading" className="mkt-section-heading">Key Benefits</h2>
+            <h2 id="benefits-heading" className="mkt-section-heading">{t('home.benefits.heading')}</h2>
           </div>
-          <div className="mkt-card" style={{ marginTop: 48 }}>
-            <p className="mkt-body" style={{ fontSize: '1.0625rem', lineHeight: 1.8, margin: 0 }}>
-              Partnering with NB Aurum Solutions delivers significant financial and operational advantages. We minimize operating costs through performance-based pricing, reduce bad debt with specialized expertise, and accelerate collections by 30-45% to improve cash flow. Our services eliminate travel and manpower expenses while ensuring complete data confidentiality. With recovery rates of 90-100% compared to typical 60-70% in-house rates, you benefit from increased recoveries and comprehensive support until full contract closure.
+          <div className="mkt-benefits-intro">
+            <p className="mkt-body">
+              {t('home.benefits.intro')}
             </p>
           </div>
-          <div className="mkt-grid-2" style={{ marginTop: 48 }}>
-            <div className="mkt-card">
-              <h3><b>Risk-Free Performance Model</b></h3> 
-              <ul className="mkt-benefit-list">
-                <li>Outcome-based pricing</li>
-                <li>Zero upfront cost</li>
-                <li>Performance-driven recovery</li>
-              </ul>
+          <div className="mkt-benefits-grid mkt-benefits-grid-partnership">
+            <div className="mkt-benefit-item">
+              <div className="mkt-benefit-item-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v12M15 9H9.5a1.5 1.5 0 0 0 0 3h4a1.5 1.5 0 0 1 0 3H9" />
+                </svg>
+              </div>
+              <div className="mkt-benefit-item-content">
+                <h3 className="mkt-benefit-item-title">{t('home.benefits.costMinimization')}</h3>
+                <p className="mkt-benefit-item-desc">{t('home.benefits.costMinimizationDesc')}</p>
+              </div>
             </div>
-            <div className="mkt-card">
-              <h3><b>Diplomatic & Ethical Approach</b></h3>
-              <ul className="mkt-benefit-list">
-                <li>Relationship preservation</li>
-                <li>Ethical standards and legal compliance</li>
-                <li>Conflict resolution through negotiation</li>
-              </ul>
+            <div className="mkt-benefit-item">
+              <div className="mkt-benefit-item-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div className="mkt-benefit-item-content">
+                <h3 className="mkt-benefit-item-title">{t('home.benefits.badDebts')}</h3>
+                <p className="mkt-benefit-item-desc">{t('home.benefits.badDebtsDesc')}</p>
+              </div>
             </div>
-            <div className="mkt-card">
-              <h3><b>Operational Excellence</b></h3>
-              <ul className="mkt-benefit-list">
-                <li>Data-driven categorization of delays</li>
-                <li>Full transparency through MIS</li>
-                <li>Compliance assurance</li>
-              </ul>
+            <div className="mkt-benefit-item">
+              <div className="mkt-benefit-item-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </div>
+              <div className="mkt-benefit-item-content">
+                <h3 className="mkt-benefit-item-title">{t('home.benefits.improvedDSO')}</h3>
+                <p className="mkt-benefit-item-desc">{t('home.benefits.improvedDSODesc')}</p>
+              </div>
             </div>
-            <div className="mkt-card">
-              <h3><b>Financial Impact</b></h3>
-              <ul className="mkt-benefit-list">
-                <li>Improved DSO</li>
-                <li>Operational savings</li>
-                <li>Resource reallocation to core growth</li>
-              </ul>
+            <div className="mkt-benefit-item">
+              <div className="mkt-benefit-item-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </div>
+              <div className="mkt-benefit-item-content">
+                <h3 className="mkt-benefit-item-title">{t('home.benefits.dataConfidentiality')}</h3>
+                <p className="mkt-benefit-item-desc">{t('home.benefits.dataConfidentialityDesc')}</p>
+              </div>
+            </div>
+            <div className="mkt-benefit-item">
+              <div className="mkt-benefit-item-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 2L18 2 20 6 4 6 6 2z" />
+                  <path d="M4 6v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6" />
+                  <path d="M8 10h0M16 10h0" />
+                </svg>
+              </div>
+              <div className="mkt-benefit-item-content">
+                <h3 className="mkt-benefit-item-title">{t('home.benefits.costSavings')}</h3>
+                <p className="mkt-benefit-item-desc">{t('home.benefits.costSavingsDesc')}</p>
+              </div>
+            </div>
+            <div className="mkt-benefit-item">
+              <div className="mkt-benefit-item-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                  <polyline points="17 6 23 6 23 12" />
+                </svg>
+              </div>
+              <div className="mkt-benefit-item-content">
+                <h3 className="mkt-benefit-item-title">{t('home.benefits.increasedRecoveries')}</h3>
+                <p className="mkt-benefit-item-desc">{t('home.benefits.increasedRecoveriesDesc')}</p>
+              </div>
+            </div>
+            <div className="mkt-benefit-item">
+              <div className="mkt-benefit-item-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 14h2a3 3 0 0 0 3-3V9a3 3 0 0 0-5.83-1.25M11 14H9a3 3 0 0 1-3-3V9a3 3 0 0 1 5.83-1.25" />
+                  <path d="M8 12h8" />
+                </svg>
+              </div>
+              <div className="mkt-benefit-item-content">
+                <h3 className="mkt-benefit-item-title">{t('home.benefits.fullContractClosure')}</h3>
+                <p className="mkt-benefit-item-desc">{t('home.benefits.fullContractClosureDesc')}</p>
+              </div>
+            </div>
+            <div className="mkt-benefit-item">
+              <div className="mkt-benefit-item-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <div className="mkt-benefit-item-content">
+                <h3 className="mkt-benefit-item-title">{t('home.benefits.teamFocus')}</h3>
+                <p className="mkt-benefit-item-desc">{t('home.benefits.teamFocusDesc')}</p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Why Outsource + Comparison */}
-      <section className="mkt-section-full" aria-labelledby="outsource-heading">
-        <div className="mkt-container mkt-container-wide">
-          <div className="mkt-page-head">
-            <h2 id="outsource-heading" className="mkt-section-heading">Why Companies Are Outsourcing</h2>
-            <p className="mkt-lead">
-              Regulatory compliance complexity, focus on core competencies, and specialized expertise drive outsourcing decisions.
+      <section className="mkt-section-full" aria-labelledby="outsource-heading" ref={outsourceRef}>
+        <div className={`mkt-container mkt-container-wide mkt-reveal ${outsourceInView ? 'mkt-reveal-visible' : ''}`}>
+          <div className="mkt-page-head" style={{ textAlign: 'left' }}>
+            <h2 id="outsource-heading" className="mkt-section-heading" style={{ textAlign: 'center' }}>{t('home.outsource.heading')}</h2>
+            <p className="mkt-lead" style={{ textAlign: 'center', maxWidth: '100%', width: '90%', marginLeft: 80, marginRight: 90 }}>
+              {t('home.outsource.lead')}
             </p>
           </div>
-          <div className="mkt-page-head" style={{ marginTop: 48 }}>
-            <h3 className="mkt-section-heading" style={{ fontSize: '1.5rem' }}>In-House vs. Outsourced: A Detailed Comparison</h3>
-            <p className="mkt-lead" style={{ marginTop: 16 }}>
-              Compare total cost of ownership, success rates, and strategic impact.
+          <div className="mkt-page-head" style={{ marginTop: 48, textAlign: 'left' }}>
+            <h3 className="mkt-section-heading" style={{ fontSize: '1.5rem', textAlign: 'center' }}>{t('home.outsource.comparisonHeading')}</h3>
+            <p className="mkt-lead" style={{ marginTop: 16, textAlign: 'center', maxWidth: '100%', width: '100%', marginLeft: 0, marginRight: 0 }}>
+              {t('home.outsource.comparisonSubtitle')}
             </p>
           </div>
           <div className="mkt-card" style={{ marginTop: 48 }}>
@@ -365,133 +656,398 @@ export default function Home() {
               <table className="mkt-pricing-table" role="table" aria-label="In-House vs Outsourced comparison">
                 <thead>
                   <tr>
-                    <th scope="col">Feature</th>
-                    <th scope="col">In-House Team</th>
-                    <th scope="col">NB Aurum Solutions</th>
+                    <th scope="col">{t('home.outsource.comparison.feature')}</th>
+                    <th scope="col">{t('home.outsource.comparison.inHouse')}</th>
+                    <th scope="col">{t('home.outsource.comparison.nbaurum')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><strong>Cost Structure</strong></td>
-                    <td>High fixed costs: Salaries, benefits, office space, travel expenses</td>
-                    <td>Variable costs: Performance-based 'No Collection, No Fee' model</td>
+                    <td><strong>{t('home.outsource.comparison.costStructure')}</strong></td>
+                    <td>{t('home.outsource.comparison.costStructureInHouse')}</td>
+                    <td>{t('home.outsource.comparison.costStructureNbaurum')}</td>
                   </tr>
                   <tr>
-                    <td><strong>Expertise Level</strong></td>
-                    <td>Generalists good at accounting but lack on-ground liaison skills</td>
-                    <td>Specialists with deep-rooted knowledge of PSU/Utility protocols</td>
+                    <td><strong>{t('home.outsource.comparison.expertiseLevel')}</strong></td>
+                    <td>{t('home.outsource.comparison.expertiseLevelInHouse')}</td>
+                    <td>{t('home.outsource.comparison.expertiseLevelNbaurum')}</td>
                   </tr>
                   <tr>
-                    <td><strong>Scalability</strong></td>
-                    <td>Difficult: Hiring staff for project surges is slow and costly</td>
-                    <td>Instant: Handle multiple states and high volumes immediately</td>
+                    <td><strong>{t('home.outsource.comparison.scalability')}</strong></td>
+                    <td>{t('home.outsource.comparison.scalabilityInHouse')}</td>
+                    <td>{t('home.outsource.comparison.scalabilityNbaurum')}</td>
                   </tr>
                   <tr>
-                    <td><strong>Team Focus</strong></td>
-                    <td>Divided: Busy with new billings, payroll, and internal audits</td>
-                    <td>Dedicated: 100% focus on moving your file and realizing payment</td>
+                    <td><strong>{t('home.outsource.comparison.teamFocus')}</strong></td>
+                    <td>{t('home.outsource.comparison.teamFocusInHouse')}</td>
+                    <td>{t('home.outsource.comparison.teamFocusNbaurum')}</td>
                   </tr>
                   <tr>
-                    <td><strong>Relationship Risk</strong></td>
-                    <td>High: Direct follow-ups can create friction with clients</td>
-                    <td>Low: Acts as professional mediator/buffer, preserving brand image</td>
+                    <td><strong>{t('home.outsource.comparison.relationshipRisk')}</strong></td>
+                    <td>{t('home.outsource.comparison.relationshipRiskInHouse')}</td>
+                    <td>{t('home.outsource.comparison.relationshipRiskNbaurum')}</td>
                   </tr>
                   <tr>
-                    <td><strong>Success Rate</strong></td>
-                    <td>Often stalls at follow-up stage due to lack of local presence</td>
-                    <td>High success via 'Pole-to-Pole' on-ground persistence</td>
+                    <td><strong>{t('home.outsource.comparison.successRate')}</strong></td>
+                    <td>{t('home.outsource.comparison.successRateInHouse')}</td>
+                    <td>{t('home.outsource.comparison.successRateNbaurum')}</td>
                   </tr>
                   <tr>
-                    <td><strong>Recovery Rate</strong></td>
-                    <td>60-70% with manual follow-ups</td>
-                    <td>90-100% with expert liaison and specialized tracking</td>
+                    <td><strong>{t('home.outsource.comparison.recoveryRate')}</strong></td>
+                    <td>{t('home.outsource.comparison.recoveryRateInHouse')}</td>
+                    <td>{t('home.outsource.comparison.recoveryRateNbaurum')}</td>
                   </tr>
                   <tr>
-                    <td><strong>DSO (Days Sales Outstanding)</strong></td>
-                    <td>120+ days typical cycle time</td>
-                    <td>60-90 days accelerated realization</td>
+                    <td><strong>{t('home.outsource.comparison.dso')}</strong></td>
+                    <td>{t('home.outsource.comparison.dsoInHouse')}</td>
+                    <td>{t('home.outsource.comparison.dsoNbaurum')}</td>
                   </tr>
                   <tr>
-                    <td><strong>Bad Debt Risk</strong></td>
-                    <td>High: Files often get 'forgotten' in routine workflows</td>
-                    <td>Minimal: Persistent tracking prevents aging into write-offs</td>
+                    <td><strong>{t('home.outsource.comparison.badDebtRisk')}</strong></td>
+                    <td>{t('home.outsource.comparison.badDebtRiskInHouse')}</td>
+                    <td>{t('home.outsource.comparison.badDebtRiskNbaurum')}</td>
                   </tr>
                   <tr>
-                    <td><strong>Legal/Arbitration Cost</strong></td>
-                    <td>High if disputes aren't mediated effectively</td>
-                    <td>Low: Pre-legal mediation expertise resolves most issues</td>
+                    <td><strong>{t('home.outsource.comparison.legalCost')}</strong></td>
+                    <td>{t('home.outsource.comparison.legalCostInHouse')}</td>
+                    <td>{t('home.outsource.comparison.legalCostNbaurum')}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <div style={{ marginTop: 48 }}>
-              <h3 style={{ marginTop: 0, marginBottom: 16 }}>Time-Value of Money Analysis</h3>
+              <b><h3 style={{ marginTop: 0, marginBottom: 16 }}>{t('home.outsource.timeValue.heading')}</h3></b>
               <p className="mkt-body">
-                In the Solar and Power sectors, where capital costs are high, delayed collections have a real financial impact. If ₹5 Crores is stuck with a DISCOM for an extra 6 months, the cost of capital at 10% interest equals ₹25 Lakhs in lost interest and working capital alone. NB Aurum Solutions' 'Pole-to-Pole' persistence reduces collection cycles by 30-45%, saving clients lakhs in interest costs that often exceed our success fee—making the partnership cashflow positive from day one.
+                {t('home.outsource.timeValue.text')}
               </p>
             </div>
           </div>
-          <div className="mkt-card" style={{ marginTop: 32 }}>
-            <h3>Cost–Benefit Analysis</h3>
-            <ul className="mkt-benefit-list">
-              <li><strong>Time-Value of Money:</strong> Faster recovery reduces interest loss and improves working capital velocity.</li>
-              <li><strong>Opportunity Cost:</strong> Engineering teams focus on growth instead of administrative follow-ups.</li>
-              <li><strong>Fixed vs Variable Cost:</strong> Outsourcing eliminates salary liabilities, infrastructure costs, travel expenses, and payment risk when recovery fails.</li>
-            </ul>
-            <p className="mkt-body" style={{ marginTop: 16 }}>
-              <strong>Comparative ROI:</strong> Higher recovery rates, reduced DSO, lower bad-debt risk, reduced legal costs, improved working capital.
-            </p>
+          {/* Cost-Benefit Analysis - Redesigned */}
+          <div className="home-cost-benefit-section" style={{ marginTop: 48 }}>
+            <div className="home-cost-benefit-header">
+              <h3 className="home-cost-benefit-title">{t('home.outsource.costBenefit.title')}</h3>
+              <p className="home-cost-benefit-subtitle">{t('home.outsource.costBenefit.subtitle')}</p>
+            </div>
+            <div className="home-cost-benefit-grid">
+              <div className="home-cost-benefit-card">
+                <div className="home-cost-benefit-icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                  </svg>
+                </div>
+                <h4 className="home-cost-benefit-card-title">{t('home.outsource.costBenefit.timeValue')}</h4>
+                <p className="home-cost-benefit-card-desc">{t('home.outsource.costBenefit.timeValueDesc')}</p>
+              </div>
+              <div className="home-cost-benefit-card">
+                <div className="home-cost-benefit-icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                    <polyline points="17 6 23 6 23 12"></polyline>
+                  </svg>
+                </div>
+                <h4 className="home-cost-benefit-card-title">{t('home.outsource.costBenefit.opportunityCost')}</h4>
+                <p className="home-cost-benefit-card-desc">{t('home.outsource.costBenefit.opportunityCostDesc')}</p>
+              </div>
+              <div className="home-cost-benefit-card">
+                <div className="home-cost-benefit-icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <line x1="9" y1="9" x2="15" y2="9"></line>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                  </svg>
+                </div>
+                <h4 className="home-cost-benefit-card-title">{t('home.outsource.costBenefit.fixedVsVariable')}</h4>
+                <p className="home-cost-benefit-card-desc">{t('home.outsource.costBenefit.fixedVsVariableDesc')}</p>
+              </div>
+              <div className="home-cost-benefit-card home-cost-benefit-card-highlight">
+                <div className="home-cost-benefit-icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                  </svg>
+                </div>
+                <h4 className="home-cost-benefit-card-title">{t('home.outsource.costBenefit.comparativeROI')}</h4>
+                <p className="home-cost-benefit-card-desc">{t('home.outsource.costBenefit.comparativeROIDesc')}</p>
+              </div>
+            </div>
           </div>
-          <div className="mkt-trust-logos" style={{ marginTop: 32 }}>
-            <span className="mkt-trust-label">Strategic necessity of third-party collection:</span>
-            <div className="mkt-trust-chips" style={{ flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-              {['Professional neutrality', 'Conversion of fixed to variable costs', 'Specialized liaison intelligence', 'Focus on core competencies', 'Improved cash-flow velocity', 'Reduced bad debt provisioning', 'Advanced dispute mediation', 'Data-driven aging analysis', 'Business continuity', 'Regulatory and audit compliance'].map((s) => (
-                <span key={s} className="mkt-chip">{s}</span>
-              ))}
+
+          {/* Strategic Necessity - Redesigned (horizontal marquee) */}
+          <div className="home-strategic-necessity-section" style={{ marginTop: 64 }}>
+            <div className="home-strategic-necessity-header">
+              <h3 className="home-strategic-necessity-title">{t('home.outsource.strategicNecessity.title')}</h3>
+              <p className="home-strategic-necessity-subtitle">{t('home.outsource.strategicNecessity.subtitle')}</p>
+            </div>
+            <div className="home-strategic-necessity-marquee" aria-hidden="false">
+              <div className="home-strategic-necessity-track">
+                {[
+                  { label: t('home.outsource.strategicNecessity.professionalNeutrality'), icon: 'shield' },
+                  { label: t('home.outsource.strategicNecessity.conversionCosts'), icon: 'trending' },
+                  { label: t('home.outsource.strategicNecessity.specializedIntelligence'), icon: 'brain' },
+                  { label: t('home.outsource.strategicNecessity.coreCompetencies'), icon: 'target' },
+                  { label: t('home.outsource.strategicNecessity.cashFlowVelocity'), icon: 'zap' },
+                  { label: t('home.outsource.strategicNecessity.badDebtProvisioning'), icon: 'chart' },
+                  { label: t('home.outsource.strategicNecessity.disputeMediation'), icon: 'handshake' },
+                  { label: t('home.outsource.strategicNecessity.agingAnalysis'), icon: 'database' },
+                  { label: t('home.outsource.strategicNecessity.businessContinuity'), icon: 'refresh' },
+                  { label: t('home.outsource.strategicNecessity.regulatoryCompliance'), icon: 'check-circle' },
+                ]
+                  // Duplicate list to create seamless horizontal loop
+                  .flatMap((item, i) => ([
+                    { ...item, key: `${i}-a` },
+                    { ...item, key: `${i}-b` },
+                  ]))
+                  .map((item) => (
+                    <div key={item.key} className="home-strategic-necessity-item">
+                  <div className="home-strategic-necessity-item-icon">
+                    {item.icon === 'shield' && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                      </svg>
+                    )}
+                    {item.icon === 'trending' && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                        <polyline points="17 6 23 6 23 12"></polyline>
+                      </svg>
+                    )}
+                    {item.icon === 'brain' && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="22"></line>
+                        <line x1="8" y1="22" x2="16" y2="22"></line>
+                      </svg>
+                    )}
+                    {item.icon === 'target' && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="6"></circle>
+                        <circle cx="12" cy="12" r="2"></circle>
+                      </svg>
+                    )}
+                    {item.icon === 'zap' && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                      </svg>
+                    )}
+                    {item.icon === 'chart' && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                      </svg>
+                    )}
+                    {item.icon === 'handshake' && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 14h2a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2z"></path>
+                        <path d="M7 10h.01M17 10h.01M7 14h.01M17 14h.01"></path>
+                      </svg>
+                    )}
+                    {item.icon === 'database' && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                      </svg>
+                    )}
+                    {item.icon === 'refresh' && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                      </svg>
+                    )}
+                    {item.icon === 'check-circle' && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                      </svg>
+                    )}
+                  </div>
+                  <span className="home-strategic-necessity-item-label">{item.label}</span>
+                </div>
+                  ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Video placeholder – express your project / story */}
-      <section className="mkt-section-full home-video-section" aria-labelledby="video-heading">
+      {/* System showcase – our platform in action */}
+      <section className="mkt-section-full home-system-showcase" aria-labelledby="system-heading">
         <div className="mkt-container mkt-container-wide">
           <div className="mkt-page-head">
-            <h2 id="video-heading" className="mkt-section-heading">See Our Project</h2>
-            <p className="mkt-lead">How we work with clients and deliver results</p>
+            <h2 id="system-heading" className="mkt-section-heading">{t('home.system.heading')}</h2>
+            <p className="mkt-lead">{t('home.system.lead')}</p>
           </div>
-          <div className="home-video-wrapper">
-            <div className="home-video-placeholder">
-              {/* Replace the content below with your video: use <iframe> for YouTube/Vimeo or <video> for file */}
-              <div className="home-video-placeholder-inner" aria-hidden="true">
-                <div className="home-video-play-icon" aria-hidden="true">
-                  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="40" cy="40" r="40" fill="rgba(15, 72, 129, 0.9)" />
-                    <path d="M32 26v28l22-14L32 26z" fill="#fff" />
+          <div className="home-system-showcase-wrapper">
+            <div className="home-system-device-frame">
+              <div className="home-system-device-header">
+                <div className="home-system-device-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <div className="home-system-device-url">app.nbaurum.com/dashboard</div>
+                <div className="home-system-device-controls">
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+              <div className="home-system-screen">
+                <div className="home-system-screen-content">
+                  <div className="home-system-dashboard-preview">
+                    <div className="home-system-dashboard-header">
+                      <div className="home-system-dashboard-title">
+                        <h3>{t('home.system.dashboardTitle')}</h3>
+                        <span className="home-system-badge">{t('home.system.live')}</span>
+                      </div>
+                      <div className="home-system-dashboard-actions">
+                        <button className="home-system-btn-icon" aria-label="Notifications">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                          </svg>
+                        </button>
+                        <button className="home-system-btn-icon" aria-label="Settings">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 1v6m0 6v6m9-9h-6m-6 0H3"></path>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="home-system-metrics-grid">
+                      <div className="home-system-metric-card">
+                        <div className="home-system-metric-label">{t('home.system.totalReceivables')}</div>
+                        <div className="home-system-metric-value">₹2,45,67,890</div>
+                        <div className="home-system-metric-change positive">+12.5% {t('home.system.vsLastMonth')}</div>
+                      </div>
+                      <div className="home-system-metric-card">
+                        <div className="home-system-metric-label">{t('home.system.dso')}</div>
+                        <div className="home-system-metric-value">68 days</div>
+                        <div className="home-system-metric-change positive">-15 days {t('home.system.improvement')}</div>
+                      </div>
+                      <div className="home-system-metric-card">
+                        <div className="home-system-metric-label">{t('home.system.collectionRate')}</div>
+                        <div className="home-system-metric-value">94.2%</div>
+                        <div className="home-system-metric-change positive">+8.3% {t('home.system.thisQuarter')}</div>
+                      </div>
+                      <div className="home-system-metric-card">
+                        <div className="home-system-metric-label">{t('home.system.pendingActions')}</div>
+                        <div className="home-system-metric-value">23</div>
+                        <div className="home-system-metric-change">12 {t('home.system.requireFollowUp')}</div>
+                      </div>
+                    </div>
+                    <div className="home-system-chart-area">
+                      <div className="home-system-chart-header">
+                        <h4>{t('home.system.collectionPerformance')}</h4>
+                        <div className="home-system-chart-legend">
+                          <span><span className="home-system-legend-dot" style={{ background: '#0f4c81' }}></span> {t('home.system.thisMonth')}</span>
+                          <span><span className="home-system-legend-dot" style={{ background: '#cbd5e1' }}></span> {t('home.system.lastMonth')}</span>
+                        </div>
+                      </div>
+                      <div className="home-system-chart-bars">
+                        {[65, 72, 68, 85, 78, 92, 88].map((height, i) => (
+                          <div key={i} className="home-system-chart-bar-wrapper">
+                            <div className="home-system-chart-bar" style={{ height: `${height}%` }}></div>
+                            <div className="home-system-chart-bar" style={{ height: `${height - 15}%`, background: '#cbd5e1' }}></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="home-system-table-preview">
+                      <div className="home-system-table-header">
+                        <h4>{t('home.system.recentInvoices')}</h4>
+                        <button className="home-system-btn-text">{t('home.system.viewAll')}</button>
+                      </div>
+                      <div className="home-system-table">
+                        <div className="home-system-table-row header">
+                          <div>{t('home.system.invoice')}</div>
+                          <div>{t('home.system.client')}</div>
+                          <div>{t('home.system.amount')}</div>
+                          <div>{t('home.system.status')}</div>
+                          <div>{t('home.system.dueDate')}</div>
+                        </div>
+                        {[
+                          { inv: 'INV-2024-001', client: 'State Electricity Board', amount: '₹12,45,000', status: t('home.system.paid'), due: '15 Jan 2024' },
+                          { inv: 'INV-2024-002', client: 'Solar Power Corp', amount: '₹8,90,500', status: t('home.system.pending'), due: '22 Jan 2024' },
+                          { inv: 'INV-2024-003', client: 'Railway Authority', amount: '₹15,67,200', status: t('home.system.inProcess'), due: '28 Jan 2024' },
+                        ].map((row, i) => (
+                          <div key={i} className="home-system-table-row">
+                            <div data-label={t('home.system.invoice')}>{row.inv}</div>
+                            <div data-label={t('home.system.client')}>{row.client}</div>
+                            <div data-label={t('home.system.amount')}>{row.amount}</div>
+                            <div data-label={t('home.system.status')}><span className={`home-system-status-badge ${row.status.toLowerCase().replace(' ', '-')}`}>{row.status}</span></div>
+                            <div data-label={t('home.system.dueDate')}>{row.due}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="home-system-features-list">
+              <div className="home-system-feature-item">
+                <div className="home-system-feature-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
                   </svg>
                 </div>
-                <p className="home-video-placeholder-text">Add your project or story video here</p>
-                <p className="home-video-placeholder-hint">Replace this block with a YouTube/Vimeo iframe or &lt;video&gt; source</p>
+                <div className="home-system-feature-content">
+                  <h4>{t('home.system.aiPoweredInsights')}</h4>
+                  <p>{t('home.system.aiPoweredDesc')}</p>
+                </div>
               </div>
-              {/* Example for when you add a video (uncomment and set src):
-              <iframe
-                title="Our project video"
-                src="https://www.youtube.com/embed/YOUR_VIDEO_ID"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-              */}
+              <div className="home-system-feature-item">
+                <div className="home-system-feature-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <path d="M9 9h6v6H9z"></path>
+                  </svg>
+                </div>
+                <div className="home-system-feature-content">
+                  <h4>{t('home.system.realTimeDashboards')}</h4>
+                  <p>{t('home.system.realTimeDashboardsDesc')}</p>
+                </div>
+              </div>
+              <div className="home-system-feature-item">
+                <div className="home-system-feature-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                </div>
+                <div className="home-system-feature-content">
+                  <h4>{t('home.system.automatedWorkflows')}</h4>
+                  <p>{t('home.system.automatedWorkflowsDesc')}</p>
+                </div>
+              </div>
+              <div className="home-system-feature-item">
+                <div className="home-system-feature-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  </svg>
+                </div>
+                <div className="home-system-feature-content">
+                  <h4>{t('home.system.complianceReady')}</h4>
+                  <p>{t('home.system.complianceReadyDesc')}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Ready to Secure Your Cash Flow - feature cards */}
-      <section className="mkt-section-full home-cashflow" aria-labelledby="cashflow-heading">
-        <div className="mkt-container mkt-container-wide home-cashflow-inner">
-          <h2 id="cashflow-heading" className="home-cashflow-title">Ready to Secure Your Cash Flow?</h2>
+      <section className="mkt-section-full home-cashflow" aria-labelledby="cashflow-heading" ref={cashflowRef}>
+        <div className={`mkt-container mkt-container-wide home-cashflow-inner mkt-reveal ${cashflowInView ? 'mkt-reveal-visible' : ''}`}>
+          <h2 id="cashflow-heading" className="home-cashflow-title">{t('home.cashflow.heading')}</h2>
           <p className="home-cashflow-desc">
-            Don't let customer delays and complex documentation stall your company's growth trajectory. Partner with NB Aurum Solutions to transform your pending receivables into liquid working capital that fuels expansion, innovation, and competitive advantage.
+            {t('home.cashflow.desc')}
           </p>
           
           <div className="home-cashflow-cards">
@@ -502,8 +1058,8 @@ export default function Home() {
                   <path d="M9 12l2 2 4-4"></path>
                 </svg>
               </div>
-              <h3>Zero Risk Model</h3>
-              <p>"No Collection, No Fee" for all overdue recoveries</p>
+              <h3>{t('home.cashflow.zeroRisk')}</h3>
+              <p>{t('home.cashflow.zeroRiskDesc')}</p>
             </div>
             
             <div className="home-cashflow-card">
@@ -515,8 +1071,8 @@ export default function Home() {
                   <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                 </svg>
               </div>
-              <h3>Sector Experts</h3>
-              <p>20+ years in Power, Solar, Telecom, Railways, and PSUs</p>
+              <h3>{t('home.cashflow.sectorExperts')}</h3>
+              <p>{t('home.cashflow.sectorExpertsDesc')}</p>
             </div>
             
             <div className="home-cashflow-card">
@@ -528,8 +1084,8 @@ export default function Home() {
                   <path d="M17 11h6v6"></path>
                 </svg>
               </div>
-              <h3>End-to-End Service</h3>
-              <p>From tender documentation to final PBG release</p>
+              <h3>{t('home.cashflow.endToEnd')}</h3>
+              <p>{t('home.cashflow.endToEndDesc')}</p>
             </div>
             
             <div className="home-cashflow-card">
@@ -541,50 +1097,70 @@ export default function Home() {
                   <rect x="7" y="8" width="10" height="8" rx="1"></rect>
                 </svg>
               </div>
-              <h3>Reputation First</h3>
-              <p>Diplomatic approach preserving client relationships</p>
+              <h3>{t('home.cashflow.reputationFirst')}</h3>
+              <p>{t('home.cashflow.reputationFirstDesc')}</p>
             </div>
           </div>
           
           <div className="home-cashflow-actions">
             <Link to="/register" className="mkt-btn mkt-btn-primary mkt-btn-lg">
-              Get started
+              {t('home.cashflow.getStarted')}
             </Link>
             <Link to="/contact" className="mkt-btn mkt-btn-ghost mkt-btn-lg">
-              Get in touch
+              {t('home.cashflow.getInTouch')}
             </Link>
           </div>
         </div>
       </section>
 
-      {/* FAQ - modern centered */}
-      <section className="mkt-section-full muted home-faq" aria-labelledby="faq-heading">
-        <div className="mkt-container mkt-container-wide home-faq-inner">
+      {/* FAQ – left: 5 FAQs, right: image placeholder */}
+      <section className="mkt-section-full muted home-faq" aria-labelledby="faq-heading" ref={faqRef}>
+        <div className={`mkt-container mkt-container-wide home-faq-inner mkt-reveal ${faqInView ? 'mkt-reveal-visible' : ''}`}>
           <div className="home-faq-head">
-            <h2 id="faq-heading" className="home-faq-title">Frequently Asked Questions</h2>
-            <p className="home-faq-subtitle">Quick answers about our collections, consultancy, and engagement model.</p>
+            <h2 id="faq-heading" className="home-faq-title">{t('home.faq.heading')}</h2>
+            <p className="home-faq-subtitle">{t('home.faq.subtitle')}</p>
           </div>
-          <div className="home-faq-list">
-            {faqs.map((faq, i) => (
-              <div
-                key={i}
-                className={`home-faq-item ${openFaq === i ? 'is-open' : ''}`}
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && setOpenFaq(openFaq === i ? null : i)}
-                aria-expanded={openFaq === i}
-              >
-                <div className="home-faq-question">
-                  <span className="home-faq-q-label">Q{i + 1}</span>
-                  <span className="home-faq-q-text">{faq.q}</span>
-                  <span className="home-faq-icon" aria-hidden="true">{openFaq === i ? '−' : '+'}</span>
-                </div>
-                <div className="home-faq-answer">
-                  <p>{faq.a}</p>
-                </div>
+
+          <div className="home-faq-layout">
+            <div className="home-faq-list-wrap">
+              <div className="home-faq-list">
+                {faqs.slice(0, FAQ_DISPLAY_COUNT).map((faq, i) => (
+                  <div
+                    key={i}
+                    className={`home-faq-item ${openFaq === i ? 'is-open' : ''}`}
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && setOpenFaq(openFaq === i ? null : i)}
+                    aria-expanded={openFaq === i}
+                  >
+                    <div className="home-faq-question">
+                      <span className="home-faq-q-label">Q{i + 1}</span>
+                      <span className="home-faq-q-text">{faq.q}</span>
+                      <span className="home-faq-icon" aria-hidden="true">{openFaq === i ? '−' : '+'}</span>
+                    </div>
+                    <div className="home-faq-answer">
+                      <p>{faq.a}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div className="home-faq-image-wrap">
+              <img
+                src="https://img.freepik.com/free-vector/tiny-business-people-with-giant-faq-letters-gadget-users-searching-instructions-useful-information-flat-vector-illustration-customer-support-solution-concept-banner-landing-web-page_74855-23409.jpg?semt=ais_wordcount_boost&w=740&q=80"
+                alt="FAQ — customer support and useful information"
+                className="home-faq-image"
+                loading="lazy"
+              />
+            </div>
+          </div>
+          <div className="home-faq-view-more">
+            <Link to="/contact" className="mkt-btn mkt-btn-primary mkt-btn-lg">
+              {t('home.faq.viewMore')}
+            </Link>
+            <p className="home-faq-view-more-hint">{t('home.faq.viewMoreHint')}</p>
           </div>
         </div>
       </section>
@@ -593,7 +1169,7 @@ export default function Home() {
       <section className="mkt-section-full" aria-labelledby="onboarding-heading">
         <div className="mkt-container mkt-container-wide">
           <div className="mkt-page-head">
-            <h2 id="onboarding-heading" className="mkt-section-heading">Our Seamless Onboarding Process</h2>
+            <h2 id="onboarding-heading" className="mkt-section-heading">{t('home.onboarding.heading')}</h2>
           </div>
           <div style={{ marginTop: 48, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <img
@@ -610,10 +1186,10 @@ export default function Home() {
           </div>
           <div style={{ marginTop: 32, display: 'flex', justifyContent: 'center', gap: 16 }}>
             <Link to="/register" className="mkt-btn mkt-btn-primary mkt-btn-lg">
-              Get started
+              {t('home.onboarding.getStarted')}
             </Link>
             <Link to="/contact" className="mkt-btn mkt-btn-ghost mkt-btn-lg">
-              Talk to us
+              {t('home.onboarding.talkToUs')}
             </Link>
           </div>
         </div>
