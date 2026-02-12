@@ -41,7 +41,8 @@ export default function MarketingFooter() {
             <li><Link to="/">Purchase Orders</Link></li>
             <li><Link to="/">Invoices</Link></li>
             <li><Link to="/">Payments</Link></li>
-            <li><Link to="/">Collections</Link></li>
+            <li><Link to="/">Dashboard</Link></li>
+            <li><Link to="/">Minutes of Meeting</Link></li>
             <li><Link to="/">Reports & Analytics</Link></li>
           </ul>
         </div>

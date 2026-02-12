@@ -765,14 +765,8 @@ export default function Home() {
                   { label: t('home.outsource.strategicNecessity.agingAnalysis'), icon: 'database' },
                   { label: t('home.outsource.strategicNecessity.businessContinuity'), icon: 'refresh' },
                   { label: t('home.outsource.strategicNecessity.regulatoryCompliance'), icon: 'check-circle' },
-                ]
-                  // Duplicate list to create seamless horizontal loop
-                  .flatMap((item, i) => ([
-                    { ...item, key: `${i}-a` },
-                    { ...item, key: `${i}-b` },
-                  ]))
-                  .map((item) => (
-                    <div key={item.key} className="home-strategic-necessity-item">
+                ].map((item, index) => (
+                    <div key={index} className="home-strategic-necessity-item">
                   <div className="home-strategic-necessity-item-icon">
                     {item.icon === 'shield' && (
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

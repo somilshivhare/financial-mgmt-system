@@ -63,7 +63,7 @@ export default function WhoWeAre() {
       {/* Hero Section */}
       <section className="who-hero-section" aria-labelledby="who-heading">
         <div className="who-hero-background">
-          <img src="https://images.unsplash.com/photo-1573164713988-8665fc963095?w=1920&q=85" alt="NB Aurum Solutions - Professional Team" className="who-hero-image" />
+          <img src="background.png" alt="NB Aurum Solutions - Professional Team" className="who-hero-image" />
           <div className="who-hero-overlay"></div>
         </div>
         <div className="mkt-container mkt-container-wide">
