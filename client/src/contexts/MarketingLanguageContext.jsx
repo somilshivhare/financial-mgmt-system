@@ -261,7 +261,7 @@ const translations = {
         },
         timeValue: {
           heading: 'Time-Value of Money Analysis',
-          text: 'In the Solar and Power sectors, where capital costs are high, delayed collections have a real financial impact. If ₹5 Crores is stuck with a DISCOM for an extra 6 months, the cost of capital at 10% interest equals ₹25 Lakhs in lost interest and working capital alone. NB Aurum Solutions\' \'Pole-to-Pole\' persistence reduces collection cycles by 30-45%, saving clients lakhs in interest costs that often exceed our success fee—making the partnership cashflow positive from day one.',
+          text: 'Across Power, Solar, Telecom, Railways, PSUs and other Government-linked sectors, where capital costs are high, delayed collections have a real financial impact. If ₹5 Crores is stuck with a DISCOM or similar utility for an extra 6 months, the cost of capital at 10% interest equals ₹25 Lakhs in lost interest and working capital alone. NB Aurum Solutions\' \'Pole-to-Pole\' persistence reduces collection cycles by 30-45%, saving clients lakhs in interest costs that often exceed our success fee—making the partnership cashflow positive from day one.',
         },
         costBenefit: {
           title: 'Cost–Benefit Analysis',
