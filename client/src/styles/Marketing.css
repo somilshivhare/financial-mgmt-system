@@ -3963,8 +3963,7 @@ a.mkt-service-card:hover {
 .home-strategic-necessity-track {
   display: flex;
   gap: var(--mkt-space-md);
-  /* Faster marquee for all devices */
-  animation: strategic-necessity-marquee 18s linear infinite;
+  /* No auto-scroll by default; users can scroll manually */
   will-change: transform;
 }
 
@@ -4394,8 +4393,8 @@ a.mkt-service-card:hover {
   }
 
   .home-strategic-necessity-track {
-    /* Use mobile-specific marquee so full set of cards scrolls past */
-    animation: strategic-necessity-marquee-mobile 12s linear infinite;
+    /* No auto-scroll on mobile; swipe to scroll */
+    animation: none;
   }
 
   .home-strategic-necessity-item {
@@ -7129,28 +7128,30 @@ a.mkt-service-card:hover {
   align-items: center;
   justify-content: center;
   gap: var(--mkt-space-sm);
-  padding: 14px 28px;
-  background: var(--mkt-primary);
+  padding: 12px 24px;
+  min-width: 190px;
+  background: linear-gradient(135deg, var(--mkt-primary) 0%, #0d3d6b 100%);
   color: #ffffff;
-  border: none;
-  border-radius: var(--mkt-radius-md);
-  font-size: 1rem;
+  border: 1px solid rgba(15, 76, 129, 0.4);
+  border-radius: 999px;
+  font-size: 0.95rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: all var(--mkt-duration) var(--mkt-ease);
-  box-shadow: 0 2px 8px rgba(15, 76, 129, 0.2);
+  transition: transform var(--mkt-duration-fast), box-shadow var(--mkt-duration-fast), background var(--mkt-duration-fast);
+  box-shadow: 0 6px 18px rgba(15, 76, 129, 0.25);
   margin-top: var(--mkt-space-md);
 }
 
 .contact-submit-btn:hover:not(:disabled) {
-  background: var(--mkt-primary-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.3);
+  background: linear-gradient(135deg, var(--mkt-primary-hover) 0%, #0b3157 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(15, 76, 129, 0.35);
 }
 
 .contact-submit-btn:active:not(:disabled) {
   transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(15, 76, 129, 0.25);
 }
 
 .contact-submit-btn:disabled {
@@ -7163,6 +7164,11 @@ a.mkt-service-card:hover {
 }
 
 .contact-submit-icon {
+  /* Static by default; no rotation */
+}
+
+/* Only spin the icon while the button is in loading state */
+.contact-submit-btn-loading .contact-submit-icon {
   animation: spin 1s linear infinite;
 }
 
@@ -7280,14 +7286,12 @@ a.mkt-service-card:hover {
 
 .contact-map-placeholder {
   border-radius: var(--mkt-radius-lg);
-  border: 2px dashed var(--mkt-line-strong);
-  background: var(--mkt-surface-2);
-  height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
   overflow: hidden;
+  border: 1px solid var(--mkt-line);
+  background: var(--mkt-surface);
+  height: 0;
+  padding-bottom: 60%;
+  position: relative;
 }
 
 .contact-map-placeholder::before {
@@ -7298,18 +7302,15 @@ a.mkt-service-card:hover {
 }
 
 .contact-map-label {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--mkt-space-xs);
-  padding: var(--mkt-space-sm) var(--mkt-space-md);
-  border-radius: 999px;
-  background: var(--mkt-surface);
-  color: var(--mkt-text);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  box-shadow: var(--mkt-shadow-sm);
+}
+
+.contact-map-label iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 
 .contact-map-label svg {
