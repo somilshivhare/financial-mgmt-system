@@ -150,7 +150,7 @@ export default function Contact() {
     {
       icon: Clock,
       title: 'Business Hours',
-      content: 'Mon–Fri, 10:00–18:00 IST',
+      content: 'Mon–Fri, 10:00–6:00 IST',
       details: 'We respond within 24 hours',
       color: 'var(--mkt-primary)'
     }
@@ -400,8 +400,18 @@ export default function Contact() {
               </div>
               <div className="contact-map-placeholder">
                 <div className="contact-map-label">
-                  <MapPin size={16} />
-                  Office Location
+                <div className="w-full h-full">
+  <iframe
+    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d14006.569108570173!2d77.35747399715109!3d28.64048154289971!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390cfbc514590611%3A0xf294829608147da5!2sD%20MALL!5e0!3m2!1sen!2sin!4v1770881834371!5m2!1sen!2sin"
+    width="600"
+    height="450"
+    style={{ border: 0, width: '100%', maxWidth: '100%' }}
+    allowFullScreen=""
+    loading="lazy"
+    referrerPolicy="no-referrer-when-downgrade"
+  ></iframe>
+</div>
+                 
                 </div>
               </div>
             </div>

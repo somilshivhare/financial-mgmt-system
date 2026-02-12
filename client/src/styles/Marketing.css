@@ -4087,7 +4087,12 @@ a.mkt-service-card:hover {
 }
 
 .home-comparison-table thead {
-  background: linear-gradient(180deg, var(--mkt-surface-2) 0%, rgba(15, 76, 129, 0.06) 100%);
+  /* Match global site primary/topbar colors */
+  background: linear-gradient(
+    180deg,
+    var(--mkt-topbar-bg-start) 0%,
+    var(--mkt-topbar-bg-end) 100%
+  );
 }
 
 .home-comparison-table th {
@@ -4095,15 +4100,14 @@ a.mkt-service-card:hover {
   padding: var(--mkt-space-md) var(--mkt-space-lg);
   font-size: 0.6875rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--mkt-muted);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  color: #ffffff;
   border-bottom: 2px solid var(--mkt-line);
 }
 
 .home-comparison-th-feature {
   width: 18%;
-  color: var(--mkt-primary);
 }
 
 .home-comparison-th-inhouse {
@@ -4112,7 +4116,19 @@ a.mkt-service-card:hover {
 
 .home-comparison-th-nbaurum {
   width: 41%;
-  color: var(--mkt-primary);
+}
+
+/* Vertical divider between In-house and NB Aurum columns */
+.home-comparison-cell-inhouse {
+  /* Body rows: subtle divider on light background */
+  border-left: 1px solid var(--mkt-line);
+  border-right: 1px solid var(--mkt-line);
+}
+
+/* Header cell: stronger, visible divider on dark blue background */
+.home-comparison-th-inhouse {
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  border-right: 1px solid rgba(255, 255, 255, 0.35);
 }
 
 .home-comparison-table tbody tr {

@@ -222,7 +222,7 @@ const translations = {
       outsource: {
         heading: 'Why Companies Are Outsourcing',
         lead: 'Regulatory compliance complexity, focus on core competencies, and specialized expertise drive outsourcing decisions. In payment collections—especially with Government, PSUs, and utilities—companies face lengthy cycles, strict documentation, and relationship-heavy follow-ups. Outsourcing lets internal teams concentrate on delivery and growth while specialists handle liaison, dispute resolution, and recovery, often with better success rates and a variable cost structure that aligns with results.',
-        comparisonHeading: 'In-House vs. Outsourced: A Detailed Comparison',
+        comparisonHeading: 'A Detailed Comparison between In House Collection Team Vs Outsourcing Collections',
         comparisonSubtitle: 'Compare total cost of ownership, success rates, and strategic impact.',
         comparison: {
           feature: 'Feature',
