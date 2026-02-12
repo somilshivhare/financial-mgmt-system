@@ -123,6 +123,9 @@ export default function MarketingNavbar() {
           <NavLink to="/pricing" className={navLinkClass} onClick={close}>
             {t('nav.pricing')}
           </NavLink>
+          <NavLink to="/faq" className={navLinkClass} onClick={close}>
+            {t('nav.faq')}
+          </NavLink>
           <NavLink to="/contact" className={navLinkClass} onClick={close}>
             {t('nav.contact')}
           </NavLink>
@@ -203,6 +206,9 @@ export default function MarketingNavbar() {
             </NavLink>
             <NavLink to="/pricing" className={navLinkClass} onClick={close}>
               {t('nav.pricing')}
+            </NavLink>
+            <NavLink to="/faq" className={navLinkClass} onClick={close}>
+              {t('nav.faq')}
             </NavLink>
             <NavLink to="/contact" className={navLinkClass} onClick={close}>
               {t('nav.contact')}

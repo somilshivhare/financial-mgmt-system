@@ -37,7 +37,7 @@ export default function About() {
               <div className="mkt-metric-desc">Two decades navigating B2G payment landscapes</div>
             </div>
             <div className="mkt-metric-item">
-              <div className="mkt-metric-number">100%</div>
+              <div className="mkt-metric-number">95%</div>
               <div className="mkt-metric-title">Commitment</div>
               <div className="mkt-metric-desc">Committed to complete payment recovery</div>
             </div>

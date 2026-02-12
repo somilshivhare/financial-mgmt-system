@@ -75,6 +75,7 @@ export default function MarketingFooter() {
             <li><Link to="/about">About Us</Link></li>
             <li><Link to="/who-we-are">Who We Are</Link></li>
             <li><Link to="/pricing">Pricing</Link></li>
+            <li><Link to="/faq">FAQ</Link></li>
             <li><Link to="/">Privacy Policy</Link></li>
             <li><Link to="/">Terms of Service</Link></li>
             <li><Link to="/">Security</Link></li>

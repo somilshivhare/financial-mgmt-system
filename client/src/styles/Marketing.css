@@ -3996,7 +3996,235 @@ a.mkt-service-card:hover {
   flex: 1;
 }
 
+/* ----- Why Outsource: redesigned comparison (cards + slow auto-scroll) ----- */
+.home-outsource-section {
+  padding-top: var(--mkt-space-2xl);
+  padding-bottom: var(--mkt-space-2xl);
+}
+
+.home-outsource-header {
+  text-align: center;
+  margin-bottom: var(--mkt-space-xl);
+}
+
+.home-outsource-title {
+  margin: 0 0 var(--mkt-space-md);
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 800;
+  color: var(--mkt-text);
+  letter-spacing: var(--mkt-letter-tight);
+  line-height: 1.2;
+}
+
+.home-outsource-lead {
+  margin: 0 auto;
+  max-width: 52rem;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--mkt-text-secondary);
+}
+
+.home-outsource-comparison-header {
+  text-align: center;
+  margin-bottom: var(--mkt-space-lg);
+}
+
+.home-outsource-comparison-title {
+  margin: 0 0 var(--mkt-space-sm);
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  font-weight: 700;
+  color: var(--mkt-text);
+}
+
+.home-outsource-comparison-subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--mkt-muted);
+}
+
+/* Comparison: modern tabular form (single table in card) */
+.home-comparison-wrap {
+  max-width: 56rem;
+  margin: 0 auto var(--mkt-space-xl);
+}
+
+.home-comparison-table-card {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: var(--mkt-radius-xl);
+  background: var(--mkt-surface);
+  border: 1px solid var(--mkt-line);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mkt-primary) var(--mkt-line);
+}
+
+.home-comparison-table-card::-webkit-scrollbar {
+  height: 8px;
+}
+
+.home-comparison-table-card::-webkit-scrollbar-track {
+  background: var(--mkt-line);
+  border-radius: 4px;
+}
+
+.home-comparison-table-card::-webkit-scrollbar-thumb {
+  background: var(--mkt-primary);
+  border-radius: 4px;
+}
+
+.home-comparison-table-card::-webkit-scrollbar-thumb:hover {
+  background: #0d3d6b;
+}
+
+.home-comparison-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.home-comparison-table thead {
+  background: linear-gradient(180deg, var(--mkt-surface-2) 0%, rgba(15, 76, 129, 0.06) 100%);
+}
+
+.home-comparison-table th {
+  text-align: left;
+  padding: var(--mkt-space-md) var(--mkt-space-lg);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mkt-muted);
+  border-bottom: 2px solid var(--mkt-line);
+}
+
+.home-comparison-th-feature {
+  width: 18%;
+  color: var(--mkt-primary);
+}
+
+.home-comparison-th-inhouse {
+  width: 41%;
+}
+
+.home-comparison-th-nbaurum {
+  width: 41%;
+  color: var(--mkt-primary);
+}
+
+.home-comparison-table tbody tr {
+  transition: background var(--mkt-duration);
+}
+
+.home-comparison-table tbody tr:hover {
+  background: rgba(15, 76, 129, 0.04);
+}
+
+.home-comparison-row-alt {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.home-comparison-table tbody tr.home-comparison-row-alt:hover {
+  background: rgba(15, 76, 129, 0.06);
+}
+
+.home-comparison-table td {
+  padding: var(--mkt-space-md) var(--mkt-space-lg);
+  line-height: 1.5;
+  vertical-align: top;
+  border-bottom: 1px solid var(--mkt-line);
+}
+
+.home-comparison-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.home-comparison-cell-feature {
+  font-weight: 600;
+  color: var(--mkt-primary);
+  font-size: 0.875rem;
+}
+
+.home-comparison-cell-inhouse {
+  color: var(--mkt-text-secondary);
+}
+
+.home-comparison-cell-nbaurum {
+  color: var(--mkt-text);
+  font-weight: 500;
+}
+
+/* Time-Value of Money card */
+.home-outsource-timevalue-card {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: var(--mkt-space-xl);
+  border-radius: var(--mkt-radius-xl);
+  background: linear-gradient(135deg, rgba(15, 76, 129, 0.06) 0%, rgba(15, 76, 129, 0.02) 100%);
+  border: 1px solid var(--mkt-line);
+  box-shadow: var(--mkt-shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mkt-space-md);
+}
+
+.home-outsource-timevalue-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--mkt-radius-md);
+  background: linear-gradient(135deg, var(--mkt-primary) 0%, #0d3d6b 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.home-outsource-timevalue-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.home-outsource-timevalue-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--mkt-text);
+}
+
+.home-outsource-timevalue-text {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: var(--mkt-text-secondary);
+}
+
 @media (max-width: 768px) {
+  .home-comparison-table-card {
+    border-radius: var(--mkt-radius-lg);
+  }
+
+  .home-comparison-table {
+    min-width: 400px;
+    font-size: 0.8125rem;
+  }
+
+  .home-comparison-table th,
+  .home-comparison-table td {
+    padding: var(--mkt-space-sm) var(--mkt-space-md);
+  }
+
+  .home-comparison-cell-feature {
+    font-size: 0.8125rem;
+  }
+
+  .home-outsource-timevalue-card {
+    padding: var(--mkt-space-lg);
+  }
+
   .home-cost-benefit-grid {
     grid-template-columns: 1fr;
     gap: var(--mkt-space-md);
@@ -5383,6 +5611,60 @@ a.mkt-service-card:hover {
   }
 }
 
+/* Home: Understanding Accounts Receivable – insights */
+.home-ar-insights {
+  padding-top: var(--mkt-space-2xl);
+  padding-bottom: var(--mkt-space-2xl);
+  background: linear-gradient(180deg, var(--mkt-surface) 0%, var(--mkt-surface-2) 100%);
+}
+
+.home-ar-insights-card {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: var(--mkt-space-xl) var(--mkt-space-2xl);
+  border-radius: var(--mkt-radius-xl);
+  background: var(--mkt-surface);
+  border: 1px solid var(--mkt-line);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.home-ar-insights-title {
+  margin: 0 0 var(--mkt-space-md);
+  font-size: clamp(1.35rem, 2.5vw, 1.6rem);
+  font-weight: 700;
+  color: var(--mkt-primary);
+  letter-spacing: 0.02em;
+}
+
+.home-ar-insights-lead {
+  margin: 0 0 var(--mkt-space-md);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--mkt-text);
+  font-weight: 500;
+}
+
+.home-ar-insights-para {
+  margin: 0 0 var(--mkt-space-md);
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--mkt-text-secondary);
+}
+
+.home-ar-insights-closing {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--mkt-text);
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .home-ar-insights-card {
+    padding: var(--mkt-space-lg) var(--mkt-space-lg);
+  }
+}
+
 /* Home: FAQ – left 5 FAQs, right image placeholder, below: ask question */
 .home-faq {
   text-align: left;
@@ -5508,15 +5790,20 @@ a.mkt-service-card:hover {
 }
 
 .home-faq-item.is-open .home-faq-answer {
-  max-height: 200px;
+  max-height: 600px;
 }
 
-.home-faq-answer p {
+.home-faq-answer p,
+.home-faq-answer .home-faq-answer-text {
   margin: 0;
   padding: 0 20px 18px 60px;
   font-size: 0.9375rem;
   line-height: 1.55;
   color: var(--mkt-text-secondary);
+}
+
+.home-faq-answer-text {
+  white-space: pre-line;
 }
 
 /* FAQ right: image */
@@ -5601,6 +5888,124 @@ a.mkt-service-card:hover {
 @media (max-width: 640px) {
   .home-faq-answer p {
     padding-left: 20px;
+  }
+}
+
+/* Dedicated FAQ page */
+.faq-page-hero {
+  padding-top: var(--mkt-space-2xl);
+  padding-bottom: var(--mkt-space-lg);
+}
+
+.faq-page-list {
+  padding-top: var(--mkt-space-lg);
+  padding-bottom: var(--mkt-space-2xl);
+}
+
+.faq-page-list-inner {
+  max-width: 48rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mkt-space-sm);
+}
+
+.faq-page-item {
+  background: var(--mkt-surface);
+  border: 1px solid var(--mkt-line);
+  border-radius: var(--mkt-radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--mkt-duration), box-shadow var(--mkt-duration);
+}
+
+.faq-page-item:hover {
+  border-color: var(--mkt-line-strong);
+  box-shadow: var(--mkt-shadow-sm);
+}
+
+.faq-page-item.is-open {
+  border-color: var(--mkt-primary);
+  box-shadow: 0 0 0 1px var(--mkt-primary);
+}
+
+.faq-page-question {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mkt-space-sm);
+  padding: var(--mkt-space-md) var(--mkt-space-lg);
+  text-align: left;
+}
+
+.faq-page-q-label {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--mkt-primary);
+}
+
+.faq-page-q-text {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--mkt-text);
+  line-height: 1.4;
+}
+
+.faq-page-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mkt-radius-full);
+  background: var(--mkt-surface-2);
+  color: var(--mkt-primary);
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: background var(--mkt-duration), color var(--mkt-duration);
+}
+
+.faq-page-item.is-open .faq-page-icon {
+  background: var(--mkt-primary);
+  color: #fff;
+}
+
+.faq-page-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--mkt-duration-slow) var(--mkt-ease);
+}
+
+.faq-page-item.is-open .faq-page-answer {
+  max-height: 800px;
+}
+
+.faq-page-answer-text {
+  margin: 0;
+  padding: 0 var(--mkt-space-lg) var(--mkt-space-lg) var(--mkt-space-lg);
+  padding-left: calc(var(--mkt-space-lg) + 2.5rem);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--mkt-text-secondary);
+  white-space: pre-line;
+}
+
+.faq-page-cta {
+  margin-top: var(--mkt-space-2xl);
+  text-align: center;
+}
+
+.faq-page-cta-hint {
+  margin: 0 0 var(--mkt-space-md);
+  font-size: 0.9375rem;
+  color: var(--mkt-text-secondary);
+}
+
+@media (max-width: 768px) {
+  .faq-page-answer-text {
+    padding-left: var(--mkt-space-lg);
   }
 }
 

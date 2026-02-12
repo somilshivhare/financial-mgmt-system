@@ -12,6 +12,7 @@ import Contact from './pages/Contact'
 import WhoWeAre from './pages/WhoWeAre'
 import Services from './pages/Services'
 import ServiceDetail from './pages/ServiceDetail'
+import FAQ from './pages/FAQ'
 import Dashboard from './pages/Dashboard'
 import Finance from './pages/Finance'
 import MasterData from './pages/MasterData'
@@ -99,6 +100,7 @@ function App() {
                 <Route path="/who-we-are" element={<WhoWeAre />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/faq" element={<FAQ />} />
                 <Route path="/services" element={<Services />} />
                 <Route path="/services/:slug" element={<ServiceDetail />} />
               </Route>

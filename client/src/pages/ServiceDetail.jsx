@@ -113,7 +113,7 @@ const servicesData = {
       'Improved cash flow and working capital: Accelerated payment collections directly enhance your working capital, enabling you to invest in growth opportunities, meet operational expenses, and reduce dependency on expensive credit facilities or working capital loans.',
       'Reduced Days Sales Outstanding (DSO) by 30-45%: Our persistent "Pole-to-Pole" follow-up approach and specialized expertise in PSU/utility payment processes typically reduce DSO from 120+ days to 60-90 days, significantly improving your cash conversion cycle and financial health.',
       'Zero upfront costs with performance-based pricing: Our "No Collection, No Fee" model means you only pay when we successfully recover payments, eliminating fixed salary costs, infrastructure expenses, and travel overheads while converting them to variable, outcome-based fees.',
-      'Higher recovery rates through specialized expertise: With 90-100% recovery rates compared to typical 60-70% in-house rates, our deep sector knowledge, on-ground presence, and relationship management capabilities ensure maximum payment realization and minimal bad debt write-offs.',
+      'Higher recovery rates through specialized expertise: With 90-95% recovery rates compared to typical 60-70% in-house rates, our deep sector knowledge, on-ground presence, and relationship management capabilities ensure maximum payment realization and minimal bad debt write-offs.',
       'Faster payment realization across lifecycle: From progressive billings to final payments, retention money, and Bank Guarantee releases, our dedicated focus ensures timely follow-ups at every stage, preventing delays that could otherwise stretch payment cycles by months.'
     ]
   },

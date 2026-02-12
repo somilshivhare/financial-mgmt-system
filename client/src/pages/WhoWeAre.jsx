@@ -63,7 +63,7 @@ export default function WhoWeAre() {
       {/* Hero Section */}
       <section className="who-hero-section" aria-labelledby="who-heading">
         <div className="who-hero-background">
-          <img src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1920&q=85" alt="NB Aurum Solutions - Professional Team" className="who-hero-image" />
+          <img src="https://images.unsplash.com/photo-1573164713988-8665fc963095?w=1920&q=85" alt="NB Aurum Solutions - Professional Team" className="who-hero-image" />
           <div className="who-hero-overlay"></div>
         </div>
         <div className="mkt-container mkt-container-wide">
@@ -128,7 +128,7 @@ export default function WhoWeAre() {
               </p>
             </div>
             <div className="who-story-image">
-              <img src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&q=85" alt="NB Aurum Solutions Team" className="who-story-img" />
+              <img src="https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&q=85" alt="NB Aurum Solutions Team" className="who-story-img" />
             </div>
           </div>
         </div>
@@ -348,7 +348,7 @@ export default function WhoWeAre() {
         <div className="mkt-container mkt-container-wide">
           <div className="who-choose-content">
             <div className="who-choose-image">
-              <img src="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=1200&q=85" alt="Why Choose NB Aurum" className="who-choose-img" />
+              <img src="https://images.unsplash.com/photo-1560264280-88b68371db39?w=1200&q=85" alt="Why Choose NB Aurum" className="who-choose-img" />
             </div>
             <div className="who-choose-text">
               <h2 className="who-choose-title">Why Choose NB Aurum Solutions?</h2>

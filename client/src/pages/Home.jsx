@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useInView } from '../hooks/useInView'
 import { useMarketingLanguage } from '../contexts/MarketingLanguageContext'
 
@@ -7,7 +7,6 @@ const FAQ_DISPLAY_COUNT = 5
 
 export default function Home() {
   const { t } = useMarketingLanguage()
-
   /* Hero carousel: slide 1 = local; rest = Unsplash (free high-res images) */
   const HERO_SLIDES = [
     {
@@ -102,6 +101,20 @@ export default function Home() {
   const [outsourceRef, outsourceInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
   const [faqRef, faqInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
   const [cashflowRef, cashflowInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
+  const [arInsightsRef, arInsightsInView] = useInView({ rootMargin: '0px 0px -60px 0px' })
+
+  const comparisonRows = useMemo(() => [
+    { key: 'costStructure', feature: t('home.outsource.comparison.costStructure'), inHouse: t('home.outsource.comparison.costStructureInHouse'), nbaurum: t('home.outsource.comparison.costStructureNbaurum') },
+    { key: 'expertiseLevel', feature: t('home.outsource.comparison.expertiseLevel'), inHouse: t('home.outsource.comparison.expertiseLevelInHouse'), nbaurum: t('home.outsource.comparison.expertiseLevelNbaurum') },
+    { key: 'scalability', feature: t('home.outsource.comparison.scalability'), inHouse: t('home.outsource.comparison.scalabilityInHouse'), nbaurum: t('home.outsource.comparison.scalabilityNbaurum') },
+    { key: 'teamFocus', feature: t('home.outsource.comparison.teamFocus'), inHouse: t('home.outsource.comparison.teamFocusInHouse'), nbaurum: t('home.outsource.comparison.teamFocusNbaurum') },
+    { key: 'relationshipRisk', feature: t('home.outsource.comparison.relationshipRisk'), inHouse: t('home.outsource.comparison.relationshipRiskInHouse'), nbaurum: t('home.outsource.comparison.relationshipRiskNbaurum') },
+    { key: 'successRate', feature: t('home.outsource.comparison.successRate'), inHouse: t('home.outsource.comparison.successRateInHouse'), nbaurum: t('home.outsource.comparison.successRateNbaurum') },
+    { key: 'recoveryRate', feature: t('home.outsource.comparison.recoveryRate'), inHouse: t('home.outsource.comparison.recoveryRateInHouse'), nbaurum: t('home.outsource.comparison.recoveryRateNbaurum') },
+    { key: 'dso', feature: t('home.outsource.comparison.dso'), inHouse: t('home.outsource.comparison.dsoInHouse'), nbaurum: t('home.outsource.comparison.dsoNbaurum') },
+    { key: 'badDebtRisk', feature: t('home.outsource.comparison.badDebtRisk'), inHouse: t('home.outsource.comparison.badDebtRiskInHouse'), nbaurum: t('home.outsource.comparison.badDebtRiskNbaurum') },
+    { key: 'legalCost', feature: t('home.outsource.comparison.legalCost'), inHouse: t('home.outsource.comparison.legalCostInHouse'), nbaurum: t('home.outsource.comparison.legalCostNbaurum') },
+  ], [t])
 
   useEffect(() => {
     document.title = 'NB Aurum Solutions – Your Trusted Partner in Payment Collections & Consultancy'
@@ -636,91 +649,52 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Why Outsource + Comparison */}
-      <section className="mkt-section-full" aria-labelledby="outsource-heading" ref={outsourceRef}>
+      {/* Why Outsource + Comparison — redesigned: cards + slow auto-scroll, mobile-first */}
+      <section className="mkt-section-full home-outsource-section" aria-labelledby="outsource-heading" ref={outsourceRef}>
         <div className={`mkt-container mkt-container-wide mkt-reveal ${outsourceInView ? 'mkt-reveal-visible' : ''}`}>
-          <div className="mkt-page-head" style={{ textAlign: 'left' }}>
-            <h2 id="outsource-heading" className="mkt-section-heading" style={{ textAlign: 'center' }}>{t('home.outsource.heading')}</h2>
-            <p className="mkt-lead" style={{ textAlign: 'center', maxWidth: '100%', width: '90%', marginLeft: 80, marginRight: 90 }}>
-              {t('home.outsource.lead')}
-            </p>
+          <div className="home-outsource-header">
+            <h2 id="outsource-heading" className="home-outsource-title">{t('home.outsource.heading')}</h2>
+            <p className="home-outsource-lead">{t('home.outsource.lead')}</p>
           </div>
-          <div className="mkt-page-head" style={{ marginTop: 48, textAlign: 'left' }}>
-            <h3 className="mkt-section-heading" style={{ fontSize: '1.5rem', textAlign: 'center' }}>{t('home.outsource.comparisonHeading')}</h3>
-            <p className="mkt-lead" style={{ marginTop: 16, textAlign: 'center', maxWidth: '100%', width: '100%', marginLeft: 0, marginRight: 0 }}>
-              {t('home.outsource.comparisonSubtitle')}
-            </p>
+          <div className="home-outsource-comparison-header">
+            <h3 className="home-outsource-comparison-title">{t('home.outsource.comparisonHeading')}</h3>
+            <p className="home-outsource-comparison-subtitle">{t('home.outsource.comparisonSubtitle')}</p>
           </div>
-          <div className="mkt-card" style={{ marginTop: 48 }}>
-            <div className="mkt-pricing-table-wrapper">
-              <table className="mkt-pricing-table" role="table" aria-label="In-House vs Outsourced comparison">
+
+          {/* Comparison: single modern tabular form */}
+          <div className="home-comparison-wrap">
+            <div className="home-comparison-table-card">
+              <table className="home-comparison-table" role="table" aria-label={t('home.outsource.comparisonSubtitle')}>
                 <thead>
                   <tr>
-                    <th scope="col">{t('home.outsource.comparison.feature')}</th>
-                    <th scope="col">{t('home.outsource.comparison.inHouse')}</th>
-                    <th scope="col">{t('home.outsource.comparison.nbaurum')}</th>
+                    <th scope="col" className="home-comparison-th-feature">{t('home.outsource.comparison.feature')}</th>
+                    <th scope="col" className="home-comparison-th-inhouse">{t('home.outsource.comparison.inHouse')}</th>
+                    <th scope="col" className="home-comparison-th-nbaurum">{t('home.outsource.comparison.nbaurum')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td><strong>{t('home.outsource.comparison.costStructure')}</strong></td>
-                    <td>{t('home.outsource.comparison.costStructureInHouse')}</td>
-                    <td>{t('home.outsource.comparison.costStructureNbaurum')}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>{t('home.outsource.comparison.expertiseLevel')}</strong></td>
-                    <td>{t('home.outsource.comparison.expertiseLevelInHouse')}</td>
-                    <td>{t('home.outsource.comparison.expertiseLevelNbaurum')}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>{t('home.outsource.comparison.scalability')}</strong></td>
-                    <td>{t('home.outsource.comparison.scalabilityInHouse')}</td>
-                    <td>{t('home.outsource.comparison.scalabilityNbaurum')}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>{t('home.outsource.comparison.teamFocus')}</strong></td>
-                    <td>{t('home.outsource.comparison.teamFocusInHouse')}</td>
-                    <td>{t('home.outsource.comparison.teamFocusNbaurum')}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>{t('home.outsource.comparison.relationshipRisk')}</strong></td>
-                    <td>{t('home.outsource.comparison.relationshipRiskInHouse')}</td>
-                    <td>{t('home.outsource.comparison.relationshipRiskNbaurum')}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>{t('home.outsource.comparison.successRate')}</strong></td>
-                    <td>{t('home.outsource.comparison.successRateInHouse')}</td>
-                    <td>{t('home.outsource.comparison.successRateNbaurum')}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>{t('home.outsource.comparison.recoveryRate')}</strong></td>
-                    <td>{t('home.outsource.comparison.recoveryRateInHouse')}</td>
-                    <td>{t('home.outsource.comparison.recoveryRateNbaurum')}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>{t('home.outsource.comparison.dso')}</strong></td>
-                    <td>{t('home.outsource.comparison.dsoInHouse')}</td>
-                    <td>{t('home.outsource.comparison.dsoNbaurum')}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>{t('home.outsource.comparison.badDebtRisk')}</strong></td>
-                    <td>{t('home.outsource.comparison.badDebtRiskInHouse')}</td>
-                    <td>{t('home.outsource.comparison.badDebtRiskNbaurum')}</td>
-                  </tr>
-                  <tr>
-                    <td><strong>{t('home.outsource.comparison.legalCost')}</strong></td>
-                    <td>{t('home.outsource.comparison.legalCostInHouse')}</td>
-                    <td>{t('home.outsource.comparison.legalCostNbaurum')}</td>
-                  </tr>
+                  {comparisonRows.map((row, idx) => (
+                    <tr key={row.key} className={idx % 2 === 1 ? 'home-comparison-row-alt' : ''}>
+                      <td className="home-comparison-cell-feature">{row.feature}</td>
+                      <td className="home-comparison-cell-inhouse">{row.inHouse}</td>
+                      <td className="home-comparison-cell-nbaurum">{row.nbaurum}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
-            <div style={{ marginTop: 48 }}>
-              <b><h3 style={{ marginTop: 0, marginBottom: 16 }}>{t('home.outsource.timeValue.heading')}</h3></b>
-              <p className="mkt-body">
-                {t('home.outsource.timeValue.text')}
-              </p>
+          </div>
+
+          {/* Time-Value of Money — modern card */}
+          <div className="home-outsource-timevalue-card">
+            <div className="home-outsource-timevalue-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23" />
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
             </div>
+            <h3 className="home-outsource-timevalue-title">{t('home.outsource.timeValue.heading')}</h3>
+            <p className="home-outsource-timevalue-text">{t('home.outsource.timeValue.text')}</p>
           </div>
           {/* Cost-Benefit Analysis - Redesigned */}
           <div className="home-cost-benefit-section" style={{ marginTop: 48 }}>
@@ -1113,6 +1087,19 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Understanding Accounts Receivable – insights */}
+      <section className="mkt-section-full home-ar-insights" aria-labelledby="ar-insights-heading" ref={arInsightsRef}>
+        <div className={`mkt-container mkt-container-wide mkt-reveal ${arInsightsInView ? 'mkt-reveal-visible' : ''}`}>
+          <div className="home-ar-insights-card">
+            <h2 id="ar-insights-heading" className="home-ar-insights-title">{t('home.arInsights.heading')}</h2>
+            <p className="home-ar-insights-lead">{t('home.arInsights.lead')}</p>
+            <p className="home-ar-insights-para">{t('home.arInsights.para2')}</p>
+            <p className="home-ar-insights-para">{t('home.arInsights.para3')}</p>
+            <p className="home-ar-insights-closing">{t('home.arInsights.closing')}</p>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ – left: 5 FAQs, right: image placeholder */}
       <section className="mkt-section-full muted home-faq" aria-labelledby="faq-heading" ref={faqRef}>
         <div className={`mkt-container mkt-container-wide home-faq-inner mkt-reveal ${faqInView ? 'mkt-reveal-visible' : ''}`}>
@@ -1140,7 +1127,7 @@ export default function Home() {
                       <span className="home-faq-icon" aria-hidden="true">{openFaq === i ? '−' : '+'}</span>
                     </div>
                     <div className="home-faq-answer">
-                      <p>{faq.a}</p>
+                      <p className="home-faq-answer-text">{faq.a}</p>
                     </div>
                   </div>
                 ))}
@@ -1157,7 +1144,7 @@ export default function Home() {
             </div>
           </div>
           <div className="home-faq-view-more">
-            <Link to="/contact" className="mkt-btn mkt-btn-primary mkt-btn-lg">
+            <Link to="/faq" className="mkt-btn mkt-btn-primary mkt-btn-lg">
               {t('home.faq.viewMore')}
             </Link>
             <p className="home-faq-view-more-hint">{t('home.faq.viewMoreHint')}</p>

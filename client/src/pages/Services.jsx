@@ -248,7 +248,7 @@ export default function Services() {
               </div>
               <h3 className="services-benefit-title">Proven Results</h3>
               <p className="services-benefit-description">
-                90-100% recovery rates, 30-45% DSO reduction, and faster payment cycles compared to in-house efforts.
+                90-95% recovery rates, 30-45% DSO reduction, and faster payment cycles compared to in-house efforts.
               </p>
             </div>
 

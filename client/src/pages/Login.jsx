@@ -407,7 +407,7 @@ function Login({ onLogin }) {
           {/* Footer */}
           <div className="auth-page-footer">
             <p className="auth-page-footer-text">
-              © {new Date().getFullYear()} NB Aurum Solutions Pvt. Ltd. All rights reserved.
+              © {new Date().getFullYear()} NB Aurum Solutions All rights reserved.
             </p>
           </div>
         </div>
