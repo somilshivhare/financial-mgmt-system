@@ -4004,7 +4004,13 @@ a.mkt-service-card:hover {
 
 .home-outsource-header {
   text-align: center;
-  margin-bottom: var(--mkt-space-xl);
+  margin: 0 auto var(--mkt-space-xl);
+  max-width: 56rem;
+  padding: var(--mkt-space-xl) var(--mkt-space-lg) var(--mkt-space-lg);
+  border-radius: var(--mkt-radius-xl);
+  background: var(--mkt-surface);
+  border: 1px solid var(--mkt-line);
+  box-shadow: var(--mkt-shadow-md);
 }
 
 .home-outsource-title {
@@ -4022,6 +4028,7 @@ a.mkt-service-card:hover {
   font-size: 1.0625rem;
   line-height: 1.65;
   color: var(--mkt-text-secondary);
+  text-align: left;
 }
 
 .home-outsource-comparison-header {

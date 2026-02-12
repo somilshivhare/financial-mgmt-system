@@ -67,7 +67,7 @@ export default function ContactSupport() {
   const [user, setUser] = useState(null)
   const [userRole, setUserRole] = useState(null)
   const [supportChannels, setSupportChannels] = useState({
-    email: 'support@nbaurumsolutions.com',
+    email: 'nbaurum@gmail.com',
     phone: '+91 99674 50118',
     businessHours: 'Mon–Fri, 10:00–18:00 (IST)',
   })
@@ -114,7 +114,7 @@ export default function ContactSupport() {
       const settings = await getSystemSettings()
       if (settings?.general) {
         setSupportChannels({
-          email: settings.general.supportEmail || settings.general.companyEmail || 'support@nbaurumsolutions.com',
+          email: settings.general.supportEmail || settings.general.companyEmail || 'nbaurum@gmail.com',
           phone: settings.general.supportPhone || settings.general.companyPhone || '+91 99674 50118',
           businessHours: settings.general.businessHours || 'Mon–Fri, 10:00–18:00 (IST)',
         })

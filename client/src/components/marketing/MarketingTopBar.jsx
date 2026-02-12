@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMarketingLanguage } from '../../contexts/MarketingLanguageContext'
 
-const SUPPORT_EMAIL = 'support@nbaurumsolutions.com'
+const SUPPORT_EMAIL = 'nbaurum@gmail.com'
 const SUPPORT_PHONE = '+91 98608 94146'
 
 function formatDateTime(date) {
