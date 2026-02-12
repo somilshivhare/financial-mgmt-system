@@ -189,6 +189,8 @@
   animation-play-state: paused;
 }
 
+/* (mobile Get Started CTA now lives in navbar, see .mkt-nav-mobile-cta) */
+
 .mkt-topbar-ticker-item {
   display: flex;
   align-items: center;
@@ -1001,6 +1003,31 @@ table.mkt-pricing-table tbody tr {
 .mkt-nav-actions .mkt-btn {
   font-size: 0.9rem;
   padding: 10px 20px;
+}
+
+.mkt-nav-mobile-right {
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.mkt-nav-mobile-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  min-height: 38px;
+  border-radius: var(--mkt-radius-md);
+  background: var(--mkt-primary);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-decoration: none;
+  box-shadow: var(--mkt-shadow-sm);
+}
+
+.mkt-nav-mobile-cta:hover {
+  background: var(--mkt-primary-hover);
 }
 
 .mkt-nav-toggle {
@@ -6256,6 +6283,10 @@ a.mkt-service-card:hover {
 
   .mkt-nav-actions {
     display: none;
+  }
+
+  .mkt-nav-mobile-right {
+    display: inline-flex;
   }
 
   .mkt-nav-toggle {

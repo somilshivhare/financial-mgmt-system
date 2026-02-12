@@ -131,7 +131,7 @@ export default function MarketingNavbar() {
           </NavLink>
         </nav>
 
-        {/* Action Buttons - Right */}
+        {/* Action Buttons - Right (desktop) */}
         <div className="mkt-nav-actions">
           <Link to="/login" className="mkt-btn mkt-btn-ghost" onClick={close}>
             {t('nav.login')}
@@ -141,19 +141,29 @@ export default function MarketingNavbar() {
           </Link>
         </div>
 
-        {/* Hamburger Toggle - Mobile Only */}
-        <button
-          type="button"
-          className={`mkt-nav-toggle ${open ? 'is-open' : ''}`}
-          aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
-          aria-expanded={open}
-          aria-controls="mobile-nav"
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span aria-hidden="true" />
-          <span aria-hidden="true" />
-          <span aria-hidden="true" />
-        </button>
+        {/* Mobile Get Started + Hamburger */}
+        <div className="mkt-nav-mobile-right">
+          <Link
+            to="/register"
+            className="mkt-nav-mobile-cta"
+            onClick={close}
+          >
+            {t('nav.getStarted')}
+          </Link>
+
+          <button
+            type="button"
+            className={`mkt-nav-toggle ${open ? 'is-open' : ''}`}
+            aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={open}
+            aria-controls="mobile-nav"
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       {/* Mobile Drawer */}
