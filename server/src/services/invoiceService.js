@@ -287,7 +287,7 @@ const createInvoice = async (payload, userId) =>
       parseFloat(payload.subtotal || 0),
       totalAmount,
       parseFloat(payload.amount_paid || 0),
-      parseFloat(payload.balance || payload.totalBalance || totalAmount),
+      Math.round((totalAmount - parseFloat(payload.amount_paid || 0)) * 100) / 100,
       payload.first_due_date || payload.firstDueDate || null,
       parseFloat(payload.first_due_amount || payload.firstDueAmount || 0),
       parseFloat(payload.first_received_amount || payload.paymentReceivedAmount1stDue || 0),

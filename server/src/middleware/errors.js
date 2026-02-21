@@ -65,6 +65,29 @@ const errorHandler = (err, _req, res, _next) => {
       process.env.NODE_ENV === 'development' ? { details: err.message } : null
     ));
   }
+
+  if (err.code === 'ER_CHECK_CONSTRAINT_VIOLATED' || err.errno === 3819) {
+    const msg = err.sqlMessage || '';
+    const hint = (msg.includes('chk_inv_balance') || msg.includes('chk_inv_amounts_non_neg'))
+      ? ' Run migrations: cd server && npm run migrate'
+      : '';
+    return res.status(500).json(apiError(
+      'Database constraint error. Please try again.' + hint,
+      'ERR_DATABASE_SCHEMA',
+      process.env.NODE_ENV === 'development' ? { details: err.sqlMessage || err.message } : null
+    ));
+  }
+
+  if (err.code === 'ER_NO_DEFAULT_FOR_FIELD' || err.errno === 1364) {
+    const hint = (err.sqlMessage || '').includes('tenant_id')
+      ? ' The database still has tenant_id columns. Run migrations: cd server && npm run migrate'
+      : '';
+    return res.status(500).json(apiError(
+      'Database schema is out of date. Please run migrations.' + hint,
+      'ERR_DATABASE_SCHEMA',
+      process.env.NODE_ENV === 'development' ? { details: err.sqlMessage || err.message } : null
+    ));
+  }
   
   if (err.code === 'ER_WRONG_ARGUMENTS' || err.message?.includes('mysqld_stmt_execute')) {
     console.error('[Database] Parameter mismatch error:', {

@@ -12,7 +12,10 @@ const ensureMigrationsTable = async () => {
   `);
 };
 
-const IGNORABLE_DDL_ERRORS = new Set([1060, 1061]); // ER_DUP_FIELDNAME, ER_DUP_KEYNAME
+const IGNORABLE_DDL_ERRORS = new Set([
+  1060, 1061, // ER_DUP_FIELDNAME, ER_DUP_KEYNAME
+  1054, 1091  // ER_BAD_FIELD_ERROR (Unknown column), Can't DROP (column/key) - for optional DROP COLUMN / DROP FK in migrations
+]);
 
 const runMigrations = async () => {
   const migrationsDir = path.join(__dirname, 'migrations');
@@ -48,6 +51,31 @@ const runMigrations = async () => {
             }
           }
         }
+      }
+      if (file === '029_drop_tenant_id.sql') {
+        const [refs] = await conn.query(
+          `SELECT TABLE_NAME AS tbl, CONSTRAINT_NAME AS fk
+           FROM information_schema.KEY_COLUMN_USAGE
+           WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
+             AND REFERENCED_TABLE_NAME = 'tenants'`
+        );
+        for (const row of refs || []) {
+          const tbl = row.tbl;
+          const fk = row.fk;
+          if (tbl && fk) {
+            try {
+              await conn.query(`ALTER TABLE \`${tbl.replace(/`/g, '``')}\` DROP FOREIGN KEY \`${fk.replace(/`/g, '``')}\``);
+              console.log(`  Dropped FK ${fk} on ${tbl} (referenced tenants)`);
+            } catch (err) {
+              if (IGNORABLE_DDL_ERRORS.has(err.errno)) {
+                console.log(`  (skipping: ${err.sqlMessage || err.message})`);
+              } else {
+                throw err;
+              }
+            }
+          }
+        }
+        await conn.query('DROP TABLE IF EXISTS tenants');
       }
       await conn.query('INSERT INTO schema_migrations (filename) VALUES (?)', [file]);
       await conn.commit();

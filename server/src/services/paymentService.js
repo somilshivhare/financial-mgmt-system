@@ -110,12 +110,12 @@ const createPayment = async (payload, userId) =>
       ],
     );
 
-    const newPaid = Number(invoice.amount_paid) + Number(payload.amount);
-    const newBalance = Number(invoice.total_amount) - newPaid;
+    const newPaid = Math.round((Number(invoice.amount_paid) + Number(payload.amount)) * 100) / 100;
+    const newBalance = Math.round((Number(invoice.total_amount) - newPaid) * 100) / 100;
     const newStatus = newBalance <= 0 ? 'paid' : invoice.status === 'cancelled' ? 'cancelled' : 'open';
     await conn.execute('UPDATE invoices SET amount_paid = ?, balance = ?, status = ? WHERE id = ?', [
-      newPaid,
-      newBalance,
+      Math.max(0, newPaid),
+      Math.max(0, newBalance),
       newStatus,
       payload.invoiceId,
     ]);
