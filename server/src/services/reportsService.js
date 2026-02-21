@@ -431,8 +431,14 @@ const getCustomerWiseReport = async (filters = {}) => {
     conditions.push('c.region_id = ?');
     params.push(filters.regionId);
   }
-  
+  if (filters.userId) {
+    conditions.push('i.created_by = ?');
+    params.push(filters.userId);
+  }
+
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const poJoinCondition = filters.userId ? ' AND po.created_by = ?' : '';
+  const poJoinParams = filters.userId ? [filters.userId] : [];
 
   const customerData = await query(
     `SELECT 
@@ -452,14 +458,14 @@ const getCustomerWiseReport = async (filters = {}) => {
       SUM(CASE WHEN i.due_date < CURDATE() AND i.balance > 0 THEN i.balance ELSE 0 END) AS overdue_amount
     FROM customers c
     LEFT JOIN invoices i ON i.customer_id = c.id ${whereClause.replace('WHERE', 'AND')}
-    LEFT JOIN purchase_orders po ON po.customer_id = c.id
+    LEFT JOIN purchase_orders po ON po.customer_id = c.id${poJoinCondition}
     LEFT JOIN business_units bu ON bu.id = c.business_unit_id
     LEFT JOIN segments s ON s.id = c.segment_id
     LEFT JOIN regions r ON r.id = c.region_id
     ${whereClause.includes('customer_id') ? whereClause : ''}
     GROUP BY c.id, c.name, c.business_unit_id, bu.name, c.segment_id, s.name, c.region_id, r.name
     ORDER BY total_invoiced DESC`,
-    params
+    [...params, ...poJoinParams]
   );
 
   const summary = customerData.reduce(
@@ -603,7 +609,7 @@ const getTaxGSTReport = async (filters = {}) => {
 };
 
 const getCommissionReport = async (filters = {}) => {
-  const { conditions, params } = buildCommonFilters({ ...filters, dateField: 'i.issue_date' });
+  const { conditions, params } = buildCommonFilters({ ...filters, dateField: 'i.issue_date', tablePrefix: 'i.' });
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const commissionData = await query(
@@ -793,7 +799,7 @@ const getAuditLogReport = async (filters = {}) => {
 
 const getKPIs = async (filters = {}) => {
   try {
-    const { dateFrom, dateTo } = filters;
+    const { dateFrom, dateTo, userId } = filters;
     const dateConditions = [];
     const dateParams = [];
 
@@ -805,19 +811,33 @@ const getKPIs = async (filters = {}) => {
       dateConditions.push('i.issue_date <= ?');
       dateParams.push(dateTo + ' 23:59:59');
     }
+    if (userId) {
+      dateConditions.push('i.created_by = ?');
+      dateParams.push(userId);
+    }
     const dateWhere = dateConditions.length ? `WHERE ${dateConditions.join(' AND ')}` : '';
+
+    const poWhere = dateWhere
+      .replace(/i\.issue_date/g, 'po.issue_date')
+      .replace('i.created_by', 'po.created_by')
+      .replace('FROM invoices', 'FROM purchase_orders po')
+      .replace('FROM invoices', 'FROM purchase_orders po');
+    const payWhere = dateWhere
+      .replace(/i\.issue_date/g, 'p.paid_at')
+      .replace('i.created_by', 'p.created_by')
+      .replace('FROM invoices', 'FROM payments p');
 
     const kpiData = await query(
       `SELECT 
-        (SELECT COUNT(*) FROM invoices ${dateWhere}) AS total_invoices,
-        (SELECT COALESCE(SUM(total_amount), 0) FROM invoices ${dateWhere}) AS total_invoiced,
-        (SELECT COALESCE(SUM(amount_paid), 0) FROM invoices ${dateWhere}) AS total_collected,
-        (SELECT COALESCE(SUM(balance), 0) FROM invoices ${dateWhere}) AS total_outstanding,
-        (SELECT COALESCE(SUM(balance), 0) FROM invoices ${dateWhere} AND due_date < CURDATE() AND balance > 0) AS total_overdue,
-        (SELECT COUNT(*) FROM purchase_orders ${dateWhere.replace('i.issue_date', 'po.issue_date').replace('FROM invoices', 'FROM purchase_orders po')}) AS total_pos,
-        (SELECT COUNT(*) FROM payments ${dateWhere.replace('i.issue_date', 'p.paid_at').replace('FROM invoices', 'FROM payments p')}) AS total_payments
+        (SELECT COUNT(*) FROM invoices i ${dateWhere}) AS total_invoices,
+        (SELECT COALESCE(SUM(i.total_amount), 0) FROM invoices i ${dateWhere}) AS total_invoiced,
+        (SELECT COALESCE(SUM(i.amount_paid), 0) FROM invoices i ${dateWhere}) AS total_collected,
+        (SELECT COALESCE(SUM(i.balance), 0) FROM invoices i ${dateWhere}) AS total_outstanding,
+        (SELECT COALESCE(SUM(i.balance), 0) FROM invoices i ${dateWhere} AND i.due_date < CURDATE() AND i.balance > 0) AS total_overdue,
+        (SELECT COUNT(*) FROM purchase_orders po ${poWhere}) AS total_pos,
+        (SELECT COUNT(*) FROM payments p ${payWhere}) AS total_payments
       `,
-      dateParams
+      [...dateParams, ...dateParams, ...dateParams, ...dateParams, ...dateParams, ...dateParams, ...dateParams]
     );
 
     return kpiData && kpiData[0] ? kpiData[0] : {

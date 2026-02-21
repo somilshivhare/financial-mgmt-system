@@ -40,11 +40,15 @@ const generateNextPaymentNumber = async (paymentDateLike = null) => {
   });
 };
 
-const listPayments = async ({ page = 1, pageSize = 20, invoiceId }) => {
+const listPayments = async ({ page = 1, pageSize = 20, invoiceId, userId }) => {
   try {
     const offset = (page - 1) * pageSize;
     const where = [];
     const params = [];
+    if (userId) {
+      where.push('i.created_by = ?');
+      params.push(userId);
+    }
     if (invoiceId) {
       where.push('p.invoice_id = ?');
       params.push(invoiceId);

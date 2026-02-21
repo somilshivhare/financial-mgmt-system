@@ -46,6 +46,44 @@ export default function FAQ() {
         </div>
       </section>
 
+      <section className="mkt-section-full" aria-labelleledby="faq-page-heading">
+        <div className="mkt-container mkt-container-wide">
+          <div className="mkt-grid-3">
+            <div className="mkt-card">
+              <h2>Frequently asked</h2>
+              <ul className="mkt-benefit-list">
+                <li>
+                  <strong>Can we start in Trial and move to Growth?</strong>
+                  <br />
+                  Yes. Your data, users, and workflows stay intact; we apply the new limits and capabilities.
+                </li>
+              </ul>
+            </div>
+            <div className="mkt-card">
+              <h2>Frequently asked</h2>
+              <ul className="mkt-benefit-list">
+                <li>
+                  <strong>Can we start in Trial and move to Growth?</strong>
+                  <br />
+                  Yes. Your data, users, and workflows stay intact; we apply the new limits and capabilities.
+                </li>
+              </ul>
+            </div>
+            <div className="mkt-card">
+              <h2>Frequently asked</h2>
+              <ul className="mkt-benefit-list">
+                <li>
+                  <strong>Can we start in Trial and move to Growth?</strong>
+                  <br />
+                  Yes. Your data, users, and workflows stay intact; we apply the new limits and capabilities.
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+        </div>
+      </section>
+
       <section className="mkt-section-full muted faq-page-list" aria-label="All FAQs">
         <div className="mkt-container mkt-container-wide">
           <div className="faq-page-list-inner">

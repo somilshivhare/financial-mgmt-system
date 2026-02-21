@@ -1,12 +1,11 @@
 const express = require('express');
 const { requireAuth } = require('../../middleware/requireAuth');
-const { requireRole } = require('../../middleware/requireRole');
 const { getDashboard, getAnalytics, getSubscriptionUsage } = require('../../controllers/dashboardController');
 
 const router = express.Router();
 
+// Every authenticated user gets their own dashboard (data filtered by req.user.id in controller)
 router.use(requireAuth);
-router.use(requireRole('admin', 'user'));
 
 router.get('/', getDashboard);
 

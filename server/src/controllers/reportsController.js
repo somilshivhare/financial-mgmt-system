@@ -10,7 +10,7 @@ const getSalesReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
       status: req.query.status,
     };
     const result = await reportsService.getSalesReport(filters);
@@ -29,7 +29,7 @@ const getPOReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
       status: req.query.status,
     };
     const result = await reportsService.getPOReport(filters);
@@ -48,7 +48,7 @@ const getInvoiceReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
       status: req.query.status,
     };
     const result = await reportsService.getInvoiceReport(filters);
@@ -67,7 +67,7 @@ const getPaymentReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
       status: req.query.status,
     };
     const result = await reportsService.getPaymentReport(filters);
@@ -86,7 +86,7 @@ const getCollectionReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
       status: req.query.status,
     };
     const result = await reportsService.getCollectionReport(filters);
@@ -105,7 +105,7 @@ const getOutstandingReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
       status: req.query.status,
     };
     const result = await reportsService.getOutstandingReport(filters);
@@ -124,7 +124,7 @@ const getCustomerWiseReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
     };
     const result = await reportsService.getCustomerWiseReport(filters);
     res.json(apiSuccess(result));
@@ -142,7 +142,7 @@ const getProjectWiseReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
     };
     const result = await reportsService.getProjectWiseReport(filters);
     res.json(apiSuccess(result));
@@ -160,7 +160,7 @@ const getAgingReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
     };
     const result = await reportsService.getAgingReport(filters);
     res.json(apiSuccess(result));
@@ -178,7 +178,7 @@ const getTaxGSTReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
     };
     const result = await reportsService.getTaxGSTReport(filters);
     res.json(apiSuccess(result));
@@ -196,7 +196,7 @@ const getCommissionReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
     };
     const result = await reportsService.getCommissionReport(filters);
     res.json(apiSuccess(result));
@@ -214,7 +214,7 @@ const getReconciliationReport = async (req, res, next) => {
       businessUnitId: req.query.businessUnitId,
       segmentId: req.query.segmentId,
       regionId: req.query.regionId,
-      userId: req.query.userId,
+      userId: req.user.id,
       status: req.query.status,
     };
     const result = await reportsService.getReconciliationReport(filters);
@@ -229,7 +229,7 @@ const getAuditLogReport = async (req, res, next) => {
     const filters = {
       dateFrom: req.query.dateFrom,
       dateTo: req.query.dateTo,
-      userId: req.query.userId,
+      userId: req.user.id,
       actionType: req.query.actionType,
     };
     const result = await reportsService.getAuditLogReport(filters);
@@ -244,6 +244,7 @@ const getKPIs = async (req, res, next) => {
     const filters = {
       dateFrom: req.query.dateFrom,
       dateTo: req.query.dateTo,
+      userId: req.user.id,
     };
     const result = await reportsService.getKPIs(filters);
     res.json(apiSuccess(result));

@@ -3,7 +3,10 @@ const dashboardService = require('../services/dashboardService');
 
 const getDashboard = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'User not found. Please log in again.' });
+    }
     const filters = {
       dateFrom: req.query.dateFrom,
       dateTo: req.query.dateTo,
@@ -17,12 +20,16 @@ const getDashboard = async (req, res, next) => {
 
 const getAnalytics = async (req, res, next) => {
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'User not found. Please log in again.' });
+    }
     const filters = {
       dateFrom: req.query.dateFrom,
       dateTo: req.query.dateTo,
       period: req.query.period || 'monthly',
     };
-    const data = await dashboardService.getAnalytics(filters);
+    const data = await dashboardService.getAnalytics(userId, filters);
     res.json(apiSuccess(data));
   } catch (err) {
     next(err);
@@ -31,7 +38,10 @@ const getAnalytics = async (req, res, next) => {
 
 const getSubscriptionUsage = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'User not found. Please log in again.' });
+    }
     const data = await dashboardService.getSubscriptionUsage(userId);
     res.json(apiSuccess(data));
   } catch (err) {

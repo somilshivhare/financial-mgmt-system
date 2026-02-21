@@ -1,10 +1,10 @@
-const { apiSuccess } = require('../utils/apiResponse');
+const { apiSuccess, apiError } = require('../utils/apiResponse');
 const collectionService = require('../services/collectionService');
 
 const listPlans = async (req, res, next) => {
   try {
     const { page = 1, pageSize = 20, status, invoiceId } = req.query;
-    const result = await collectionService.listPlans({ page, pageSize, status, invoiceId });
+    const result = await collectionService.listPlans({ page, pageSize, status, invoiceId, userId: req.user.id });
     res.json(apiSuccess(result));
   } catch (err) {
     next(err);
@@ -22,7 +22,8 @@ const createPlan = async (req, res, next) => {
 
 const updatePlanStatus = async (req, res, next) => {
   try {
-    const plan = await collectionService.updatePlanStatus(req.params.id, req.body.status);
+    const plan = await collectionService.updatePlanStatus(req.params.id, req.body.status, req.user.id);
+    if (!plan) return res.status(404).json(apiError('Collection plan not found or access denied', 'NOT_FOUND'));
     res.json(apiSuccess(plan, 'Status updated'));
   } catch (err) {
     next(err);
@@ -31,7 +32,7 @@ const updatePlanStatus = async (req, res, next) => {
 
 const listActions = async (req, res, next) => {
   try {
-    const actions = await collectionService.listActions(req.params.id);
+    const actions = await collectionService.listActions(req.params.id, req.user.id);
     res.json(apiSuccess(actions));
   } catch (err) {
     next(err);
@@ -53,6 +54,7 @@ const getCollectionPlanData = async (req, res, next) => {
       personId: req.query.personId || null,
       businessUnit: req.query.businessUnit || null,
       month: req.query.month || null,
+      userId: req.user.id,
     };
     const data = await collectionService.getCollectionPlanData(filters);
     res.json(apiSuccess(data));
@@ -67,6 +69,7 @@ const getCollectionAnalytics = async (req, res, next) => {
       personId: req.query.personId || null,
       businessUnit: req.query.businessUnit || null,
       month: req.query.month || null,
+      userId: req.user.id,
     };
     const analytics = await collectionService.getCollectionAnalytics(filters);
     res.json(apiSuccess(analytics));

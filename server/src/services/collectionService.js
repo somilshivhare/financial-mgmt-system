@@ -1,10 +1,14 @@
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../db/query');
 
-const listPlans = async ({ page = 1, pageSize = 20, status, invoiceId }) => {
+const listPlans = async ({ page = 1, pageSize = 20, status, invoiceId, userId }) => {
   const offset = (page - 1) * pageSize;
   const where = [];
   const params = [];
+  if (userId) {
+    where.push('cp.owner_user_id = ?');
+    params.push(userId);
+  }
   if (status) {
     where.push('cp.status = ?');
     params.push(status);
@@ -133,13 +137,30 @@ const createPlan = async (payload, userId) => {
   }
 };
 
-const updatePlanStatus = async (planId, status) => {
+const updatePlanStatus = async (planId, status, userId = null) => {
+  if (userId) {
+    const [updated] = await query(
+      'UPDATE collection_plans SET status = ?, updated_at = NOW() WHERE id = ? AND owner_user_id = ?',
+      [status, planId, userId]
+    );
+    const [plan] = await query('SELECT * FROM collection_plans WHERE id = ? AND owner_user_id = ?', [planId, userId]);
+    return plan;
+  }
   await query('UPDATE collection_plans SET status = ?, updated_at = NOW() WHERE id = ?', [status, planId]);
   const [plan] = await query('SELECT * FROM collection_plans WHERE id = ?', [planId]);
   return plan;
 };
 
-const listActions = async (planId) => {
+const listActions = async (planId, userId = null) => {
+  if (userId) {
+    return query(
+      `SELECT ca.* FROM collection_actions ca
+       JOIN collection_plans cp ON cp.id = ca.plan_id
+       WHERE ca.plan_id = ? AND cp.owner_user_id = ?
+       ORDER BY ca.action_date DESC`,
+      [planId, userId]
+    );
+  }
   return query('SELECT * FROM collection_actions WHERE plan_id = ? ORDER BY action_date DESC', [planId]);
 };
 
@@ -155,7 +176,7 @@ const addAction = async (planId, payload, userId) => {
 };
 
 const getCollectionPlanData = async (filters = {}) => {
-  const { personId, businessUnit, month } = filters;
+  const { personId, businessUnit, month, userId } = filters;
   const where = [];
   const params = [];
   
@@ -198,9 +219,11 @@ const getCollectionPlanData = async (filters = {}) => {
     LEFT JOIN collection_plans cp ON cp.invoice_id = i.id
     LEFT JOIN payments p ON p.invoice_id = i.id AND p.status = 'cleared'
     WHERE i.status NOT IN ('cancelled')
+    ${userId ? 'AND i.created_by = ?' : ''}
   `;
   
   params.push(currentYear, currentMonth);
+  if (userId) params.push(userId);
   
   if (personId) {
   }
@@ -249,7 +272,7 @@ const getCollectionPlanData = async (filters = {}) => {
 };
 
 const getCollectionAnalytics = async (filters = {}) => {
-  const { personId, businessUnit, month } = filters;
+  const { personId, businessUnit, month, userId } = filters;
   const where = [];
   const params = [];
   
@@ -271,8 +294,10 @@ const getCollectionAnalytics = async (filters = {}) => {
     LEFT JOIN collection_plans cp ON cp.invoice_id = i.id
     LEFT JOIN payments p ON p.invoice_id = i.id AND p.status = 'cleared'
     WHERE i.status NOT IN ('cancelled')
+    ${userId ? 'AND i.created_by = ?' : ''}
   `;
   
+  if (userId) params.push(userId);
   if (month) {
     try {
       const monthDate = typeof month === 'string' && month.includes('-') 

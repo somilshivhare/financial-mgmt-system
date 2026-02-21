@@ -5,7 +5,7 @@ const invoiceService = require('../services/invoiceService');
 const listPayments = async (req, res, next) => {
   try {
     const { page = 1, pageSize = 20, invoiceId } = req.query;
-    const result = await paymentService.listPayments({ page, pageSize, invoiceId });
+    const result = await paymentService.listPayments({ page, pageSize, invoiceId, userId: req.user.id });
     res.json(apiSuccess(result));
   } catch (err) {
     next(err);
@@ -42,7 +42,7 @@ const getOpenInvoicesForCustomer = async (req, res, next) => {
       return res.status(400).json(apiError('Customer ID or Customer Name is required'));
     }
     
-    const invoices = await invoiceService.getOpenInvoicesForCustomer(customerId || null, customerName || null);
+    const invoices = await invoiceService.getOpenInvoicesForCustomer(customerId || null, customerName || null, req.user.id);
     res.json(apiSuccess(invoices));
   } catch (err) {
     console.error('[PaymentController] Error in getOpenInvoicesForCustomer:', err);

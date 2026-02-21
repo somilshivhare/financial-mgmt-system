@@ -1,10 +1,36 @@
 const { query } = require('../db/query');
 const { getCurrency } = require('../utils/settingsHelper');
 
+const getEmptyDashboardResponse = () => ({
+  kpis: {
+    totalOutstanding: 0,
+    totalCollected: 0,
+    totalOverdue: 0,
+    duesCurrentMonth: 0,
+    totalBalance: 0,
+    collectionTarget: 0,
+    collectionAchieved: 0,
+    collectionTargetAchieved: 0,
+    currency: 'INR',
+  },
+  invoiceInsights: { byStatus: [], recent: [] },
+  paymentsCollections: { upcomingFollowUps: [], overdueHighlights: [] },
+});
+
 const getDashboard = async (userId, filters = {}) => {
+  // Strict: every user sees only their own data. No data if userId is missing.
+  if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+    return getEmptyDashboardResponse();
+  }
+  const effectiveUserId = userId.trim();
+
   const { dateFrom, dateTo } = filters;
   const dateConditions = [];
   const dateParams = [];
+
+  // Always restrict to current user's invoices only
+  const userCondition = 'i.created_by = ?';
+  const userParams = [effectiveUserId];
 
   if (dateFrom) {
     dateConditions.push('i.issue_date >= ?');
@@ -14,7 +40,9 @@ const getDashboard = async (userId, filters = {}) => {
     dateConditions.push('i.issue_date <= ?');
     dateParams.push(dateTo + ' 23:59:59');
   }
-  const dateWhere = dateConditions.length ? `WHERE ${dateConditions.join(' AND ')}` : '';
+  const allConditions = [userCondition, ...dateConditions];
+  const baseParams = [...userParams, ...dateParams];
+  const baseWhere = `WHERE ${allConditions.join(' AND ')}`;
 
   let currency = 'INR';
   try {
@@ -23,24 +51,68 @@ const getDashboard = async (userId, filters = {}) => {
     console.warn('[Dashboard] Failed to get currency from settings, using default INR:', err.message);
   }
 
+  // KPIs: use separate queries so we only ever aggregate the current user's invoices (no JOIN double-count)
   let kpiData = [{ totalOutstanding: 0, totalCollected: 0, totalOverdue: 0, duesCurrentMonth: 0, totalBalance: 0, collectionTarget: 0, collectionAchieved: 0 }];
   try {
-    const result = await query(
+    const [invoiceSums] = await query(
       `SELECT 
         COALESCE(SUM(i.balance), 0) as totalOutstanding,
-        COALESCE(SUM(CASE WHEN p.status = 'cleared' THEN p.amount ELSE 0 END), 0) as totalCollected,
         COALESCE(SUM(CASE WHEN i.due_date < CURDATE() AND i.balance > 0 AND i.status NOT IN ('cancelled','paid') THEN i.balance ELSE 0 END), 0) as totalOverdue,
         COALESCE(SUM(CASE WHEN YEAR(i.due_date) = YEAR(CURDATE()) AND MONTH(i.due_date) = MONTH(CURDATE()) AND i.balance > 0 THEN i.balance ELSE 0 END), 0) as duesCurrentMonth,
-        COALESCE(SUM(i.total_amount), 0) as totalBalance,
-        COALESCE(SUM(CASE WHEN cp.expected_amount > 0 THEN cp.expected_amount ELSE 0 END), 0) as collectionTarget,
-        COALESCE(SUM(CASE WHEN cp.expected_amount > 0 AND p.status = 'cleared' THEN p.amount ELSE 0 END), 0) as collectionAchieved
+        COALESCE(SUM(i.total_amount), 0) as totalBalance
       FROM invoices i
-      LEFT JOIN payments p ON p.invoice_id = i.id
-      LEFT JOIN collection_plans cp ON cp.invoice_id = i.id
-      ${dateWhere}`,
-      dateWhere ? dateParams : []
+      ${baseWhere}`,
+      baseParams
     );
-    kpiData = result;
+    const collWhere = ['i.created_by = ?', 'p.status = \'cleared\''];
+    const collParams = [effectiveUserId];
+    if (dateFrom) {
+      collWhere.push('i.issue_date >= ?');
+      collParams.push(dateFrom);
+    }
+    if (dateTo) {
+      collWhere.push('i.issue_date <= ?');
+      collParams.push(dateTo + ' 23:59:59');
+    }
+    const [collectionSums] = await query(
+      `SELECT COALESCE(SUM(p.amount), 0) as totalCollected
+       FROM payments p
+       INNER JOIN invoices i ON i.id = p.invoice_id
+       WHERE ${collWhere.join(' AND ')}`,
+      collParams
+    );
+    const targetWhere = ['i.created_by = ?'];
+    const targetParams = [effectiveUserId];
+    if (dateFrom) {
+      targetWhere.push('i.issue_date >= ?');
+      targetParams.push(dateFrom);
+    }
+    if (dateTo) {
+      targetWhere.push('i.issue_date <= ?');
+      targetParams.push(dateTo + ' 23:59:59');
+    }
+    const [targetSums] = await query(
+      `SELECT 
+        COALESCE(SUM(cp.expected_amount), 0) as collectionTarget,
+        COALESCE(SUM(CASE WHEN p.status = 'cleared' THEN p.amount ELSE 0 END), 0) as collectionAchieved
+      FROM collection_plans cp
+      INNER JOIN invoices i ON i.id = cp.invoice_id
+      LEFT JOIN payments p ON p.invoice_id = cp.invoice_id AND p.status = 'cleared'
+      WHERE ${targetWhere.join(' AND ')}`,
+      targetParams
+    );
+    const inv = (Array.isArray(invoiceSums) && invoiceSums[0]) ? invoiceSums[0] : (invoiceSums && typeof invoiceSums === 'object' && !Array.isArray(invoiceSums) ? invoiceSums : {});
+    const coll = (Array.isArray(collectionSums) && collectionSums[0]) ? collectionSums[0] : (collectionSums && typeof collectionSums === 'object' && !Array.isArray(collectionSums) ? collectionSums : {});
+    const tgt = (Array.isArray(targetSums) && targetSums[0]) ? targetSums[0] : (targetSums && typeof targetSums === 'object' && !Array.isArray(targetSums) ? targetSums : {});
+    kpiData = [{
+      totalOutstanding: inv.totalOutstanding ?? 0,
+      totalCollected: coll.totalCollected ?? 0,
+      totalOverdue: inv.totalOverdue ?? 0,
+      duesCurrentMonth: inv.duesCurrentMonth ?? 0,
+      totalBalance: inv.totalBalance ?? 0,
+      collectionTarget: tgt.collectionTarget ?? 0,
+      collectionAchieved: tgt.collectionAchieved ?? 0,
+    }];
   } catch (err) {
     console.error('[Dashboard] Error fetching KPI data:', err.message);
   }
@@ -55,9 +127,9 @@ const getDashboard = async (userId, filters = {}) => {
     invoicesByStatus = await query(
       `SELECT status, COUNT(*) as count 
        FROM invoices i
-       ${dateWhere}
+       ${baseWhere}
        GROUP BY status`,
-      dateWhere ? dateParams : []
+      baseParams
     );
   } catch (err) {
     console.error('[Dashboard] Error fetching invoices by status:', err.message);
@@ -79,17 +151,17 @@ const getDashboard = async (userId, filters = {}) => {
         DATEDIFF(CURDATE(), i.due_date) as days_overdue
       FROM invoices i
       LEFT JOIN customers c ON c.id = i.customer_id
-      ${dateWhere}
+      ${baseWhere}
       ORDER BY i.issue_date DESC
       LIMIT 10`,
-      dateWhere ? dateParams : []
+      baseParams
     );
   } catch (err) {
     console.error('[Dashboard] Error fetching recent invoices:', err.message);
   }
 
-  const followUpWhereConditions = ['i.balance > 0', 'i.due_date >= CURDATE()', "i.status NOT IN ('cancelled','paid')"];
-  const followUpWhereParams = [];
+  const followUpWhereConditions = ['i.created_by = ?', 'i.balance > 0', 'i.due_date >= CURDATE()', "i.status NOT IN ('cancelled','paid')"];
+  const followUpWhereParams = [effectiveUserId];
   if (dateConditions.length > 0) {
     followUpWhereConditions.push(...dateConditions);
     followUpWhereParams.push(...dateParams);
@@ -117,8 +189,8 @@ const getDashboard = async (userId, filters = {}) => {
     console.error('[Dashboard] Error fetching upcoming follow-ups:', err.message);
   }
 
-  const overdueWhereConditions = ['i.due_date < CURDATE()', 'i.balance > 0', "i.status NOT IN ('cancelled','paid')"];
-  const overdueWhereParams = [];
+  const overdueWhereConditions = ['i.created_by = ?', 'i.due_date < CURDATE()', 'i.balance > 0', "i.status NOT IN ('cancelled','paid')"];
+  const overdueWhereParams = [effectiveUserId];
   if (dateConditions.length > 0) {
     overdueWhereConditions.push(...dateConditions);
     overdueWhereParams.push(...dateParams);
@@ -168,10 +240,14 @@ const getDashboard = async (userId, filters = {}) => {
   };
 };
 
-const getAnalytics = async (filters = {}) => {
+const getAnalytics = async (userId, filters = {}) => {
+  if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+    return { monthlyInvoicesVsCollections: [], outstandingTrends: [], realizationPercentages: [] };
+  }
+  const effectiveUserId = userId.trim();
   const { dateFrom, dateTo, period = 'monthly' } = filters;
-  const dateConditions = [];
-  const dateParams = [];
+  const dateConditions = ['i.created_by = ?'];
+  const dateParams = [effectiveUserId];
 
   if (dateFrom) {
     dateConditions.push('i.issue_date >= ?');
@@ -181,7 +257,7 @@ const getAnalytics = async (filters = {}) => {
     dateConditions.push('i.issue_date <= ?');
     dateParams.push(dateTo + ' 23:59:59');
   }
-  const dateWhere = dateConditions.length ? `WHERE ${dateConditions.join(' AND ')}` : '';
+  const analyticsWhere = `WHERE ${dateConditions.join(' AND ')}`;
 
   const monthlyData = await query(
     `SELECT 
@@ -190,10 +266,10 @@ const getAnalytics = async (filters = {}) => {
       COALESCE(SUM(CASE WHEN p.status = 'cleared' THEN p.amount ELSE 0 END), 0) as collections
     FROM invoices i
       LEFT JOIN payments p ON p.invoice_id = i.id AND DATE_FORMAT(p.paid_at, '%Y-%m') = DATE_FORMAT(i.issue_date, '%Y-%m')
-    ${dateWhere}
+    ${analyticsWhere}
     GROUP BY DATE_FORMAT(i.issue_date, '%Y-%m')
     ORDER BY month ASC`,
-    dateWhere ? dateParams : []
+    dateParams
   );
 
   const outstandingTrends = await query(
@@ -201,10 +277,10 @@ const getAnalytics = async (filters = {}) => {
       DATE_FORMAT(i.issue_date, '%Y-%m') as month,
       COALESCE(SUM(i.balance), 0) as outstanding
     FROM invoices i
-    ${dateWhere}
+    ${analyticsWhere}
     GROUP BY DATE_FORMAT(i.issue_date, '%Y-%m')
     ORDER BY month ASC`,
-    dateWhere ? dateParams : []
+    dateParams
   );
 
   const realizationData = await query(
@@ -219,10 +295,10 @@ const getAnalytics = async (filters = {}) => {
       END as realizationPercent
     FROM invoices i
       LEFT JOIN payments p ON p.invoice_id = i.id
-    ${dateWhere}
+    ${analyticsWhere}
     GROUP BY DATE_FORMAT(i.issue_date, '%Y-%m')
     ORDER BY month ASC`,
-    dateWhere ? dateParams : []
+    dateParams
   );
 
   return {

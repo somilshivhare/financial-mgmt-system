@@ -630,7 +630,7 @@ const deleteInvoice = async (invoiceId, userId, userRole = null) => {
   });
 };
 
-const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
+const getOpenInvoicesForCustomer = async (customerId, customerName = null, userId = null) => {
   try {
     if (!customerId && !customerName) return [];
     
@@ -688,7 +688,7 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
       whereConditions.push(`i.customer_id IN (${placeholders})`);
       params.push(...resolvedCustomerIds);
     }
-    
+
     if (customerNameToSearch) {
       const trimmedName = customerNameToSearch.trim();
       whereConditions.push(`LOWER(TRIM(i.customer_name)) = LOWER(?)`);
@@ -728,13 +728,14 @@ const getOpenInvoicesForCustomer = async (customerId, customerName = null) => {
        FROM invoices i
        WHERE (${whereClause})
          AND i.status IN ('open', 'posted', 'active', 'submitted', 'draft')
+         ${userId ? 'AND i.created_by = ?' : ''}
          AND (
            COALESCE(i.balance, i.total_amount - COALESCE(i.amount_paid, 0)) > 0
            OR (i.balance IS NULL AND i.amount_paid IS NULL)
            OR COALESCE(i.amount_paid, 0) < i.total_amount
          )
        ORDER BY i.issue_date DESC, i.created_at DESC`,
-      params
+      userId ? [...params, userId] : params
     );
     
     return invoices || [];
