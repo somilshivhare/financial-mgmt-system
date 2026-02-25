@@ -428,7 +428,7 @@
 
 .support-btn-primary {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
-  color: #111827;
+  color: #fff;
   border-color: rgba(15, 76, 129, 0.35);
   box-shadow: 0 8px 18px rgba(15, 76, 129, 0.18);
 }

@@ -27,7 +27,7 @@ function safeParse(json) {
 const DEFAULT_SETTINGS = {
   general: {
     companyName: 'NB Aurum Solutions',
-    companyEmail: 'finance@nbaurumsolutions.com',
+    companyEmail: 'nbaurum@gmail.com',
     companyPhone: '+91 99674 50118',
     companyAddress: 'Lower Ground Floor, LGF-17, Krishna Apra D Mall, Shakti Khand-2, Indirapuram, Ghaziabad District, Uttar Pradesh – 201014, India',
     financialYear: '2024-2025',
@@ -125,6 +125,7 @@ export default function Settings() {
           const mergedSettings = {
             ...DEFAULT_SETTINGS,
             ...transformedSettings,
+            general: { ...DEFAULT_SETTINGS.general, ...(transformedSettings.general || {}) },
           }
           
           setSettings(mergedSettings)
@@ -491,6 +492,19 @@ export default function Settings() {
                 value={draft.general.companyPhone}
                 onChange={(e) => setDraftPath(['general', 'companyPhone'], e.target.value)}
               />
+            </div>
+
+            <div className="settings-field settings-field--full">
+              <label className="settings-label" htmlFor="companyAddress">Registered address</label>
+              <textarea
+                id="companyAddress"
+                className="settings-input settings-textarea"
+                rows={3}
+                placeholder="Company registered address (shown on Support page)"
+                value={draft.general.companyAddress ?? ''}
+                onChange={(e) => setDraftPath(['general', 'companyAddress'], e.target.value)}
+              />
+              <div className="settings-help">Shown in Office Information on the Contact &amp; Support page.</div>
             </div>
 
             <div className="settings-field">

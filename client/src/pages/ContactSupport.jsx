@@ -9,6 +9,7 @@ import { useToast } from '../contexts/ToastContext'
 import { usePersistedFormState } from '../hooks/usePersistedFormState'
 import { createTicketJSON, listTickets, getTicket, addReply } from '../api/supportTickets'
 import { getSystemSettings } from '../api/settings'
+import { getProfile } from '../api/user'
 import { getApiUrl } from '../config/api'
 
 function safeParse(json) {
@@ -71,6 +72,11 @@ export default function ContactSupport() {
     phone: '+91 99674 50118',
     businessHours: 'Mon–Fri, 10:00–18:00 (IST)',
   })
+  const [officeInfo, setOfficeInfo] = useState({
+    companyName: 'NB Aurum Solutions',
+    registeredAddress: 'Lower Ground Floor, LGF-17, Krishna Apra D Mall, Shakti Khand-2, Indirapuram, Ghaziabad District, Uttar Pradesh – 201014, India',
+    gstin: '—',
+  })
   const { values: ticket, setValues: setTicket, clearLocalDraft } = usePersistedFormState({
     pathKey: 'contact-support',
     defaultValues: { category: '', priority: 'Medium', subject: '', description: '' },
@@ -98,25 +104,50 @@ export default function ContactSupport() {
     const storedUser = safeParse(localStorage.getItem('user') || '')
     if (storedUser) {
       setUser({
-        name: storedUser.full_name || storedUser.name || 'User',
+        name: storedUser.full_name || storedUser.fullName || storedUser.name || storedUser.companyName || 'NB Aurum Solutions',
         email: storedUser.email || 'user@example.com',
-        mobile: storedUser.mobileNumber || storedUser.mobile || '',
+        mobile: storedUser.mobileNumber || storedUser.mobile || storedUser.phone || storedUser.profile?.mobile || storedUser.profile?.phone || '',
       })
       setUserRole(storedUser.role || 'viewer')
     }
-    
+
+    const loadUserProfile = async () => {
+      try {
+        const res = await getProfile()
+        const data = res?.data?.data ?? res?.data ?? res
+        const profile = data?.profile ?? data
+        if (profile && (profile.mobile || profile.phone)) {
+          setUser((prev) => (prev ? { ...prev, mobile: profile.mobile || profile.phone || prev.mobile } : prev))
+        }
+      } catch (err) {
+        console.error('Failed to load user profile for support form:', err)
+      }
+    }
+    loadUserProfile()
     loadSupportChannels()
     loadTickets()
   }, [])
 
+  const DEFAULT_SUPPORT_EMAIL = 'nbaurum@gmail.com'
+  const DEFAULT_SUPPORT_PHONE = '+91 99674 50118'
+
   const loadSupportChannels = async () => {
     try {
-      const settings = await getSystemSettings()
+      const res = await getSystemSettings()
+      const settings = res?.data ?? res
       if (settings?.general) {
+        const g = settings.general
+        const rawEmail = g.supportEmail || g.companyEmail || DEFAULT_SUPPORT_EMAIL
+        const rawPhone = g.supportPhone || g.companyPhone || DEFAULT_SUPPORT_PHONE
         setSupportChannels({
-          email: settings.general.supportEmail || settings.general.companyEmail || 'nbaurum@gmail.com',
-          phone: settings.general.supportPhone || settings.general.companyPhone || '+91 99674 50118',
-          businessHours: settings.general.businessHours || 'Mon–Fri, 10:00–18:00 (IST)',
+          email: rawEmail && rawEmail !== 'finance@nbaurum.com' && rawEmail !== 'finance@nbaurumsolutions.com' ? rawEmail : DEFAULT_SUPPORT_EMAIL,
+          phone: rawPhone && rawPhone !== '+91 00000 00000' ? rawPhone : DEFAULT_SUPPORT_PHONE,
+          businessHours: g.businessHours || 'Mon–Fri, 10:00–18:00 (IST)',
+        })
+        setOfficeInfo({
+          companyName: g.companyName || 'NB Aurum Solutions',
+          registeredAddress: g.companyAddress || 'Lower Ground Floor, LGF-17, Krishna Apra D Mall, Shakti Khand-2, Indirapuram, Ghaziabad District, Uttar Pradesh – 201014, India',
+          gstin: g.gstin || g.gstinNumber || '—',
         })
       }
     } catch (err) {
@@ -577,10 +608,10 @@ export default function ContactSupport() {
                 <div className="support-office-icon"><MapPin /></div>
                 <div>
                   <div className="support-office-label">Registered Address</div>
-                  <div className="support-office-value">
-                    NB Aurum Solutions<br />
-                    123 Business Street, Andheri East<br />
-                    Mumbai, Maharashtra 400001, India
+                  <div className="support-office-value" style={{ whiteSpace: 'pre-line' }}>
+                    {officeInfo.companyName}
+                    {'\n'}
+                    {officeInfo.registeredAddress}
                   </div>
                 </div>
               </div>
@@ -590,8 +621,8 @@ export default function ContactSupport() {
                 <div>
                   <div className="support-office-label">GST Details</div>
                   <div className="support-office-value">
-                    GSTIN: <span className="support-mono">—</span><br />
-                    Legal Entity: NB Aurum Solutions
+                    GSTIN: <span className="support-mono">{officeInfo.gstin}</span><br />
+                    Legal Entity: {officeInfo.companyName}
                   </div>
                   <div className="support-help">Update GSTIN when applicable for tax invoices.</div>
                 </div>

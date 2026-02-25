@@ -174,7 +174,7 @@ const resetToDefaults = async (userId, settingKeys = null) => {
   const defaults = {
     general: {
       companyName: 'NB Aurum Solutions',
-      companyEmail: 'finance@nbaurumsolutions.com',
+      companyEmail: 'nbaurum@gmail.com',
       companyPhone: '+91 99674 50118',
       companyAddress: 'Lower Ground Floor, LGF-17, Krishna Apra D Mall, Shakti Khand-2, Indirapuram, Ghaziabad District, Uttar Pradesh – 201014, India',
       financialYear: '2024-2025',
