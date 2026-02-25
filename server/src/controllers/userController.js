@@ -115,10 +115,8 @@ const updateProfile = async (req, res, next) => {
       date_format,
     } = req.body;
 
-    let finalCompanyName = null;
-    if (req.user.role === 'admin' && company_name !== undefined) {
-      finalCompanyName = company_name;
-    }
+    // Allow profile owner to save their own company_name; admin can change any user's via admin APIs
+    const finalCompanyName = company_name !== undefined ? company_name : undefined;
 
     if (name && name.trim()) {
       await query(
@@ -130,7 +128,7 @@ const updateProfile = async (req, res, next) => {
     await userService.upsertUserProfile(userId, {
       phone,
       mobile,
-      company_name: finalCompanyName, // Only set if admin
+      company_name: finalCompanyName,
       department,
       designation,
       address,

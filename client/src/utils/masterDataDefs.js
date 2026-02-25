@@ -124,8 +124,8 @@ export const FORM_DEFS = {
         title: 'Customer Details',
         allowMultiple: true,
         fields: [
-          { key: 'customerName', label: 'Customer Name', type: 'text' },
-          { key: 'legalEntityName', label: 'Legal Entity Name', type: 'text' },
+          { key: 'customerName', label: 'Customer Name', type: 'customerSelect', optionValueKey: 'customerName', optionLabelKey: 'customerName' },
+          { key: 'legalEntityName', label: 'Legal Entity Name', type: 'customerSelect', optionValueKey: 'legalEntityName', optionLabelKey: 'legalEntityName' },
         ],
       },
       {
@@ -173,8 +173,8 @@ export const FORM_DEFS = {
         title: 'Customer Details',
         allowMultiple: true,
         fields: [
-          { key: 'customerName', label: 'Customer Name', type: 'text' },
-          { key: 'legalEntityName', label: 'Legal Entity Name', type: 'text' },
+          { key: 'customerName', label: 'Customer Name', type: 'customerSelect', optionValueKey: 'customerName', optionLabelKey: 'customerName' },
+          { key: 'legalEntityName', label: 'Legal Entity Name', type: 'customerSelect', optionValueKey: 'legalEntityName', optionLabelKey: 'legalEntityName' },
         ],
       },
       {

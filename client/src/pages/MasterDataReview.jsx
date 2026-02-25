@@ -183,7 +183,7 @@ function MasterDataReview() {
         return
       }
 
-      const isArrayType = ['consignee-profile', 'payer-profile', 'employee-profile', 'payment-terms'].includes(type)
+      const isArrayType = ['customer-profile', 'consignee-profile', 'payer-profile', 'employee-profile', 'payment-terms'].includes(type)
 
       records.forEach((record, recordIndex) => {
         const values = record.values || {}

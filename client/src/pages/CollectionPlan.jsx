@@ -234,6 +234,7 @@ function CollectionPlan() {
         </div>
       </div>
 
+      <div className="collection-plan-main-layout">
       {/* Collection Plan Grid */}
       <div className="collection-plan-grid-section">
         <h2 className="collection-plan-section-title">Collection Plan Grid</h2>
@@ -626,153 +627,153 @@ function CollectionPlan() {
             </div>
             
             {/* Detailed Collection Summary - Enterprise KPI Panel */}
-            <div className="collection-plan-analytics-card collection-plan-analytics-card-full">
-              <h3 className="collection-plan-analytics-card-title">Detailed Collection Summary</h3>
+            <div className="collection-plan-analytics-card collection-plan-analytics-card-full collection-summary-section">
+              <div className="collection-summary-section-header">
+                <h3 className="collection-summary-section-title">Detailed Collection Summary</h3>
+                <p className="collection-summary-section-subtitle">Key metrics at a glance</p>
+              </div>
               <div className="collection-summary-kpi-grid">
                 {/* Total Outstanding - Neutral */}
-                <div 
+                <div
                   className="collection-summary-kpi-card collection-summary-kpi-neutral"
                   data-tooltip="Total amount outstanding across all invoices and receivables. Includes both due and not-due amounts."
                 >
-                  <div className="collection-summary-kpi-card-header">
-                    <div className="collection-summary-kpi-icon-wrapper">
-                      <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                      </svg>
+                  <div className="collection-summary-kpi-accent" aria-hidden />
+                  <div className="collection-summary-kpi-body">
+                    <div className="collection-summary-kpi-card-header">
+                      <div className="collection-summary-kpi-icon-wrapper">
+                        <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                        </svg>
+                      </div>
+                      <span className="collection-summary-kpi-label">Total Outstanding</span>
                     </div>
-                    <div className="collection-summary-kpi-label">Total Outstanding</div>
-                  </div>
-                  <div className="collection-summary-kpi-value">
-                    ₹{(totals.totalOutstanding || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="collection-summary-kpi-trend">
-                    <span className="collection-summary-kpi-trend-label">All receivables</span>
+                    <div className="collection-summary-kpi-value">
+                      ₹{(totals.totalOutstanding || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="collection-summary-kpi-meta">Active receivables</div>
                   </div>
                 </div>
 
                 {/* Total Collected - Green */}
-                <div 
+                <div
                   className="collection-summary-kpi-card collection-summary-kpi-success"
                   data-tooltip="Total amount collected from customers. Includes payments received and statutory deductions applied."
                 >
-                  <div className="collection-summary-kpi-card-header">
-                    <div className="collection-summary-kpi-icon-wrapper">
-                      <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
+                  <div className="collection-summary-kpi-accent" aria-hidden />
+                  <div className="collection-summary-kpi-body">
+                    <div className="collection-summary-kpi-card-header">
+                      <div className="collection-summary-kpi-icon-wrapper">
+                        <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                      </div>
+                      <span className="collection-summary-kpi-label">Total Collected</span>
                     </div>
-                    <div className="collection-summary-kpi-label">Total Collected</div>
-                  </div>
-                  <div className="collection-summary-kpi-value">
-                    ₹{(totals.received || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="collection-summary-kpi-trend">
-                    {totals.totalOutstanding > 0 && (
-                      <span className="collection-summary-kpi-trend-positive">
-                        {((totals.received / totals.totalOutstanding) * 100).toFixed(1)}% of outstanding
-                      </span>
-                    )}
+                    <div className="collection-summary-kpi-value">
+                      ₹{(totals.received || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="collection-summary-kpi-meta">Payments received</div>
                   </div>
                 </div>
 
                 {/* Total Overdue - Red */}
-                <div 
+                <div
                   className="collection-summary-kpi-card collection-summary-kpi-danger"
                   data-tooltip="Total amount that is past its due date. Requires immediate attention for collection follow-up."
                 >
-                  <div className="collection-summary-kpi-card-header">
-                    <div className="collection-summary-kpi-icon-wrapper">
-                      <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                        <line x1="12" y1="9" x2="12" y2="13" />
-                        <line x1="12" y1="17" x2="12.01" y2="17" />
-                      </svg>
+                  <div className="collection-summary-kpi-accent" aria-hidden />
+                  <div className="collection-summary-kpi-body">
+                    <div className="collection-summary-kpi-card-header">
+                      <div className="collection-summary-kpi-icon-wrapper">
+                        <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                      </div>
+                      <span className="collection-summary-kpi-label">Total Overdue</span>
                     </div>
-                    <div className="collection-summary-kpi-label">Total Overdue</div>
-                  </div>
-                  <div className="collection-summary-kpi-value">
-                    ₹{(totals.overdue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="collection-summary-kpi-trend">
-                    {totals.totalOutstanding > 0 && (
-                      <span className="collection-summary-kpi-trend-negative">
-                        {((totals.overdue / totals.totalOutstanding) * 100).toFixed(1)}% of outstanding
-                      </span>
-                    )}
+                    <div className="collection-summary-kpi-value">
+                      ₹{(totals.overdue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="collection-summary-kpi-meta">Requires attention</div>
                   </div>
                 </div>
 
-                {/* Overall Target Achieved - Blue */}
-                <div 
+                {/* Collection Target - Blue */}
+                <div
                   className="collection-summary-kpi-card collection-summary-kpi-info"
                   data-tooltip="Percentage of collection target achieved. Calculated as (Collected + Statutory Deductions) / Plan Finalised × 100."
                 >
-                  <div className="collection-summary-kpi-card-header">
-                    <div className="collection-summary-kpi-icon-wrapper">
-                      <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                        <polyline points="22 4 12 14.01 9 11.01" />
-                      </svg>
+                  <div className="collection-summary-kpi-accent" aria-hidden />
+                  <div className="collection-summary-kpi-body">
+                    <div className="collection-summary-kpi-card-header">
+                      <div className="collection-summary-kpi-icon-wrapper">
+                        <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                          <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                      </div>
+                      <span className="collection-summary-kpi-label">Collection Target</span>
                     </div>
-                    <div className="collection-summary-kpi-label">Overall Target Achieved</div>
-                  </div>
-                  <div className="collection-summary-kpi-value">
-                    {overallTargetAchieved}%
-                  </div>
-                  <div className="collection-summary-kpi-trend">
-                    <span className={`collection-summary-kpi-trend-${parseFloat(overallTargetAchieved) >= 100 ? 'positive' : parseFloat(overallTargetAchieved) >= 75 ? 'neutral' : 'negative'}`}>
+                    <div className="collection-summary-kpi-value">{overallTargetAchieved}%</div>
+                    <div className={`collection-summary-kpi-meta collection-summary-kpi-meta--${parseFloat(overallTargetAchieved) >= 100 ? 'positive' : parseFloat(overallTargetAchieved) >= 75 ? 'neutral' : 'negative'}`}>
                       {parseFloat(overallTargetAchieved) >= 100 ? 'Target exceeded' : parseFloat(overallTargetAchieved) >= 75 ? 'On track' : 'Below target'}
-                    </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Due This Month - Amber */}
-                <div 
+                {/* Dues This Month - Amber */}
+                <div
                   className="collection-summary-kpi-card collection-summary-kpi-warning"
                   data-tooltip="Total amount due for collection in the current month. Includes invoices with due dates falling within this month."
                 >
-                  <div className="collection-summary-kpi-card-header">
-                    <div className="collection-summary-kpi-icon-wrapper">
-                      <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10" />
-                        <polyline points="12 6 12 12 16 14" />
-                      </svg>
+                  <div className="collection-summary-kpi-accent" aria-hidden />
+                  <div className="collection-summary-kpi-body">
+                    <div className="collection-summary-kpi-card-header">
+                      <div className="collection-summary-kpi-icon-wrapper">
+                        <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10" />
+                          <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                      </div>
+                      <span className="collection-summary-kpi-label">Dues This Month</span>
                     </div>
-                    <div className="collection-summary-kpi-label">Due This Month</div>
-                  </div>
-                  <div className="collection-summary-kpi-value">
-                    ₹{(totals.dueThisMonth || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="collection-summary-kpi-trend">
-                    <span className="collection-summary-kpi-trend-label">Current month focus</span>
+                    <div className="collection-summary-kpi-value">
+                      ₹{(totals.dueThisMonth || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="collection-summary-kpi-meta">Current month</div>
                   </div>
                 </div>
 
                 {/* Total Balance - Neutral */}
-                <div 
+                <div
                   className="collection-summary-kpi-card collection-summary-kpi-neutral"
                   data-tooltip="Remaining balance after collections. Calculated as Plan Finalised - (Received + Statutory Deductions)."
                 >
-                  <div className="collection-summary-kpi-card-header">
-                    <div className="collection-summary-kpi-icon-wrapper">
-                      <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="12" y1="1" x2="12" y2="23" />
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                      </svg>
+                  <div className="collection-summary-kpi-accent" aria-hidden />
+                  <div className="collection-summary-kpi-body">
+                    <div className="collection-summary-kpi-card-header">
+                      <div className="collection-summary-kpi-icon-wrapper">
+                        <svg className="collection-summary-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="12" y1="1" x2="12" y2="23" />
+                          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                        </svg>
+                      </div>
+                      <span className="collection-summary-kpi-label">Total Balance</span>
                     </div>
-                    <div className="collection-summary-kpi-label">Total Balance</div>
-                  </div>
-                  <div className="collection-summary-kpi-value">
-                    ₹{(totals.balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="collection-summary-kpi-trend">
-                    <span className="collection-summary-kpi-trend-label">Pending collection</span>
+                    <div className="collection-summary-kpi-value">
+                      ₹{(totals.balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="collection-summary-kpi-meta">All invoices</div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   )

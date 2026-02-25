@@ -163,6 +163,10 @@
   font-size: var(--font-size-base);
   color: var(--color-text-primary);
   font-weight: 600;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: none;
 }
 
 .md-select:focus {

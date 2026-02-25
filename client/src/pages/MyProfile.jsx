@@ -304,6 +304,7 @@ export default function MyProfile() {
         name: draft.personal.name, // Update full_name in users table
         phone: draft.personal.phone || '',
         mobile: draft.personal.mobile || '',
+        company_name: draft.organization.companyName || '',
         department: draft.organization.department || '',
         designation: draft.organization.designation || '',
         address: draft.address?.address || '',
@@ -316,10 +317,6 @@ export default function MyProfile() {
         language: draft.preferences.language,
         date_format: draft.preferences.dateFormat,
       }
-      
-      if (isAdmin) {
-        updateData.company_name = draft.organization.companyName || ''
-      }
 
       await updateProfile(updateData)
 
@@ -330,6 +327,9 @@ export default function MyProfile() {
         ...storedUser,
         fullName: draft.personal.name,
         email: draft.personal.email,
+        mobile: draft.personal.mobile || '',
+        phone: draft.personal.phone || '',
+        companyName: draft.organization.companyName || '',
       }))
     } catch (err) {
       console.error('Failed to save profile:', err)
@@ -605,6 +605,21 @@ export default function MyProfile() {
               />
             </div>
 
+            <div className="profile-field">
+              <label className="profile-label" htmlFor="company">Company</label>
+              <input
+                id="company"
+                className="profile-input"
+                value={draft.organization.companyName}
+                onChange={(e) => setDraft((prev) => ({
+                  ...prev,
+                  organization: { ...prev.organization, companyName: e.target.value },
+                }))}
+                placeholder="Your company or organization name"
+                disabled={loading}
+              />
+            </div>
+
             <div className="profile-field profile-field--full">
               <label className="profile-label" htmlFor="bio">Bio</label>
               <textarea
@@ -616,187 +631,6 @@ export default function MyProfile() {
                 rows={3}
                 disabled={loading}
               />
-            </div>
-          </div>
-        </section>
-
-        {/* Organization Details */}
-        <section className="profile-card">
-          <div className="profile-card-header">
-            <h2 className="profile-card-title">Organization Details</h2>
-            <p className="profile-card-subtitle">Managed by administrators. Read-only by default.</p>
-          </div>
-
-          <div className="profile-form-grid">
-            <div className="profile-field">
-              <label className="profile-label" htmlFor="company">Company</label>
-              {(() => {
-                const storedUser = safeParse(localStorage.getItem('user') || '') || {}
-                const isAdmin = storedUser.role === 'admin'
-                
-                if (isAdmin) {
-                  return (
-                    <input
-                      id="company"
-                      className="profile-input"
-                      value={draft.organization.companyName}
-                      onChange={(e) => setDraft((prev) => ({
-                        ...prev,
-                        organization: { ...prev.organization, companyName: e.target.value },
-                      }))}
-                      disabled={loading}
-                    />
-                  )
-                } else {
-                  return (
-                    <div className="profile-readonly">
-                      <input
-                        id="company"
-                        className="profile-input"
-                        value={draft.organization.companyName}
-                        readOnly
-                        disabled={loading}
-                      />
-                      <span className="profile-readonly-chip"><Lock className="profile-chip-icon" /> Read-only</span>
-                    </div>
-                  )
-                }
-              })()}
-            </div>
-
-            <div className="profile-field">
-              <label className="profile-label" htmlFor="role">Role</label>
-              <div className="profile-readonly">
-                <input id="role" className="profile-input" value={draft.organization.role} readOnly disabled={loading} />
-                <span className="profile-readonly-chip"><Lock className="profile-chip-icon" /> Read-only</span>
-              </div>
-            </div>
-
-            <div className="profile-field">
-              <label className="profile-label" htmlFor="department">Department</label>
-              <input
-                id="department"
-                className="profile-input"
-                value={draft.organization.department}
-                onChange={(e) => setDraft((prev) => ({
-                  ...prev,
-                  organization: { ...prev.organization, department: e.target.value },
-                }))}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="profile-field">
-              <label className="profile-label" htmlFor="designation">Designation</label>
-              <input
-                id="designation"
-                className="profile-input"
-                value={draft.organization.designation}
-                onChange={(e) => setDraft((prev) => ({
-                  ...prev,
-                  organization: { ...prev.organization, designation: e.target.value },
-                }))}
-                placeholder="Job title"
-                disabled={loading}
-              />
-            </div>  
-          </div>
-
-          <div className="profile-divider-space" />
-
-          <div className="profile-form-grid">
-            <div className="profile-field profile-field--full">
-              <label className="profile-label" htmlFor="address">Address</label>
-              <textarea
-                id="address"
-                className="profile-input"
-                value={draft.address?.address || ''}
-                onChange={(e) => setDraft((prev) => ({
-                  ...prev,
-                  address: { ...prev.address, address: e.target.value },
-                }))}
-                placeholder="Street address"
-                rows={2}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="profile-field">
-              <label className="profile-label" htmlFor="city">City</label>
-              <input
-                id="city"
-                className="profile-input"
-                value={draft.address?.city || ''}
-                onChange={(e) => setDraft((prev) => ({
-                  ...prev,
-                  address: { ...prev.address, city: e.target.value },
-                }))}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="profile-field">
-              <label className="profile-label" htmlFor="state">State</label>
-              <input
-                id="state"
-                className="profile-input"
-                value={draft.address?.state || ''}
-                onChange={(e) => setDraft((prev) => ({
-                  ...prev,
-                  address: { ...prev.address, state: e.target.value },
-                }))}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="profile-field">
-              <label className="profile-label" htmlFor="country">Country</label>
-              <input
-                id="country"
-                className="profile-input"
-                value={draft.address?.country || 'India'}
-                onChange={(e) => setDraft((prev) => ({
-                  ...prev,
-                  address: { ...prev.address, country: e.target.value },
-                }))}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="profile-field">
-              <label className="profile-label" htmlFor="pinCode">Pin Code</label>
-              <input
-                id="pinCode"
-                className="profile-input"
-                value={draft.address?.pinCode || ''}
-                onChange={(e) => setDraft((prev) => ({
-                  ...prev,
-                  address: { ...prev.address, pinCode: e.target.value },
-                }))}
-                placeholder="PIN code"
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <div className="profile-divider-space" />
-
-          <div className="profile-permissions">
-            <div className="profile-permissions-head">
-              <div>
-                <div className="profile-permissions-title">Role & permissions</div>
-                <div className="profile-permissions-subtitle">Visible for transparency. Editing requires admin access.</div>
-              </div>
-              <span className="profile-readonly-chip"><Lock className="profile-chip-icon" /> Not editable</span>
-            </div>
-
-            <div className="profile-permission-list">
-              {draft.permissions.map((p) => (
-                <div key={p} className="profile-permission-item">
-                  <span className="profile-permission-dot" aria-hidden="true" />
-                  <span>{p}</span>
-                </div>
-              ))}
             </div>
           </div>
         </section>

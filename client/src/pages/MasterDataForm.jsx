@@ -152,19 +152,22 @@ function MasterDataForm() {
   const [savingInProgress, setSavingInProgress] = useState(false)
   const [draftRecordId, setDraftRecordId] = useState('')
   
+  const [customers, setCustomers] = useState([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
   const [consignees, setConsignees] = useState([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
   const [payers, setPayers] = useState([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
   const [employees, setEmployees] = useState([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
   const [paymentTerms, setPaymentTerms] = useState([{ id: 0, recordId: null, values: {} }])
+  const [customerOptionsFromStep, setCustomerOptionsFromStep] = useState([])
 
   const title = def?.title || 'Master Data'
   const description = def?.description || 'Fill the form to continue.'
   
+  const isCustomerProfile = type === 'customer-profile'
   const isConsigneeProfile = type === 'consignee-profile'
   const isPayerProfile = type === 'payer-profile'
   const isEmployeeProfile = type === 'employee-profile'
   const isPaymentTerms = type === 'payment-terms'
-  const isArrayBasedForm = isConsigneeProfile || isPayerProfile || isEmployeeProfile || isPaymentTerms
+  const isArrayBasedForm = isCustomerProfile || isConsigneeProfile || isPayerProfile || isEmployeeProfile || isPaymentTerms
 
   const parseApiRecord = useCallback((apiResponse) => {
     if (!apiResponse) return null
@@ -261,7 +264,8 @@ function MasterDataForm() {
         ? { id: 0, values: rawValues }
         : { id: 0, values: rawValues, logoPreviews: storedLogoPreviews }
 
-      if (isConsigneeProfile) setConsignees([item])
+      if (isCustomerProfile) setCustomers([item])
+      else if (isConsigneeProfile) setConsignees([item])
       else if (isPayerProfile) setPayers([item])
       else if (isEmployeeProfile) setEmployees([item])
       else if (isPaymentTerms) setPaymentTerms([item])
@@ -278,7 +282,7 @@ function MasterDataForm() {
     setLogoPreviews(nextLogoPreviews)
     setMultipleEntries(nextMultipleEntries)
     setStatus({ kind: 'idle', message: '' })
-  }, [def, isArrayBasedForm, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, type])
+  }, [def, isArrayBasedForm, isCustomerProfile, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, type])
 
   const logoPreviewsRef = useRef(logoPreviews)
   useEffect(() => {
@@ -306,7 +310,9 @@ function MasterDataForm() {
       setShowSaveOptions(false)
       setSavingInProgress(false)
       
-      if (isConsigneeProfile) {
+      if (isCustomerProfile) {
+        setCustomers([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
+      } else if (isConsigneeProfile) {
         setConsignees([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
       } else if (isPayerProfile) {
         setPayers([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
@@ -316,7 +322,7 @@ function MasterDataForm() {
         setPaymentTerms([{ id: 0, recordId: null, values: {} }])
       }
     }
-  }, [id, type, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, setValues, isWizardFlow, draftCompanyId])
+  }, [id, type, isCustomerProfile, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, setValues, isWizardFlow, draftCompanyId])
   
   useEffect(() => {
     return () => {
@@ -411,7 +417,8 @@ function MasterDataForm() {
               return { id: index, recordId: record.id, values: rawValues, logoPreviews: storedLogoPreviews }
             })
 
-            if (isConsigneeProfile) setConsignees(items)
+            if (isCustomerProfile) setCustomers(items)
+            else if (isConsigneeProfile) setConsignees(items)
             else if (isPayerProfile) setPayers(items)
             else if (isEmployeeProfile) setEmployees(items)
             else if (isPaymentTerms) setPaymentTerms(items)
@@ -436,8 +443,33 @@ function MasterDataForm() {
     return () => {
       cancelled = true
     }
-  }, [isWizardFlow, def, id, type, draftCompanyId, isArrayBasedForm, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, applyRecordToFormState, parseApiRecord])
-  
+  }, [isWizardFlow, def, id, type, draftCompanyId, isArrayBasedForm, isCustomerProfile, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, applyRecordToFormState, parseApiRecord])
+
+  useEffect(() => {
+    if (type !== 'consignee-profile' && type !== 'payer-profile') {
+      setCustomerOptionsFromStep([])
+      return
+    }
+    const companyId = isWizardFlow ? draftCompanyId : selectedCompanyId
+    if (!companyId) {
+      setCustomerOptionsFromStep([])
+      return
+    }
+    let cancelled = false
+    const load = async () => {
+      try {
+        const statusFilter = isWizardFlow ? 'draft' : 'published'
+        const records = await getMasterDataByType('customer-profile', { companyId, status: statusFilter })
+        const list = Array.isArray(records) ? records : (records?.data ? records.data : [])
+        if (!cancelled) setCustomerOptionsFromStep(list)
+      } catch (e) {
+        if (!cancelled) setCustomerOptionsFromStep([])
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [type, isWizardFlow, draftCompanyId, selectedCompanyId])
+
   const createArrayHandlers = (items, setItems, formType, itemName) => {
     const handleAdd = () => {
       const newId = Math.max(...items.map(item => item.id), -1) + 1
@@ -511,6 +543,12 @@ function MasterDataForm() {
     return { handleAdd, handleRemove, handleChange, handleFileChange }
   }
   
+  const customerHandlers = createArrayHandlers(customers, setCustomers, 'customer-profile', 'customer')
+  const handleAddCustomer = customerHandlers.handleAdd
+  const handleRemoveCustomer = customerHandlers.handleRemove
+  const handleCustomerChange = customerHandlers.handleChange
+  const handleCustomerFileChange = customerHandlers.handleFileChange
+
   const consigneeHandlers = createArrayHandlers(consignees, setConsignees, 'consignee-profile', 'consignee')
   const handleAddConsignee = consigneeHandlers.handleAdd
   const handleRemoveConsignee = consigneeHandlers.handleRemove
@@ -539,7 +577,8 @@ function MasterDataForm() {
     
     if (isArrayBasedForm) {
       let items = []
-      if (isConsigneeProfile) items = consignees
+      if (isCustomerProfile) items = customers
+      else if (isConsigneeProfile) items = consignees
       else if (isPayerProfile) items = payers
       else if (isEmployeeProfile) items = employees
       else if (isPaymentTerms) items = paymentTerms
@@ -562,7 +601,7 @@ function MasterDataForm() {
         })
       )
     })
-  }, [def, values, multipleEntries, isArrayBasedForm, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, consignees, payers, employees, paymentTerms])
+  }, [def, values, multipleEntries, isArrayBasedForm, isCustomerProfile, isConsigneeProfile, isPayerProfile, isEmployeeProfile, isPaymentTerms, customers, consignees, payers, employees, paymentTerms])
 
   const wizardStepIndex = useMemo(() => {
     return FORM_STEPS.findIndex((step) => step.key === type)
@@ -1248,6 +1287,7 @@ function MasterDataForm() {
     const { handleChange, handleFileChange, handleRemove } = handlers
     
     const getItemLabel = () => {
+      if (formType === 'customer-profile') return `Customer #${index + 1}`
       if (formType === 'consignee-profile') return `Consignee #${index + 1}`
       if (formType === 'payer-profile') return `Payer #${index + 1}`
       if (formType === 'employee-profile') return `Employee #${index + 1}`
@@ -1309,7 +1349,8 @@ function MasterDataForm() {
                               onClick={() => {
                                 handleChange(item.id, f.key, null)
                                 if (formType !== 'payment-terms') {
-                                  const setter = formType === 'consignee-profile' ? setConsignees
+                                  const setter = formType === 'customer-profile' ? setCustomers
+                                    : formType === 'consignee-profile' ? setConsignees
                                     : formType === 'payer-profile' ? setPayers
                                     : setEmployees
                                   setter(prev => prev.map(i => 
@@ -1379,6 +1420,67 @@ function MasterDataForm() {
                           </option>
                         ))}
                       </select>
+                    ) : f.type === 'customerSelect' ? (
+                      <>
+                        <select
+                          id={fieldId}
+                          className="md-form-select"
+                          value={(() => {
+                            const valueKey = f.optionValueKey || 'customerName'
+                            const opts = (customerOptionsFromStep || [])
+                              .map(r => r.values?.[valueKey])
+                              .filter(v => v != null && String(v).trim() !== '')
+                            const uniq = [...new Set(opts.map(String))]
+                            return uniq.includes(String(fieldValue)) ? fieldValue : (fieldValue ? '__other__' : '')
+                          })()}
+                          disabled={isLocked}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            handleChange(item.id, f.key, v === '__other__' ? '' : v)
+                          }}
+                        >
+                          <option value="">Select from step 2 (Customer Profile)...</option>
+                          {(() => {
+                            const valueKey = f.optionValueKey || 'customerName'
+                            const labelKey = f.optionLabelKey || 'customerName'
+                            const opts = (customerOptionsFromStep || [])
+                              .map((r) => ({
+                                value: r.values?.[valueKey],
+                                label: r.values?.[labelKey] || r.values?.[valueKey] || ''
+                              }))
+                              .filter(o => o.value != null && String(o.value).trim() !== '')
+                            const uniq = [...new Map(opts.map(o => [String(o.value), o])).values()]
+                            return (
+                              <>
+                                {uniq.map((o, i) => (
+                                  <option key={`${o.value}-${i}`} value={o.value}>{o.label}</option>
+                                ))}
+                                <option value="__other__">Other (enter below)</option>
+                              </>
+                            )
+                          })()}
+                        </select>
+                        {(() => {
+                          const valueKey = f.optionValueKey || 'customerName'
+                          const opts = (customerOptionsFromStep || [])
+                            .map(r => r.values?.[valueKey])
+                            .filter(v => v != null && String(v).trim() !== '')
+                          const uniq = [...new Set(opts.map(String))]
+                          const showOther = !uniq.includes(String(fieldValue))
+                          if (!showOther) return null
+                          return (
+                            <input
+                              type="text"
+                              className="md-form-input md-form-input-other"
+                              style={{ marginTop: '0.5rem' }}
+                              value={fieldValue || ''}
+                              disabled={isLocked}
+                              onChange={(e) => handleChange(item.id, f.key, e.target.value)}
+                              placeholder={`Or enter ${f.label.toLowerCase()}...`}
+                            />
+                          )
+                        })()}
+                      </>
                     ) : f.type === 'textarea' ? (
                       <textarea
                         id={fieldId}
@@ -1455,6 +1557,13 @@ function MasterDataForm() {
     )
   }
   
+  const renderCustomerForm = (customer, index) =>
+    renderArrayForm(customer, index, 'customer-profile', 'customer', customers, {
+      handleChange: handleCustomerChange,
+      handleFileChange: handleCustomerFileChange,
+      handleRemove: handleRemoveCustomer
+    })
+
   const renderConsigneeForm = (consignee, index) => 
     renderArrayForm(consignee, index, 'consignee-profile', 'consignee', consignees, {
       handleChange: handleConsigneeChange,
@@ -1553,7 +1662,8 @@ function MasterDataForm() {
 
       if (isArrayBasedForm) {
         let items = []
-        if (isConsigneeProfile) items = consignees
+        if (isCustomerProfile) items = customers
+        else if (isConsigneeProfile) items = consignees
         else if (isPayerProfile) items = payers
         else if (isEmployeeProfile) items = employees
         else if (isPaymentTerms) items = paymentTerms
@@ -1576,7 +1686,8 @@ function MasterDataForm() {
           return { ...item, recordId: savedRecord?.id || item.recordId }
         }))
 
-        if (isConsigneeProfile) setConsignees(savedItems)
+        if (isCustomerProfile) setCustomers(savedItems)
+        else if (isConsigneeProfile) setConsignees(savedItems)
         else if (isPayerProfile) setPayers(savedItems)
         else if (isEmployeeProfile) setEmployees(savedItems)
         else if (isPaymentTerms) setPaymentTerms(savedItems)
@@ -1662,7 +1773,8 @@ function MasterDataForm() {
 
       if (isEditMode) {
         if (isArrayBasedForm) {
-          const item = isConsigneeProfile ? consignees[0]
+          const item = isCustomerProfile ? customers[0]
+            : isConsigneeProfile ? consignees[0]
             : isPayerProfile ? payers[0]
             : isEmployeeProfile ? employees[0]
             : isPaymentTerms ? paymentTerms[0]
@@ -1694,7 +1806,7 @@ function MasterDataForm() {
           companyId: type === 'company-profile' ? undefined : selectedCompanyId,
         })
       )
-      
+
       await Promise.all(savePromises)
       window.dispatchEvent(new Event('masterDataUpdated'))
       setStatus({ kind: 'success', message: 'Form saved! You can continue with other forms.' })
@@ -1774,7 +1886,9 @@ function MasterDataForm() {
     setShowSaveOptions(false)
     setSavingInProgress(false)
     
-    if (isConsigneeProfile) {
+    if (isCustomerProfile) {
+      setCustomers([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
+    } else if (isConsigneeProfile) {
       setConsignees([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
     } else if (isPayerProfile) {
       setPayers([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
@@ -1837,7 +1951,8 @@ function MasterDataForm() {
         }
 
         if (isArrayBasedForm) {
-          const item = isConsigneeProfile ? consignees[0]
+          const item = isCustomerProfile ? customers[0]
+            : isConsigneeProfile ? consignees[0]
             : isPayerProfile ? payers[0]
             : isEmployeeProfile ? employees[0]
             : isPaymentTerms ? paymentTerms[0]
@@ -1890,7 +2005,10 @@ function MasterDataForm() {
       if (isArrayBasedForm) {
         let items = []
         let itemName = ''
-        if (isConsigneeProfile) {
+        if (isCustomerProfile) {
+          items = customers
+          itemName = 'customer(s)'
+        } else if (isConsigneeProfile) {
           items = consignees
           itemName = 'consignee(s)'
         } else if (isPayerProfile) {
@@ -2105,7 +2223,8 @@ function MasterDataForm() {
                 type="button"
                 className="md-form-button md-form-button-primary"
                 onClick={() => {
-                  if (isConsigneeProfile) handleAddConsignee()
+                  if (isCustomerProfile) handleAddCustomer()
+                  else if (isConsigneeProfile) handleAddConsignee()
                   else if (isPayerProfile) handleAddPayer()
                   else if (isEmployeeProfile) handleAddEmployee()
                   else if (isPaymentTerms) handleAddPaymentTerm()
@@ -2114,6 +2233,7 @@ function MasterDataForm() {
               >
                 <Plus className="md-form-button-icon" />
                 <span>
+                  {isCustomerProfile && 'Add Another Customer'}
                   {isConsigneeProfile && 'Add Consignee'}
                   {isPayerProfile && 'Add Payer'}
                   {isEmployeeProfile && 'Add Employee'}
@@ -2186,7 +2306,8 @@ function MasterDataForm() {
             </div>
           )}
           {isArrayBasedForm ? (
-            isConsigneeProfile ? consignees.map((consignee, index) => renderConsigneeForm(consignee, index))
+            isCustomerProfile ? customers.map((customer, index) => renderCustomerForm(customer, index))
+            : isConsigneeProfile ? consignees.map((consignee, index) => renderConsigneeForm(consignee, index))
             : isPayerProfile ? payers.map((payer, index) => renderPayerForm(payer, index))
             : isEmployeeProfile ? employees.map((employee, index) => renderEmployeeForm(employee, index))
             : isPaymentTerms ? paymentTerms.map((paymentTerm, index) => renderPaymentTermForm(paymentTerm, index))

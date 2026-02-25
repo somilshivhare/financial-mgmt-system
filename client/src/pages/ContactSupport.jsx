@@ -114,11 +114,20 @@ export default function ContactSupport() {
     const loadUserProfile = async () => {
       try {
         const res = await getProfile()
-        const data = res?.data?.data ?? res?.data ?? res
-        const profile = data?.profile ?? data
-        if (profile && (profile.mobile || profile.phone)) {
-          setUser((prev) => (prev ? { ...prev, mobile: profile.mobile || profile.phone || prev.mobile } : prev))
-        }
+        const payload = res?.data?.data ?? res?.data ?? res
+        const profile = payload?.profile ?? {}
+        const userFromApi = payload?.user ?? {}
+        const mobileVal = profile.mobile ?? profile.phone ?? userFromApi.mobile ?? userFromApi.phone ?? ''
+        const companyVal = profile.company_name ?? userFromApi.companyName ?? ''
+        setUser((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            mobile: mobileVal || prev.mobile || '',
+            ...(companyVal && { companyName: companyVal }),
+            name: companyVal || prev.name,
+          }
+        })
       } catch (err) {
         console.error('Failed to load user profile for support form:', err)
       }
