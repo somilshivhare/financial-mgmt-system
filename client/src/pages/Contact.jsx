@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Mail, Phone, MapPin, Clock, Building2, Send, CheckCircle2, Loader2, Shield, Zap, Users, TrendingUp, Award, MessageSquare, ArrowRight } from 'lucide-react'
+import { Mail, Clock, Send, CheckCircle2, Loader2, Shield, Zap, Users, TrendingUp, Award, MessageSquare, ArrowRight } from 'lucide-react'
 
 export default function Contact() {
   const [status, setStatus] = useState('idle')
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
     company: '',
     message: ''
   })
@@ -48,11 +47,6 @@ export default function Contact() {
           error = 'Message must be at least 10 characters'
         }
         break
-      case 'phone':
-        if (value && !/^[\d\s\+\-\(\)]+$/.test(value)) {
-          error = 'Please enter a valid phone number'
-        }
-        break
       default:
         break
     }
@@ -86,7 +80,6 @@ export default function Contact() {
     setTouched({
       name: true,
       email: true,
-      phone: true,
       company: true,
       message: true
     })
@@ -109,7 +102,6 @@ export default function Contact() {
       setFormData({
         name: '',
         email: '',
-        phone: '',
         company: '',
         message: ''
       })
@@ -124,28 +116,12 @@ export default function Contact() {
 
   const contactInfo = [
     {
-      icon: MapPin,
-      title: 'Head Office',
-      content: 'NB Aurum Solutions',
-      details: 'Lower Ground Floor, LGF-17, Krishna Apra D Mall, Shakti Khand-2, Indirapuram, Ghaziabad District, Uttar Pradesh – 201014, India',
-      color: 'var(--mkt-primary)',
-      showFullAddress: true
-    },
-    {
       icon: Mail,
       title: 'Email',
       content: 'nbaurum@gmail.com',
       details: 'Preferred for billing, access, and general requests',
       color: 'var(--mkt-primary)',
       link: 'mailto:nbaurum@gmail.com'
-    },
-    {
-      icon: Phone,
-      title: 'Phone',
-      content: '+91 98608 94146',
-      details: 'Available during business hours',
-      color: 'var(--mkt-primary)',
-      link: 'tel:+919860894146'
     },
     {
       icon: Clock,
@@ -193,23 +169,14 @@ export default function Contact() {
                   </div>
                   <div className="contact-info-content">
                     <h3 className="contact-info-title">{info.title}</h3>
-                    {info.showFullAddress ? (
-                      <div className="contact-info-address">
-                        <p className="contact-info-text">{info.content}</p>
-                        <p className="contact-info-details">{info.details}</p>
-                      </div>
+                    {info.link ? (
+                      <a href={info.link} className="contact-info-link">
+                        {info.content}
+                      </a>
                     ) : (
-                      <>
-                        {info.link ? (
-                          <a href={info.link} className="contact-info-link">
-                            {info.content}
-                          </a>
-                        ) : (
-                          <p className="contact-info-text">{info.content}</p>
-                        )}
-                        <p className="contact-info-details">{info.details}</p>
-                      </>
+                      <p className="contact-info-text">{info.content}</p>
                     )}
+                    <p className="contact-info-details">{info.details}</p>
                   </div>
                 </div>
               )
@@ -271,27 +238,6 @@ export default function Contact() {
                     />
                     {errors.email && touched.email && (
                       <span className="contact-error" role="alert">{errors.email}</span>
-                    )}
-                  </div>
-
-                  <div className="mkt-field">
-                    <label className="mkt-label" htmlFor="contact-phone">
-                      Phone
-                    </label>
-                    <input
-                      className={`mkt-input ${errors.phone && touched.phone ? 'mkt-input-error' : ''}`}
-                      id="contact-phone"
-                      name="phone"
-                      type="tel"
-                      placeholder="+91 98608 94146"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      autoComplete="tel"
-                      aria-invalid={errors.phone && touched.phone ? 'true' : 'false'}
-                    />
-                    {errors.phone && touched.phone && (
-                      <span className="contact-error" role="alert">{errors.phone}</span>
                     )}
                   </div>
 
@@ -382,39 +328,6 @@ export default function Contact() {
               </form>
             </div>
 
-            {/* Office Location Card */}
-            <div className="contact-office-card">
-              <div className="contact-office-header">
-                <Building2 className="contact-office-icon" size={24} />
-                <h3 className="contact-office-title">Visit Our Office</h3>
-              </div>
-              <div className="contact-office-content">
-                <p className="contact-office-address">
-                  <strong>NB Aurum Solutions</strong><br />
-                  Lower Ground Floor, LGF-17<br />
-                  Krishna Apra D Mall<br />
-                  Shakti Khand-2, Indirapuram<br />
-                  Ghaziabad District, Uttar Pradesh – 201014<br />
-                  India
-                </p>
-              </div>
-              <div className="contact-map-placeholder">
-                <div className="contact-map-label">
-                <div className="w-full h-full">
-  <iframe
-    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d14006.569108570173!2d77.35747399715109!3d28.64048154289971!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390cfbc514590611%3A0xf294829608147da5!2sD%20MALL!5e0!3m2!1sen!2sin!4v1770881834371!5m2!1sen!2sin"
-    width="600"
-    height="450"
-    style={{ border: 0, width: '100%', maxWidth: '100%' }}
-    allowFullScreen=""
-    loading="lazy"
-    referrerPolicy="no-referrer-when-downgrade"
-  ></iframe>
-</div>
-                 
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -602,8 +515,7 @@ export default function Contact() {
             <div className="contact-faq-item">
               <h3 className="contact-faq-question">How quickly will I get a response?</h3>
               <p className="contact-faq-answer">
-                We respond to all inquiries within 24 hours during business days. For urgent matters, 
-                please call us directly at +91 98608 94146.
+                We respond to all inquiries within 24 hours during business days.
               </p>
             </div>
             <div className="contact-faq-item">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { 
-  Clock, FileUp, Mail, Phone, ShieldCheck, MapPin, Building2, CheckCircle2, 
+  Clock, FileUp, Mail, ShieldCheck, Building2, CheckCircle2, 
   AlertCircle, X, MessageSquare, Calendar, User, Tag, AlertTriangle, 
   Loader2, FileText, History, Send, Eye, EyeOff
 } from 'lucide-react'
@@ -376,15 +376,6 @@ export default function ContactSupport() {
               </div>
 
               <div className="support-channel">
-                <div className="support-channel-icon"><Phone /></div>
-                <div className="support-channel-content">
-                  <div className="support-channel-label">Phone</div>
-                  <div className="support-channel-value">{supportChannels.phone}</div>
-                  <div className="support-channel-help">For urgent operational issues during business hours.</div>
-                </div>
-              </div>
-
-              <div className="support-channel">
                 <div className="support-channel-icon"><Clock /></div>
                 <div className="support-channel-content">
                   <div className="support-channel-label">Business Hours</div>
@@ -605,26 +596,14 @@ export default function ContactSupport() {
             </form>
           </section>
 
-          {/* Office Information */}
+          {/* Office Information - GST only (address and phone removed) */}
           <section className="support-card">
             <div className="support-card-header">
               <h2 className="support-card-title">Office Information</h2>
-              <p className="support-card-subtitle">Registered and billing information for compliance.</p>
+              <p className="support-card-subtitle">Billing information for compliance.</p>
             </div>
 
             <div className="support-office">
-              <div className="support-office-row">
-                <div className="support-office-icon"><MapPin /></div>
-                <div>
-                  <div className="support-office-label">Registered Address</div>
-                  <div className="support-office-value" style={{ whiteSpace: 'pre-line' }}>
-                    {officeInfo.companyName}
-                    {'\n'}
-                    {officeInfo.registeredAddress}
-                  </div>
-                </div>
-              </div>
-
               <div className="support-office-row">
                 <div className="support-office-icon"><Building2 /></div>
                 <div>

@@ -485,29 +485,6 @@ export default function Settings() {
             </div>
 
             <div className="settings-field">
-              <label className="settings-label" htmlFor="companyPhone">Company phone</label>
-              <input
-                id="companyPhone"
-                className="settings-input"
-                value={draft.general.companyPhone}
-                onChange={(e) => setDraftPath(['general', 'companyPhone'], e.target.value)}
-              />
-            </div>
-
-            <div className="settings-field settings-field--full">
-              <label className="settings-label" htmlFor="companyAddress">Registered address</label>
-              <textarea
-                id="companyAddress"
-                className="settings-input settings-textarea"
-                rows={3}
-                placeholder="Company registered address (shown on Support page)"
-                value={draft.general.companyAddress ?? ''}
-                onChange={(e) => setDraftPath(['general', 'companyAddress'], e.target.value)}
-              />
-              <div className="settings-help">Shown in Office Information on the Contact &amp; Support page.</div>
-            </div>
-
-            <div className="settings-field">
               <label className="settings-label" htmlFor="fy">Financial year</label>
               <select
                 id="fy"
