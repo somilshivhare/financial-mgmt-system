@@ -63,6 +63,8 @@ function App() {
   useEffect(() => {
     let cancelled = false
     const checkSession = async () => {
+      const hasStoredUser = !!localStorage.getItem('user')
+      if (!hasStoredUser) return
       try {
         const { data } = await me()
         if (!cancelled && data?.data) {
