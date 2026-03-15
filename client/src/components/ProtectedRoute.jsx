@@ -10,10 +10,7 @@ export default function ProtectedRoute({ children }) {
     const checkAuth = () => {
       try {
         const storedUser = localStorage.getItem('user')
-        const storedToken = localStorage.getItem('token')
-        
-        const authenticated = !!(storedUser && storedToken)
-        setIsAuthenticated(authenticated)
+        setIsAuthenticated(!!storedUser)
         setIsChecking(false)
       } catch (error) {
         console.error('[ProtectedRoute] Error checking authentication:', error)

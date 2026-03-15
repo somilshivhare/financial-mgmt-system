@@ -107,8 +107,7 @@ function Login({ onLogin }) {
 
     try {
       const response = await login(formData.email, formData.password)
-      
-      const userData = response.data?.user || { email: formData.email, name: formData.email }
+      const userData = response.data?.data?.user || response.data?.user || { email: formData.email, name: formData.email }
       onLogin(userData)
       
       if (rememberMe) {

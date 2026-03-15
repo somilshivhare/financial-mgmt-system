@@ -38,11 +38,9 @@ export function useNotifications() {
   }, [])
 
   const connectWebSocket = useCallback(() => {
-    const token = localStorage.getItem('token')
     const user = localStorage.getItem('user')
-    
-    if (!token || !user) {
-      console.warn('[Notifications] No token or user found, skipping WebSocket connection')
+    if (!user) {
+      console.warn('[Notifications] No user found, skipping WebSocket connection')
       setConnectionError('Not authenticated')
       return
     }
@@ -59,17 +57,11 @@ export function useNotifications() {
     }
 
     try {
-      const userData = JSON.parse(user)
-      const userId = userData.id
-
       const baseUrl = getApiBaseUrl()
-      
       console.log(`[Notifications] Connecting to WebSocket at ${baseUrl}`)
-      
+
       const socket = io(baseUrl, {
-        auth: {
-          token: token, // Pass token in auth object
-        },
+        withCredentials: true,
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 1000,
@@ -205,8 +197,8 @@ export function useNotifications() {
   }, [])
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
+    const user = localStorage.getItem('user')
+    if (!user) {
       setLoading(false)
       return
     }

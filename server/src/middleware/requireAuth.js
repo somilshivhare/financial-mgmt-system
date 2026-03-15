@@ -4,12 +4,18 @@ const { apiError } = require('../utils/apiResponse');
 const { query } = require('../db/query');
 
 const requireAuth = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.error('[Auth] Missing or invalid authorization header');
+  const cookieName = env.AUTH_COOKIE_NAME;
+  let token = req.cookies?.[cookieName];
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+  }
+  if (!token) {
+    console.error('[Auth] Missing or invalid authorization (no cookie or Bearer header)');
     return res.status(401).json(apiError('Unauthorized: Missing or invalid authorization header', 'UNAUTHORIZED'));
   }
-  const token = authHeader.split(' ')[1];
   try {
     const payload = jwt.verify(token, env.JWT_SECRET);
     const userId = payload.id;

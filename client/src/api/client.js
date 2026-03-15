@@ -13,13 +13,10 @@ const client = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 30000, // 30 second timeout
+  withCredentials: true, // Send HTTP-only auth cookie with requests
 })
 
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type']
   }
@@ -81,7 +78,6 @@ client.interceptors.response.use(
           status,
         })
       }
-      localStorage.removeItem('token')
       localStorage.removeItem('user')
       return Promise.reject({
         message: 'Session expired. Please log in again.',

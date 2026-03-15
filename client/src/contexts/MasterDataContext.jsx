@@ -28,10 +28,8 @@ export const MasterDataProvider = ({ children }) => {
   const [aggregatedLoading, setAggregatedLoading] = useState(false)
 
   const loadMasterData = useCallback(async () => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      return
-    }
+    const user = localStorage.getItem('user')
+    if (!user) return
 
     setMasterData((prev) => ({ ...prev, loading: true }))
     try {
@@ -47,18 +45,14 @@ export const MasterDataProvider = ({ children }) => {
         lastUpdated: data.lastUpdated,
       })
     } catch (error) {
-      if (token) {
-        console.error('Failed to load master data:', error)
-      }
+      console.error('Failed to load master data:', error)
       setMasterData((prev) => ({ ...prev, loading: false }))
     }
   }, [])
   
   const loadAggregatedMasterData = useCallback(async () => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      return
-    }
+    const user = localStorage.getItem('user')
+    if (!user) return
     
     setAggregatedLoading(true)
     try {
@@ -73,20 +67,20 @@ export const MasterDataProvider = ({ children }) => {
   }, [])
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (token) {
+    const user = localStorage.getItem('user')
+    if (user) {
       loadMasterData()
-      loadAggregatedMasterData() // Also load aggregated data
+      loadAggregatedMasterData()
     }
 
     const handleUpdate = () => {
       loadMasterData()
-      loadAggregatedMasterData() // Refresh aggregated data too
+      loadAggregatedMasterData()
     }
 
     const handleAuthChange = () => {
-      const currentToken = localStorage.getItem('token')
-      if (currentToken) {
+      const currentUser = localStorage.getItem('user')
+      if (currentUser) {
         loadMasterData()
         loadAggregatedMasterData()
       } else {

@@ -1,4 +1,5 @@
 const { Server } = require('socket.io');
+const cookie = require('cookie');
 const jwt = require('jsonwebtoken');
 const { env } = require('../config/env');
 const { query } = require('../db/query');
@@ -47,7 +48,9 @@ const initializeWebSocket = (httpServer) => {
 
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+      const cookieHeader = socket.handshake.headers?.cookie;
+      const parsed = cookieHeader ? cookie.parse(cookieHeader) : {};
+      const token = parsed[env.AUTH_COOKIE_NAME] || socket.handshake.auth?.token || socket.handshake.query?.token;
       
       if (!token) {
         console.warn(`[WebSocket] Connection rejected: No token provided for socket ${socket.id}`);

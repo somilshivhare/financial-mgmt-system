@@ -3,7 +3,6 @@ import { clearAllLocalStorage } from '../utils/logout'
 
 export const login = async (email, password) => {
   const { data } = await client.post('/auth/login', { email, password })
-  localStorage.setItem('token', data.data.token)
   return data
 }
 
@@ -32,6 +31,11 @@ export const resetPassword = async (token, newPassword) => {
   return data
 }
 
-export const logout = () => {
+export const logout = async () => {
+  try {
+    await client.post('/auth/logout')
+  } catch (_) {
+    // Ignore network errors; cookie may already be cleared
+  }
   clearAllLocalStorage()
 }

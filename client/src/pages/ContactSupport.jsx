@@ -262,13 +262,10 @@ export default function ContactSupport() {
         formData.append('attachments', file)
       })
 
-      const token = localStorage.getItem('token')
       const API_BASE_URL = getApiUrl()
       const response = await fetch(`${API_BASE_URL}/support-tickets`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
         body: formData,
       })
 

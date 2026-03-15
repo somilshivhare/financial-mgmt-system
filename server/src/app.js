@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const path = require('path');
@@ -12,6 +13,7 @@ const app = express();
 app.set('trust proxy', true);
 
 app.use(helmet());
+app.use(cookieParser());
 
 const corsOptions = {
   origin: (origin, callback) => {

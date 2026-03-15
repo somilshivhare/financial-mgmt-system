@@ -41,8 +41,7 @@ export default function Navbar({ onToggleSidebar, collapsed }) {
           setUserData(parsed)
         }
 
-        const token = localStorage.getItem('token')
-        if (token) {
+        if (storedUser) {
           try {
             const response = await me()
             if (response?.data?.data) {

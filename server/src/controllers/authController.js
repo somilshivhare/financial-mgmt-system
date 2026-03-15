@@ -1,5 +1,6 @@
 const { apiSuccess, apiError } = require('../utils/apiResponse');
 const authService = require('../services/authService');
+const { env, authCookieMaxAgeSeconds } = require('../config/env');
 
 const register = async (req, res, next) => {
   try {
@@ -97,7 +98,17 @@ const login = async (req, res, next) => {
     };
     
     const result = await authService.login(email, password, loginMetadata);
-    res.json(apiSuccess(result, 'Login successful'));
+    const cookieName = env.AUTH_COOKIE_NAME;
+    const maxAge = authCookieMaxAgeSeconds();
+    const isProduction = env.NODE_ENV === 'production';
+    res.cookie(cookieName, result.token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      maxAge: maxAge * 1000,
+      path: '/',
+    });
+    res.json(apiSuccess({ user: result.user }, 'Login successful'));
   } catch (err) {
     if (err.message === 'INVALID_CREDENTIALS') {
       return res.status(401).json(apiError(
@@ -143,4 +154,10 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, me, requestPasswordReset, resetPassword };
+const logout = (req, res) => {
+  const cookieName = env.AUTH_COOKIE_NAME;
+  res.clearCookie(cookieName, { path: '/', httpOnly: true, secure: true, sameSite: 'none' });
+  res.json(apiSuccess(null, 'Logged out'));
+};
+
+module.exports = { register, login, me, requestPasswordReset, resetPassword, logout };

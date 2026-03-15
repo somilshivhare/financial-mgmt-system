@@ -9,9 +9,7 @@ export default function PublicRoute({ children, redirectTo = '/dashboard' }) {
     const checkAuth = () => {
       try {
         const storedUser = localStorage.getItem('user')
-        const storedToken = localStorage.getItem('token')
-        
-        const authenticated = !!(storedUser && storedToken)
+        const authenticated = !!storedUser
         setIsAuthenticated(authenticated)
         setIsChecking(false)
       } catch (error) {

@@ -49,11 +49,9 @@ export const AIAssistantProvider = ({ children }) => {
   }, [isLoading])
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      return
-    }
-    
+    const user = localStorage.getItem('user')
+    if (!user) return
+
     let mounted = true
     let intervalId = null
     

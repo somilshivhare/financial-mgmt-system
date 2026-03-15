@@ -47,6 +47,7 @@ import PublicRoute from './components/PublicRoute'
 import NotFoundRoute from './components/NotFoundRoute'
 import { flushPendingSaves } from './utils/formPersistenceStorage'
 import { clearAllLocalStorage } from './utils/logout'
+import { me } from './api/auth'
 import './App.css'
 
 function App() {
@@ -54,13 +55,35 @@ function App() {
 
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem('user')
-      if (storedUser) {
-        setUser(JSON.parse(storedUser))
+      const stored = localStorage.getItem('user')
+      if (stored) setUser(JSON.parse(stored))
+    } catch (_) {}
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const checkSession = async () => {
+      try {
+        const { data } = await me()
+        if (!cancelled && data?.data) {
+          const u = data.data
+          const userData = { id: u.id, fullName: u.full_name || u.fullName, email: u.email, role: u.role }
+          setUser(userData)
+          try {
+            localStorage.setItem('user', JSON.stringify(userData))
+          } catch (_) {}
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setUser(null)
+          try {
+            localStorage.removeItem('user')
+          } catch (_) {}
+        }
       }
-    } catch (error) {
-      console.error('[App] Error loading user from localStorage:', error)
     }
+    checkSession()
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
