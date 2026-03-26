@@ -151,6 +151,8 @@ function MasterDataForm() {
   const [showSaveOptions, setShowSaveOptions] = useState(false)
   const [savingInProgress, setSavingInProgress] = useState(false)
   const [draftRecordId, setDraftRecordId] = useState('')
+  const [showFieldSelector, setShowFieldSelector] = useState(false)
+  const [hiddenOptionalFields, setHiddenOptionalFields] = useState({})
   
   const [customers, setCustomers] = useState([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
   const [consignees, setConsignees] = useState([{ id: 0, recordId: null, values: {}, logoPreviews: {} }])
@@ -168,6 +170,67 @@ function MasterDataForm() {
   const isEmployeeProfile = type === 'employee-profile'
   const isPaymentTerms = type === 'payment-terms'
   const isArrayBasedForm = isCustomerProfile || isConsigneeProfile || isPayerProfile || isEmployeeProfile || isPaymentTerms
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('masterDataFieldVisibility')
+      const parsed = saved ? JSON.parse(saved) : {}
+      setHiddenOptionalFields(parsed && typeof parsed === 'object' ? parsed : {})
+    } catch {
+      setHiddenOptionalFields({})
+    }
+  }, [])
+
+  const saveHiddenFields = (nextPrefs) => {
+    setHiddenOptionalFields(nextPrefs)
+    try {
+      localStorage.setItem('masterDataFieldVisibility', JSON.stringify(nextPrefs))
+    } catch {
+      // Ignore storage write failures.
+    }
+  }
+
+  const hiddenForCurrentType = useMemo(
+    () => new Set(Array.isArray(hiddenOptionalFields[type]) ? hiddenOptionalFields[type] : []),
+    [hiddenOptionalFields, type]
+  )
+
+  const optionalFieldsForCurrentType = useMemo(() => {
+    const map = new Map()
+    ;(def?.groups || []).forEach((group) => {
+      ;(group.fields || []).forEach((field) => {
+        if (field.required) return
+        if (!map.has(field.key)) {
+          map.set(field.key, { key: field.key, label: field.label || field.key })
+        }
+      })
+    })
+    return Array.from(map.values())
+  }, [def])
+
+  const isFieldVisible = (field) => {
+    if (!field) return true
+    if (field.required) return true
+    return !hiddenForCurrentType.has(field.key)
+  }
+
+  const getVisibleFields = (group) => {
+    return (group?.fields || []).filter((field) => isFieldVisible(field))
+  }
+
+  const toggleFieldVisibility = (fieldKey) => {
+    const currentHidden = Array.isArray(hiddenOptionalFields[type]) ? hiddenOptionalFields[type] : []
+    const nextHidden = currentHidden.includes(fieldKey)
+      ? currentHidden.filter((key) => key !== fieldKey)
+      : [...currentHidden, fieldKey]
+    saveHiddenFields({ ...hiddenOptionalFields, [type]: nextHidden })
+  }
+
+  const resetFieldVisibility = () => {
+    const nextPrefs = { ...hiddenOptionalFields }
+    delete nextPrefs[type]
+    saveHiddenFields(nextPrefs)
+  }
 
   const parseApiRecord = useCallback((apiResponse) => {
     if (!apiResponse) return null
@@ -570,7 +633,176 @@ function MasterDataForm() {
   const paymentTermsHandlers = createArrayHandlers(paymentTerms, setPaymentTerms, 'payment-terms', 'payment term')
   const handleAddPaymentTerm = paymentTermsHandlers.handleAdd
   const handleRemovePaymentTerm = paymentTermsHandlers.handleRemove
-  const handlePaymentTermChange = paymentTermsHandlers.handleChange
+  const parseNumeric = (value) => {
+    const num = Number(value)
+    return Number.isFinite(num) ? num : 0
+  }
+
+  const toCurrencyNumber = (num) => {
+    return Math.round((num + Number.EPSILON) * 100) / 100
+  }
+
+  const baseDueConfigs = [
+    { key: 'firstDue', label: '1st Due' },
+    { key: 'secondDue', label: '2nd Due' },
+    { key: 'thirdDue', label: '3rd Due' },
+    { key: 'finalDue', label: 'Final Due' },
+  ]
+
+  const toOrdinal = (n) => {
+    const num = Number(n)
+    if (!Number.isFinite(num)) return `${n}`
+    const rem100 = num % 100
+    if (rem100 >= 11 && rem100 <= 13) return `${num}th`
+    const rem10 = num % 10
+    if (rem10 === 1) return `${num}st`
+    if (rem10 === 2) return `${num}nd`
+    if (rem10 === 3) return `${num}rd`
+    return `${num}th`
+  }
+
+  const getDueConfigsForValues = (vals = {}) => {
+    const configuredAdditional = Array.isArray(vals.additionalDueKeys)
+      ? vals.additionalDueKeys
+      : []
+
+    const additionalKeys = Array.from(new Set(
+      configuredAdditional.filter((key) => /^due\d+$/i.test(String(key || '')))
+    ))
+
+    const additionalConfigs = additionalKeys.map((key, idx) => ({
+      key,
+      label: `${toOrdinal(idx + 4)} Due`,
+      isAdditional: true,
+    }))
+
+    return [
+      baseDueConfigs[0],
+      baseDueConfigs[1],
+      baseDueConfigs[2],
+      ...additionalConfigs,
+      baseDueConfigs[3],
+    ]
+  }
+
+  const applyPaymentTermCalculations = (vals = {}) => {
+    const totalBasicAmount = parseNumeric(vals.totalBasicAmount)
+    const dueConfigs = getDueConfigsForValues(vals)
+    const additionalDueKeys = dueConfigs.filter((due) => due.isAdditional).map((due) => due.key)
+    const next = { ...vals, additionalDueKeys }
+    let percentageTotal = 0
+    let totalFreight = 0
+    let totalTaxes = 0
+
+    dueConfigs.forEach(({ key }) => {
+      const pct = parseNumeric(vals[`${key}Percentage`])
+      const freight = parseNumeric(vals[`${key}Freight`])
+      const gstPct = parseNumeric(vals[`${key}Gst`])
+      const basic = toCurrencyNumber((totalBasicAmount * pct) / 100)
+      const taxes = toCurrencyNumber((basic + freight) * (gstPct / 100))
+      const total = toCurrencyNumber(basic + freight + taxes)
+
+      percentageTotal += pct
+      totalFreight += freight
+      totalTaxes += taxes
+
+      next[`${key}Basic`] = basic
+      next[`${key}Taxes`] = taxes
+      next[`${key}Total`] = total
+    })
+
+    next.totalDuePercentage = percentageTotal
+    next.basic = toCurrencyNumber(totalBasicAmount)
+    next.freight = toCurrencyNumber(totalFreight)
+    next.taxes = toCurrencyNumber(totalTaxes)
+    next.total = toCurrencyNumber(totalBasicAmount + totalFreight + totalTaxes)
+
+    return next
+  }
+
+  const getPaymentTermsPercentageError = (vals = {}) => {
+    const totalPct = parseNumeric(vals.totalDuePercentage || 0)
+    if (totalPct !== 100) {
+      return `Total due percentage must be 100%. Current total is ${totalPct}%.`
+    }
+    return ''
+  }
+
+  const validatePaymentTermsEntries = () => {
+    if (!isPaymentTerms) return ''
+    const invalid = (paymentTerms || []).find((item) => {
+      const vals = item.values || {}
+      const dueConfigs = getDueConfigsForValues(vals)
+      if (!String(vals.totalBasicAmount || '').trim()) return true
+      const hasAnyMissingDueInputs = dueConfigs.some(({ key }) => (
+        !String(vals[`${key}Percentage`] || '').trim() ||
+        !String(vals[`${key}Freight`] || '').trim() ||
+        !String(vals[`${key}Gst`] || '').trim()
+      ))
+      if (hasAnyMissingDueInputs) return true
+      return parseNumeric(vals.totalDuePercentage || 0) !== 100
+    })
+    if (invalid) {
+      const current = parseNumeric(invalid.values?.totalDuePercentage || 0)
+      return `Each payment term must have total basic amount, all due values filled, and total due percentage exactly 100%. Current total is ${current}%.`
+    }
+    return ''
+  }
+
+  const handlePaymentTermChange = (itemId, key, value) => {
+    setPaymentTerms((prev) => prev.map((item) => {
+      if (item.id !== itemId) return item
+      const updatedValues = applyPaymentTermCalculations({
+        ...(item.values || {}),
+        [key]: value,
+      })
+      return { ...item, values: updatedValues }
+    }))
+    setStatus({ kind: 'idle', message: '' })
+  }
+
+  const handleAddPaymentTermDue = (itemId) => {
+    setPaymentTerms((prev) => prev.map((item) => {
+      if (item.id !== itemId) return item
+      const vals = item.values || {}
+      const existingAdditional = Array.isArray(vals.additionalDueKeys) ? vals.additionalDueKeys : []
+      const existingNumbers = existingAdditional
+        .map((key) => Number.parseInt(String(key).replace(/^due/i, ''), 10))
+        .filter((num) => Number.isFinite(num))
+      const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 4
+      const nextKey = `due${nextNumber}`
+      const updatedValues = applyPaymentTermCalculations({
+        ...vals,
+        additionalDueKeys: [...existingAdditional, nextKey],
+      })
+      return { ...item, values: updatedValues }
+    }))
+    setStatus({ kind: 'idle', message: '' })
+  }
+
+  const handleRemovePaymentTermDue = (itemId, dueKey) => {
+    setPaymentTerms((prev) => prev.map((item) => {
+      if (item.id !== itemId) return item
+      const vals = { ...(item.values || {}) }
+      const existingAdditional = Array.isArray(vals.additionalDueKeys) ? vals.additionalDueKeys : []
+      if (!existingAdditional.includes(dueKey)) return item
+
+      const nextAdditional = existingAdditional.filter((key) => key !== dueKey)
+      delete vals[`${dueKey}Percentage`]
+      delete vals[`${dueKey}Freight`]
+      delete vals[`${dueKey}Gst`]
+      delete vals[`${dueKey}Basic`]
+      delete vals[`${dueKey}Taxes`]
+      delete vals[`${dueKey}Total`]
+
+      const updatedValues = applyPaymentTermCalculations({
+        ...vals,
+        additionalDueKeys: nextAdditional,
+      })
+      return { ...item, values: updatedValues }
+    }))
+    setStatus({ kind: 'idle', message: '' })
+  }
 
   const requiredMissing = useMemo(() => {
     if (!def) return false
@@ -583,13 +815,28 @@ function MasterDataForm() {
       else if (isEmployeeProfile) items = employees
       else if (isPaymentTerms) items = paymentTerms
       
-      return items.some(item =>
+      const hasMissingRequired = items.some(item =>
         def.groups.some(group =>
           group.fields.some(f => 
             f.required && !String(item.values[f.key] || '').trim()
           )
         )
       )
+      if (hasMissingRequired) return true
+      if (isPaymentTerms) {
+        return items.some((item) => {
+          const vals = item.values || {}
+          const dueConfigs = getDueConfigsForValues(vals)
+          const hasMissingDueData = dueConfigs.some(({ key }) => (
+            !String(vals[`${key}Percentage`] || '').trim() ||
+            !String(vals[`${key}Freight`] || '').trim() ||
+            !String(vals[`${key}Gst`] || '').trim()
+          ))
+          if (!String(vals.totalBasicAmount || '').trim() || hasMissingDueData) return true
+          return parseNumeric(vals.totalDuePercentage || 0) !== 100
+        })
+      }
+      return false
     }
     
     return def.groups.some((group, groupIndex) => {
@@ -1247,14 +1494,21 @@ function MasterDataForm() {
               })
             })
             
-            filledValues.basic = '70'
-            filledValues.freight = '10'
-            filledValues.taxes = '20'
-            filledValues.firstDue = '30'
-            filledValues.secondDue = '60'
-            filledValues.thirdDue = '90'
-            filledValues.finalDue = '120'
+            filledValues.totalBasicAmount = '100000'
+            filledValues.firstDuePercentage = '30'
+            filledValues.firstDueFreight = '1000'
+            filledValues.firstDueGst = '18'
+            filledValues.secondDuePercentage = '30'
+            filledValues.secondDueFreight = '1000'
+            filledValues.secondDueGst = '18'
+            filledValues.thirdDuePercentage = '20'
+            filledValues.thirdDueFreight = '1000'
+            filledValues.thirdDueGst = '18'
+            filledValues.finalDuePercentage = '20'
+            filledValues.finalDueFreight = '1000'
+            filledValues.finalDueGst = '18'
             filledValues.paymentTermsDescription = 'Payment terms: 30% advance, 40% on delivery, 20% after 30 days, 10% retention after 90 days. All payments subject to GST as applicable.'
+            Object.assign(filledValues, applyPaymentTermCalculations(filledValues))
             
             return {
               ...item,
@@ -1325,7 +1579,7 @@ function MasterDataForm() {
             )}
             
             <div className="md-form-grid">
-              {group.fields.map((f) => {
+              {getVisibleFields(group).map((f) => {
                 const fieldId = `${itemName}-${item.id}-${f.key}`
                 const fieldValue = itemValues[f.key] || ''
                 
@@ -1585,12 +1839,178 @@ function MasterDataForm() {
       handleRemove: handleRemoveEmployee
     })
   
-  const renderPaymentTermForm = (paymentTerm, index) => 
-    renderArrayForm(paymentTerm, index, 'payment-terms', 'payment-term', paymentTerms, {
-      handleChange: handlePaymentTermChange,
-      handleFileChange: () => {}, // Payment terms don't have files
-      handleRemove: handleRemovePaymentTerm
-    })
+  const renderPaymentTermForm = (paymentTerm, index) => {
+    const vals = paymentTerm.values || {}
+    const dueConfigs = getDueConfigsForValues(vals)
+    const percentageError = getPaymentTermsPercentageError(vals)
+
+    const percentageOptions = ['10', '20', '30', '40', '50', '60', '70', '80', '90', '100']
+    const freightOptions = ['0', '500', '1000', '1500', '2000', '2500', '5000']
+    const gstOptions = ['0', '5', '12', '18', '28']
+
+    return (
+      <div key={paymentTerm.id} id={`payment-term-${paymentTerm.id}`} className="md-form-entry-block" style={{ marginBottom: '2rem' }}>
+        <div className="md-form-entry-header">
+          <span className="md-form-entry-number" style={{ fontSize: '1.125rem', fontWeight: 700 }}>
+            Payment Term #{index + 1}
+          </span>
+          {paymentTerms.length > 1 && (
+            <button
+              type="button"
+              className="md-form-entry-remove"
+              onClick={() => handleRemovePaymentTerm(paymentTerm.id)}
+              aria-label="Remove payment term"
+            >
+              <X className="md-form-entry-remove-icon" />
+            </button>
+          )}
+        </div>
+
+        <div className="md-form-group" style={{ marginBottom: '1.5rem' }}>
+          <div className="md-form-group-title">Base Configuration</div>
+          <div className="md-form-grid">
+            <div className="md-form-field">
+              <label className="md-form-label" htmlFor={`pt-total-basic-${paymentTerm.id}`}>
+                Total Basic Amount <span className="md-form-required">*</span>
+              </label>
+              <input
+                id={`pt-total-basic-${paymentTerm.id}`}
+                className="md-form-input"
+                type="number"
+                value={vals.totalBasicAmount || ''}
+                disabled={isLocked}
+                onChange={(e) => handlePaymentTermChange(paymentTerm.id, 'totalBasicAmount', e.target.value)}
+                placeholder="Enter total basic amount..."
+              />
+            </div>
+            <div className="md-form-field">
+              <label className="md-form-label">Total Percentage</label>
+              <input className="md-form-input" type="text" readOnly value={`${vals.totalDuePercentage || 0}%`} />
+            </div>
+          </div>
+          {percentageError && (
+            <div className="md-form-status md-form-status-error" style={{ marginTop: '0.75rem' }}>
+              <span>{percentageError}</span>
+            </div>
+          )}
+        </div>
+
+        {dueConfigs.map((due) => (
+          <div key={due.key} className="md-form-group" style={{ marginBottom: '1.5rem' }}>
+            <div className="md-form-group-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+              <span>{due.label}</span>
+              {due.isAdditional && !isLocked && (
+                <button
+                  type="button"
+                  className="md-form-entry-remove"
+                  onClick={() => handleRemovePaymentTermDue(paymentTerm.id, due.key)}
+                  aria-label={`Remove ${due.label}`}
+                >
+                  <X className="md-form-entry-remove-icon" />
+                </button>
+              )}
+            </div>
+            <div className="md-form-grid">
+              <div className="md-form-field">
+                <label className="md-form-label" htmlFor={`pt-${due.key}-percentage-${paymentTerm.id}`}>
+                  Percentage <span className="md-form-required">*</span>
+                </label>
+                <select
+                  id={`pt-${due.key}-percentage-${paymentTerm.id}`}
+                  className="md-form-select"
+                  value={vals[`${due.key}Percentage`] || ''}
+                  disabled={isLocked}
+                  onChange={(e) => handlePaymentTermChange(paymentTerm.id, `${due.key}Percentage`, e.target.value)}
+                >
+                  <option value="">Select percentage...</option>
+                  {percentageOptions.map((option) => (
+                    <option key={option} value={option}>{option}%</option>
+                  ))}
+                </select>
+              </div>
+              <div className="md-form-field">
+                <label className="md-form-label" htmlFor={`pt-${due.key}-freight-${paymentTerm.id}`}>
+                  Freight <span className="md-form-required">*</span>
+                </label>
+                <select
+                  id={`pt-${due.key}-freight-${paymentTerm.id}`}
+                  className="md-form-select"
+                  value={vals[`${due.key}Freight`] || ''}
+                  disabled={isLocked}
+                  onChange={(e) => handlePaymentTermChange(paymentTerm.id, `${due.key}Freight`, e.target.value)}
+                >
+                  <option value="">Select freight...</option>
+                  {freightOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="md-form-field">
+                <label className="md-form-label" htmlFor={`pt-${due.key}-gst-${paymentTerm.id}`}>
+                  GST % <span className="md-form-required">*</span>
+                </label>
+                <select
+                  id={`pt-${due.key}-gst-${paymentTerm.id}`}
+                  className="md-form-select"
+                  value={vals[`${due.key}Gst`] || ''}
+                  disabled={isLocked}
+                  onChange={(e) => handlePaymentTermChange(paymentTerm.id, `${due.key}Gst`, e.target.value)}
+                >
+                  <option value="">Select GST...</option>
+                  {gstOptions.map((option) => (
+                    <option key={option} value={option}>{option}%</option>
+                  ))}
+                </select>
+              </div>
+              <div className="md-form-field">
+                <label className="md-form-label">Basic (Auto)</label>
+                <input className="md-form-input" type="text" readOnly value={vals[`${due.key}Basic`] ?? 0} />
+              </div>
+              <div className="md-form-field">
+                <label className="md-form-label">Taxes (Auto)</label>
+                <input className="md-form-input" type="text" readOnly value={vals[`${due.key}Taxes`] ?? 0} />
+              </div>
+              <div className="md-form-field">
+                <label className="md-form-label">Total (Auto)</label>
+                <input className="md-form-input" type="text" readOnly value={vals[`${due.key}Total`] ?? 0} />
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {!isLocked && (
+          <div className="md-form-entry-add-wrapper" style={{ marginBottom: '1.5rem' }}>
+            <button
+              type="button"
+              className="md-form-button md-form-button-add"
+              onClick={() => handleAddPaymentTermDue(paymentTerm.id)}
+            >
+              <Plus className="md-form-button-icon" />
+              <span>Add Due</span>
+            </button>
+          </div>
+        )}
+
+        <div className="md-form-group">
+          <div className="md-form-group-title">Description</div>
+          <div className="md-form-grid">
+            <div className="md-form-field md-form-field-full">
+              <label className="md-form-label" htmlFor={`pt-desc-${paymentTerm.id}`}>Payment Terms Description</label>
+              <textarea
+                id={`pt-desc-${paymentTerm.id}`}
+                className="md-form-textarea"
+                rows={4}
+                value={vals.paymentTermsDescription || ''}
+                disabled={isLocked}
+                onChange={(e) => handlePaymentTermChange(paymentTerm.id, 'paymentTermsDescription', e.target.value)}
+                placeholder="Enter payment terms description..."
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
   
   const handleAddEntry = (groupIndex) => {
     setMultipleEntries((prev) => {
@@ -1627,6 +2047,12 @@ function MasterDataForm() {
 
   const saveDraftStep = async ({ navigateNext } = {}) => {
     try {
+      const paymentTermError = validatePaymentTermsEntries()
+      if (paymentTermError) {
+        setStatus({ kind: 'error', message: paymentTermError })
+        return null
+      }
+
       if (type !== 'company-profile' && !draftCompanyId) {
         setStatus({ kind: 'error', message: 'Draft company must be created first.' })
         return null
@@ -1756,6 +2182,12 @@ function MasterDataForm() {
       return
     }
     try {
+      const paymentTermError = validatePaymentTermsEntries()
+      if (paymentTermError) {
+        setStatus({ kind: 'error', message: paymentTermError })
+        return
+      }
+
       if (type !== 'company-profile' && !selectedCompanyId) {
         setStatus({ kind: 'error', message: 'Please select a company to link this record.' })
         return
@@ -1924,6 +2356,12 @@ function MasterDataForm() {
 
   const saveRecord = async () => {
     if (!def) return
+
+    const paymentTermError = validatePaymentTermsEntries()
+    if (paymentTermError) {
+      setStatus({ kind: 'error', message: paymentTermError })
+      return
+    }
 
     if (type !== 'company-profile' && !selectedCompanyId) {
       setStatus({ kind: 'error', message: 'Please select a company to link this record.' })
@@ -2218,6 +2656,16 @@ function MasterDataForm() {
                 <span>Auto-Fill Sample Data</span>
               </button>
             )}
+            {optionalFieldsForCurrentType.length > 0 && (
+              <button
+                type="button"
+                className="md-form-button md-form-button-secondary"
+                onClick={() => setShowFieldSelector(true)}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                <span>Field Selection</span>
+              </button>
+            )}
             {isArrayBasedForm && !isLocked && !isEditMode && (
               <button
                 type="button"
@@ -2341,7 +2789,7 @@ function MasterDataForm() {
                     )}
                     
                     <div className="md-form-grid">
-                      {group.fields.map((f) => {
+                      {getVisibleFields(group).map((f) => {
                         const fieldKey = group.allowMultiple ? `${f.key}_${entryIndex}` : f.key
                         const fieldId = `${f.key}_${entryIndex}`
                         
@@ -2585,6 +3033,69 @@ function MasterDataForm() {
           )}
         </div>
       </form>
+
+      {showFieldSelector && optionalFieldsForCurrentType.length > 0 && (
+        <div className="md-field-selector-modal-overlay" onClick={() => setShowFieldSelector(false)}>
+          <div className="md-field-selector-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="md-field-selector-header">
+              <h3 className="md-field-selector-title">Field Selection</h3>
+              <button
+                type="button"
+                className="md-field-selector-close"
+                onClick={() => setShowFieldSelector(false)}
+                aria-label="Close field selection"
+              >
+                <X className="md-form-entry-remove-icon" />
+              </button>
+            </div>
+
+            <div className="md-field-selector-table-wrap">
+              <table className="md-field-selector-table">
+                <thead>
+                  <tr>
+                    <th>Field Name</th>
+                    <th>Show</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {optionalFieldsForCurrentType.map((field) => {
+                    const checked = !hiddenForCurrentType.has(field.key)
+                    return (
+                      <tr key={field.key}>
+                        <td>{field.label}</td>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleFieldVisibility(field.key)}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="md-field-selector-actions">
+              <button
+                type="button"
+                className="md-form-button md-form-button-secondary"
+                onClick={resetFieldVisibility}
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                className="md-form-button md-form-button-primary"
+                onClick={() => setShowFieldSelector(false)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Save Options Modal */}
       {showSaveOptions && (

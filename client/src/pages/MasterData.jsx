@@ -4,14 +4,11 @@ import {
   RefreshCw,
   Plus,
   Search,
-  ChevronDown,
   FileText,
   Edit,
   Trash2,
-  Calendar,
   Eye,
-  CheckCircle2,
-  Circle,
+  X,
 } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
 import { ConfirmDialog, useConfirmDialog } from '../components/ConfirmDialog'
@@ -19,6 +16,8 @@ import * as masterDataService from '../services/masterDataService'
 import '../styles/MasterData.css'
 
 function MasterData() {
+  const ACTIVE_STEP_KEYS = ['company-profile', 'customer-profile', 'consignee-profile', 'payer-profile', 'employee-profile']
+
   const navigate = useNavigate()
   const location = useLocation()
   const { confirm, dialogProps } = useConfirmDialog()
@@ -31,8 +30,11 @@ function MasterData() {
     loadAggregatedMasterData,
   } = useMasterData()
   const [query, setQuery] = useState('')
-  const [tier, setTier] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all') // all | draft | published
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [completionFilter, setCompletionFilter] = useState('all')
+  const [updatedFilter, setUpdatedFilter] = useState('all')
+  const [missingStepFilter, setMissingStepFilter] = useState('all')
+  const [quickFilter, setQuickFilter] = useState('none')
   const [editLoadingId, setEditLoadingId] = useState(null)
   
   useEffect(() => {
@@ -112,13 +114,79 @@ function MasterData() {
 
   const filteredAggregatedDataList = useMemo(() => {
     if (!aggregatedDataList || aggregatedDataList.length === 0) return []
+
+    const normalizeCompletion = (item) => {
+      const rawStatus = item?.completionStatus || {}
+      const normalizedStatus = ACTIVE_STEP_KEYS.reduce((acc, key) => {
+        acc[key] = !!rawStatus[key]
+        return acc
+      }, {})
+      const completedSteps = ACTIVE_STEP_KEYS.filter((key) => normalizedStatus[key]).length
+      const totalSteps = ACTIVE_STEP_KEYS.length
+      const completionPercentage = totalSteps > 0
+        ? Math.round((completedSteps / totalSteps) * 100)
+        : 0
+
+      return {
+        ...item,
+        completionStatus: normalizedStatus,
+        completedSteps,
+        totalSteps,
+        completionPercentage,
+      }
+    }
     
-    let list = aggregatedDataList
+    // Hide archived sets from the active master-data board.
+    let list = aggregatedDataList.map(normalizeCompletion).filter((item) => {
+      const status = (item?.status || '').toLowerCase()
+      return status === 'draft' || status === 'published'
+    })
 
     if (statusFilter === 'draft') {
       list = list.filter(item => (item.status || 'published') === 'draft')
     } else if (statusFilter === 'published') {
       list = list.filter(item => (item.status || 'published') === 'published')
+    }
+
+    if (completionFilter === 'incomplete') {
+      list = list.filter((item) => Number(item.completionPercentage || 0) < 100)
+    } else if (completionFilter === 'complete') {
+      list = list.filter((item) => Number(item.completionPercentage || 0) === 100)
+    }
+
+    if (missingStepFilter !== 'all') {
+      list = list.filter((item) => !item?.completionStatus?.[missingStepFilter])
+    }
+
+    if (updatedFilter !== 'all') {
+      const now = Date.now()
+      const limitMs =
+        updatedFilter === '24h'
+          ? 24 * 60 * 60 * 1000
+          : updatedFilter === '7d'
+            ? 7 * 24 * 60 * 60 * 1000
+            : 30 * 24 * 60 * 60 * 1000
+
+      list = list.filter((item) => {
+        const lastUpdated = new Date(item.lastUpdated || item.createdAt || 0).getTime()
+        if (!lastUpdated || Number.isNaN(lastUpdated)) return false
+        return (now - lastUpdated) <= limitMs
+      })
+    }
+
+    if (quickFilter === 'attention') {
+      list = list.filter((item) => Number(item.completionPercentage || 0) < 100)
+    } else if (quickFilter === 'recent') {
+      const now = Date.now()
+      list = list.filter((item) => {
+        const ts = new Date(item.lastUpdated || item.createdAt || 0).getTime()
+        if (!ts || Number.isNaN(ts)) return false
+        return (now - ts) <= (7 * 24 * 60 * 60 * 1000)
+      })
+    } else if (quickFilter === 'drafts') {
+      list = list.filter((item) => (item.status || 'published') === 'draft')
+    } else if (quickFilter === 'readyToPublish') {
+      list = list.filter((item) => (item.status || 'published') === 'draft' && Number(item.completionPercentage || 0) === 100)
     }
 
     if (!query.trim()) return list
@@ -136,7 +204,34 @@ function MasterData() {
       
       return searchableText.includes(lowerQuery)
     })
-  }, [aggregatedDataList, query, statusFilter])
+  }, [aggregatedDataList, query, statusFilter, completionFilter, updatedFilter, missingStepFilter, quickFilter])
+
+  const totalRecords = useMemo(() => {
+    return (aggregatedDataList || []).filter((item) => {
+      const status = (item?.status || '').toLowerCase()
+      return status === 'draft' || status === 'published'
+    }).length
+  }, [aggregatedDataList])
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (query.trim()) count += 1
+    if (statusFilter !== 'all') count += 1
+    if (completionFilter !== 'all') count += 1
+    if (updatedFilter !== 'all') count += 1
+    if (missingStepFilter !== 'all') count += 1
+    if (quickFilter !== 'none') count += 1
+    return count
+  }, [query, statusFilter, completionFilter, updatedFilter, missingStepFilter, quickFilter])
+
+  const resetFilters = () => {
+    setQuery('')
+    setStatusFilter('all')
+    setCompletionFilter('all')
+    setUpdatedFilter('all')
+    setMissingStepFilter('all')
+    setQuickFilter('none')
+  }
 
   const subtitle = useMemo(() => {
     return 'Browse and manage all recorded master data.'
@@ -161,13 +256,12 @@ function MasterData() {
       'consignee-profile': 'Consignee',
       'payer-profile': 'Payer',
       'employee-profile': 'Employee',
-      'payment-terms': 'Payment Terms',
     }
     
-    return Object.entries(completionStatus || {}).map(([step, completed]) => ({
+    return ACTIVE_STEP_KEYS.map((step) => ({
       step,
       label: stepLabels[step] || step,
-      completed: !!completed,
+      completed: !!(completionStatus || {})[step],
     }))
   }
   
@@ -226,41 +320,109 @@ function MasterData() {
 
       {/* Filters / Search */}
       <div className="md-filter-card">
-        <div className="md-search">
-          <Search className="md-search-icon" />
-          <input
-            className="md-search-input"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, company, email, or phone..."
-            type="text"
-          />
+        <div className="md-filter-top">
+          <div className="md-search">
+            <Search className="md-search-icon" />
+            <input
+              className="md-search-input"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, company, email, or phone..."
+              type="text"
+            />
+          </div>
+          <div className="md-filter-meta">
+            <span className="md-filter-result-count">
+              Showing {filteredAggregatedDataList.length} of {totalRecords}
+            </span>
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                className="md-filter-reset"
+                onClick={resetFilters}
+                title="Clear all filters"
+              >
+                <X className="h-4 w-4" />
+                <span>Clear ({activeFilterCount})</span>
+              </button>
+            )}
+          </div>
         </div>
-        <div className="md-select-wrap">
-          <select
-            className="md-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            title="Filter by draft or published"
-          >
-            <option value="all">All status</option>
-            <option value="draft">Draft only</option>
-            <option value="published">Published only</option>
-          </select>
-          <ChevronDown className="md-select-chevron" />
+
+        <div className="md-quick-filters">
+          <button type="button" className={`md-quick-chip ${quickFilter === 'none' ? 'is-active' : ''}`} onClick={() => setQuickFilter('none')}>
+            All
+          </button>
+          <button type="button" className={`md-quick-chip ${quickFilter === 'attention' ? 'is-active' : ''}`} onClick={() => setQuickFilter('attention')}>
+            Needs Attention
+          </button>
+          <button type="button" className={`md-quick-chip ${quickFilter === 'recent' ? 'is-active' : ''}`} onClick={() => setQuickFilter('recent')}>
+            Updated in 7 days
+          </button>
+          <button type="button" className={`md-quick-chip ${quickFilter === 'drafts' ? 'is-active' : ''}`} onClick={() => setQuickFilter('drafts')}>
+            Drafts
+          </button>
+          <button type="button" className={`md-quick-chip ${quickFilter === 'readyToPublish' ? 'is-active' : ''}`} onClick={() => setQuickFilter('readyToPublish')}>
+            Ready to Publish
+          </button>
         </div>
-        <div className="md-select-wrap">
-          <select
-            className="md-select"
-            value={tier}
-            onChange={(e) => setTier(e.target.value)}
-          >
-            <option value="all">All Tiers</option>
-            <option value="tier-1">Tier 1</option>
-            <option value="tier-2">Tier 2</option>
-            <option value="tier-3">Tier 3</option>
-          </select>
-          <ChevronDown className="md-select-chevron" />
+
+        <div className="md-filter-grid">
+          <div className="md-select-wrap">
+            <select
+              className="md-select"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              title="Filter by record status"
+            >
+              <option value="all">All status</option>
+              <option value="draft">Draft only</option>
+              <option value="published">Published only</option>
+            </select>
+          </div>
+
+          <div className="md-select-wrap">
+            <select
+              className="md-select"
+              value={completionFilter}
+              onChange={(e) => setCompletionFilter(e.target.value)}
+              title="Filter by completion percentage"
+            >
+              <option value="all">All completion</option>
+              <option value="complete">100% complete</option>
+              <option value="incomplete">Below 100%</option>
+            </select>
+          </div>
+
+          <div className="md-select-wrap">
+            <select
+              className="md-select"
+              value={updatedFilter}
+              onChange={(e) => setUpdatedFilter(e.target.value)}
+              title="Filter by last updated date"
+            >
+              <option value="all">Any time</option>
+              <option value="24h">Last 24 hours</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+            </select>
+          </div>
+
+          <div className="md-select-wrap">
+            <select
+              className="md-select"
+              value={missingStepFilter}
+              onChange={(e) => setMissingStepFilter(e.target.value)}
+              title="Filter by missing step"
+            >
+              <option value="all">Any missing step</option>
+              <option value="company-profile">Missing Company</option>
+              <option value="customer-profile">Missing Customer</option>
+              <option value="consignee-profile">Missing Consignee</option>
+              <option value="payer-profile">Missing Payer</option>
+              <option value="employee-profile">Missing Employee</option>
+            </select>
+          </div>
         </div>
       </div>
 

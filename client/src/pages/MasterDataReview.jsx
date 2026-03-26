@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   AlertTriangle,
   RefreshCw,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import * as masterDataService from '../services/masterDataService'
 import { FORM_DEFS, FORM_TYPES } from '../utils/masterDataDefs'
@@ -25,6 +27,7 @@ function MasterDataReview() {
   const [loading, setLoading] = useState(true)
   const [draftCompanyId, setDraftCompanyId] = useState('')
   const [submitStatus, setSubmitStatus] = useState({ kind: 'idle', message: '' })
+  const [expandedSections, setExpandedSections] = useState({})
 
   const draftIdFromQuery = useMemo(() => {
     try {
@@ -169,6 +172,37 @@ function MasterDataReview() {
     return Array.isArray(records) && records.length > 0
   })
 
+  const visibleTypes = useMemo(
+    () => FORM_TYPES.filter((type) => Array.isArray(allFormData[type]) && allFormData[type].length > 0),
+    [allFormData]
+  )
+
+  useEffect(() => {
+    if (visibleTypes.length === 0) {
+      setExpandedSections({})
+      return
+    }
+    setExpandedSections((prev) => {
+      const next = {}
+      visibleTypes.forEach((type, index) => {
+        next[type] = prev[type] ?? index === 0
+      })
+      return next
+    })
+  }, [visibleTypes])
+
+  const toggleSection = (type) => {
+    setExpandedSections((prev) => ({ ...prev, [type]: !prev[type] }))
+  }
+
+  const expandAllSections = () => {
+    setExpandedSections(Object.fromEntries(visibleTypes.map((type) => [type, true])))
+  }
+
+  const collapseAllSections = () => {
+    setExpandedSections(Object.fromEntries(visibleTypes.map((type) => [type, false])))
+  }
+
   const validateDraft = useCallback(() => {
     const errors = []
 
@@ -248,17 +282,36 @@ function MasterDataReview() {
             <h1 className="md-form-title">Review Draft Master Data</h1>
             <p className="md-form-description">Review the saved draft records before final submission.</p>
           </div>
-          <button
-            type="button"
-            onClick={loadFormData}
-            className="md-form-button md-form-button-secondary"
-            disabled={loading}
-            style={{ marginTop: '0.5rem', whiteSpace: 'nowrap' }}
-            title="Refresh data to show latest records"
-          >
-            <RefreshCw className={`md-form-button-icon ${loading ? 'animate-spin' : ''}`} style={{ width: '16px', height: '16px' }} />
-            <span>Refresh</span>
-          </button>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={collapseAllSections}
+                className="md-form-button md-form-button-secondary"
+                disabled={loading || visibleTypes.length === 0}
+                title="Collapse all sections"
+              >
+                Collapse All
+              </button>
+              <button
+                type="button"
+                onClick={expandAllSections}
+                className="md-form-button md-form-button-secondary"
+                disabled={loading || visibleTypes.length === 0}
+                title="Expand all sections"
+              >
+                Expand All
+              </button>
+              <button
+                type="button"
+                onClick={loadFormData}
+                className="md-form-button md-form-button-secondary"
+                disabled={loading}
+                title="Refresh data to show latest records"
+              >
+                <RefreshCw className={`md-form-button-icon ${loading ? 'animate-spin' : ''}`} style={{ width: '16px', height: '16px' }} />
+                <span>Refresh</span>
+              </button>
+            </div>
         </div>
       </div>
 
@@ -286,13 +339,25 @@ function MasterDataReview() {
         ) : (
           <>
             <div className="md-form-review-body">
-              {FORM_TYPES.map((type) => {
+              {visibleTypes.map((type) => {
                 const records = allFormData[type]
+                const isExpanded = expandedSections[type]
                 if (!records || !Array.isArray(records) || records.length === 0) return null
 
                 return (
                   <div key={type} className="md-form-review-section">
                     <div className="md-form-review-section-header">
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(type)}
+                        className="md-form-review-section-edit"
+                        style={{ padding: '0.45rem 0.65rem' }}
+                        aria-expanded={Boolean(isExpanded)}
+                        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${FORM_TITLES[type]}`}
+                      >
+                        {isExpanded ? <ChevronDown className="md-form-review-section-edit-icon" /> : <ChevronRight className="md-form-review-section-edit-icon" />}
+                        <span>{isExpanded ? 'Collapse' : 'Expand'}</span>
+                      </button>
                       <h3 className="md-form-review-section-title">
                         {FORM_TITLES[type]}
                         <span style={{ marginLeft: '12px', fontSize: '14px', fontWeight: 'normal', color: 'var(--color-text-tertiary)' }}>
@@ -301,8 +366,8 @@ function MasterDataReview() {
                       </h3>
                     </div>
 
-                    {/* Render all records for this type */}
-                    {records.map((formData, recordIndex) => {
+                    {/* Render records only when expanded to reduce scroll */}
+                    {isExpanded && records.map((formData, recordIndex) => {
                       const { values, logoPreviews, groups, id } = formData
                       const primaryName = getPrimaryName(type, values)
 

@@ -1,5 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
-const { query } = require('../db/query');
+const { query, transaction } = require('../db/query');
 
 const parseJson = (value) => {
   if (value == null) return null;
@@ -360,11 +360,82 @@ const deleteMasterDataRecord = async (type, id, userId) => {
   if (!safeUserId) {
     throw createHttpError(401, 'ERR_UNAUTHORIZED', 'Authentication required');
   }
+
+  // Company profile delete must remove all linked rows first because some
+  // environments still have ON DELETE RESTRICT on fk_master_data_company_id.
+  if (type === 'company-profile') {
+    return transaction(async (connection) => {
+      const [rootRows] = await connection.query(
+        `SELECT id
+         FROM master_data
+         WHERE type = 'company-profile'
+           AND id = ?
+           AND (created_by = ? OR updated_by = ?)
+         LIMIT 1`,
+        [id, safeUserId, safeUserId]
+      );
+
+      if (!rootRows || rootRows.length === 0) {
+        return false;
+      }
+
+      const companyIds = [id];
+      const visited = new Set(companyIds);
+      let frontier = [id];
+
+      while (frontier.length > 0) {
+        const [childCompanies] = await connection.query(
+          `SELECT id
+           FROM master_data
+           WHERE type = 'company-profile'
+             AND company_id IN (?)
+             AND (created_by = ? OR updated_by = ?)`,
+          [frontier, safeUserId, safeUserId]
+        );
+
+        const nextFrontier = [];
+        (childCompanies || []).forEach((row) => {
+          if (!row?.id || visited.has(row.id)) return;
+          visited.add(row.id);
+          companyIds.push(row.id);
+          nextFrontier.push(row.id);
+        });
+        frontier = nextFrontier;
+      }
+
+      await connection.query(
+        `DELETE FROM master_data
+         WHERE type <> 'company-profile'
+           AND company_id IN (?)
+           AND (created_by = ? OR updated_by = ?)`,
+        [companyIds, safeUserId, safeUserId]
+      );
+
+      let deletedCompanies = 0;
+      for (let idx = companyIds.length - 1; idx >= 0; idx -= 1) {
+        const companyId = companyIds[idx];
+        const [deleteResult] = await connection.query(
+          `DELETE FROM master_data
+           WHERE type = 'company-profile'
+             AND id = ?
+             AND (created_by = ? OR updated_by = ?)`,
+          [companyId, safeUserId, safeUserId]
+        );
+        deletedCompanies += Number(deleteResult?.affectedRows || 0);
+      }
+
+      return deletedCompanies > 0;
+    });
+  }
+
   const result = await query(
-    'DELETE FROM master_data WHERE type = ? AND id = ? AND (created_by = ? OR updated_by = ?)',
+    `DELETE FROM master_data
+     WHERE type = ?
+       AND id = ?
+       AND (created_by = ? OR updated_by = ?)`,
     [type, id, safeUserId, safeUserId]
   );
-  return result.affectedRows > 0;
+  return Number(result?.affectedRows || 0) > 0;
 };
 
 const searchMasterData = async (queryString, userId) => {
@@ -561,7 +632,6 @@ const getAggregatedMasterDataByCompany = async (companyId, userId, { status = 'p
     'consignee-profile',
     'payer-profile',
     'employee-profile',
-    'payment-terms',
   ];
   
   const stepData = {
@@ -633,6 +703,31 @@ const getAggregatedMasterDataByCompany = async (companyId, userId, { status = 'p
   };
 };
 
+const isPristineAutoDraftCompany = async (companyRecord, userId) => {
+  if (!companyRecord || companyRecord.type !== 'company-profile') return false;
+  if (normalizeStatus(companyRecord.status) !== 'draft') return false;
+  // Auto-drafts created from published records keep pointer to original published company.
+  if (!companyRecord.companyId) return false;
+
+  const rows = await query(
+    `SELECT
+       COUNT(*) AS total_count,
+       SUM(CASE WHEN updated_at > created_at THEN 1 ELSE 0 END) AS modified_count
+     FROM master_data
+     WHERE status = 'draft'
+       AND (id = ? OR company_id = ?)
+       AND (created_by = ? OR updated_by = ?)`,
+    [companyRecord.id, companyRecord.id, userId, userId]
+  );
+
+  const stats = rows?.[0] || {};
+  const totalCount = Number(stats.total_count || 0);
+  const modifiedCount = Number(stats.modified_count || 0);
+
+  // If nothing has been modified in this draft set, it is a pristine auto-draft.
+  return totalCount > 0 && modifiedCount === 0;
+};
+
 const getAllAggregatedMasterData = async (userId) => {
   if (!userId) {
     return [];
@@ -640,13 +735,29 @@ const getAllAggregatedMasterData = async (userId) => {
   
   try {
     const userCompanies = await getMasterDataByType('company-profile', userId);
+    const activeCompanies = (userCompanies || []).filter((company) => {
+      const companyStatus = normalizeStatus(company?.status);
+      return companyStatus === 'draft' || companyStatus === 'published';
+    });
     
-    if (userCompanies.length === 0) {
+    if (activeCompanies.length === 0) {
       return [];
     }
     
+    const visibleCompanies = [];
+    for (const company of activeCompanies) {
+      // Hide untouched auto-generated drafts (created by opening Edit, no changes yet).
+      // They should appear only after user actually edits/saves something.
+      if (await isPristineAutoDraftCompany(company, userId)) {
+        continue;
+      }
+      visibleCompanies.push(company);
+    }
+
     const aggregatedSets = await Promise.all(
-      userCompanies.map(company => getAggregatedMasterDataByCompany(company.id, userId, { status: company.status }))
+      visibleCompanies.map((company) =>
+        getAggregatedMasterDataByCompany(company.id, userId, { status: company.status })
+      )
     );
     
     return aggregatedSets
@@ -736,29 +847,33 @@ const createDraftFromPublished = async (publishedCompanyId, userId) => {
     'consignee-profile',
     'payer-profile',
     'employee-profile',
-    'payment-terms',
   ];
 
   for (const type of types) {
-    const latest = await getLatestMasterDataByType(type, safeUserId, normalizedPublished.id, 'published');
-    if (!latest) continue;
+    const publishedRecords = await getMasterDataByType(type, safeUserId, {
+      companyId: normalizedPublished.id,
+      status: 'published',
+    });
+    if (!publishedRecords || publishedRecords.length === 0) continue;
 
-    const draftId = uuidv4();
-    const latestValues = latest.values || {};
-    const valuesJson = JSON.stringify(latestValues);
-    const itemCoreCols = mapValuesToColumns(latestValues);
-    
-    await query(
-      `INSERT INTO master_data (
-        id, type, company_id, status, \`values\`, created_by, updated_by,
-        name, address, city, state, country, gst_no, contact_person, contact_number, email, designation
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        draftId, type, draftCompanyId, 'draft', valuesJson, safeUserId, safeUserId,
-        itemCoreCols.name, itemCoreCols.address, itemCoreCols.city, itemCoreCols.state, itemCoreCols.country,
-        itemCoreCols.gst_no, itemCoreCols.contact_person, itemCoreCols.contact_number, itemCoreCols.email, itemCoreCols.designation
-      ]
-    );
+    for (const record of publishedRecords) {
+      const draftId = uuidv4();
+      const recordValues = record.values || {};
+      const valuesJson = JSON.stringify(recordValues);
+      const itemCoreCols = mapValuesToColumns(recordValues);
+      
+      await query(
+        `INSERT INTO master_data (
+          id, type, company_id, status, \`values\`, created_by, updated_by,
+          name, address, city, state, country, gst_no, contact_person, contact_number, email, designation
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          draftId, type, draftCompanyId, 'draft', valuesJson, safeUserId, safeUserId,
+          itemCoreCols.name, itemCoreCols.address, itemCoreCols.city, itemCoreCols.state, itemCoreCols.country,
+          itemCoreCols.gst_no, itemCoreCols.contact_person, itemCoreCols.contact_number, itemCoreCols.email, itemCoreCols.designation
+        ]
+      );
+    }
   }
 
   return getMasterDataById('company-profile', draftCompanyId, safeUserId);

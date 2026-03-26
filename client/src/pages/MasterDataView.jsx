@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useMasterData } from '../contexts/MasterDataContext'
 import * as masterDataService from '../services/masterDataService'
+import { getMasterDataByType } from '../api/masterData'
 import '../styles/MasterData.css'
 
 const FORM_TITLES = {
@@ -18,7 +19,6 @@ const FORM_TITLES = {
   'consignee-profile': 'Consignee Profile',
   'payer-profile': 'Payer Profile',
   'employee-profile': 'Employee Profile',
-  'payment-terms': 'Payment Terms',
 }
 
 const FORM_STEPS = [
@@ -27,7 +27,6 @@ const FORM_STEPS = [
   { key: 'consignee-profile', order: 3 },
   { key: 'payer-profile', order: 4 },
   { key: 'employee-profile', order: 5 },
-  { key: 'payment-terms', order: 6 },
 ]
 
 function MasterDataView() {
@@ -37,6 +36,7 @@ function MasterDataView() {
   const [aggregatedData, setAggregatedData] = useState(null)
   const [expandedSections, setExpandedSections] = useState({})
   const [editLoading, setEditLoading] = useState(false)
+  const [stepRecordsByType, setStepRecordsByType] = useState({})
 
   useEffect(() => {
     loadAggregatedMasterData()
@@ -62,6 +62,64 @@ function MasterDataView() {
         }
       })
       setExpandedSections(expanded)
+    }
+  }, [aggregatedData])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadStepRecords = async () => {
+      if (!aggregatedData?.companyId) {
+        if (!cancelled) setStepRecordsByType({})
+        return
+      }
+
+      const status = aggregatedData.status || 'published'
+      const stepMap = {}
+
+      // Keep company-profile from aggregated payload (single root record).
+      if (aggregatedData?.stepData?.['company-profile']) {
+        stepMap['company-profile'] = [aggregatedData.stepData['company-profile']]
+      } else {
+        stepMap['company-profile'] = []
+      }
+
+      try {
+        const [customers, consignees, payers, employees] = await Promise.all([
+          getMasterDataByType('customer-profile', { companyId: aggregatedData.companyId, status }),
+          getMasterDataByType('consignee-profile', { companyId: aggregatedData.companyId, status }),
+          getMasterDataByType('payer-profile', { companyId: aggregatedData.companyId, status }),
+          getMasterDataByType('employee-profile', { companyId: aggregatedData.companyId, status }),
+        ])
+
+        const normalizeRecord = (record) => {
+          const values = record?.values || {}
+          const logoPreviews = values.logoPreviews || {}
+          const { logoPreviews: _lp, ...cleanValues } = values
+          return {
+            id: record?.id,
+            values: cleanValues,
+            logoPreviews,
+          }
+        }
+
+        stepMap['customer-profile'] = (customers || []).map(normalizeRecord)
+        stepMap['consignee-profile'] = (consignees || []).map(normalizeRecord)
+        stepMap['payer-profile'] = (payers || []).map(normalizeRecord)
+        stepMap['employee-profile'] = (employees || []).map(normalizeRecord)
+      } catch (error) {
+        console.error('[MasterDataView] Failed to load step records:', error)
+      }
+
+      if (!cancelled) {
+        setStepRecordsByType(stepMap)
+      }
+    }
+
+    loadStepRecords()
+
+    return () => {
+      cancelled = true
     }
   }, [aggregatedData])
 
@@ -126,11 +184,9 @@ function MasterDataView() {
 
   const renderStepSection = (step) => {
     const stepData = aggregatedData?.stepData?.[step.key]
-    const isCompleted = aggregatedData?.completionStatus?.[step.key] || false
+    const stepRecords = stepRecordsByType[step.key] || (stepData ? [stepData] : [])
+    const isCompleted = (stepRecords && stepRecords.length > 0) || aggregatedData?.completionStatus?.[step.key] || false
     const isExpanded = expandedSections[step.key] || false
-    const values = stepData?.values || {}
-    const logoPreviews = stepData?.logoPreviews || {}
-    const recordId = stepData?.id
 
     return (
       <div key={step.key} className="md-view-section">
@@ -165,18 +221,35 @@ function MasterDataView() {
         {isExpanded && (
           <div className="md-view-section-content">
             {isCompleted ? (
-              <div className="md-view-section-fields">
-                {Object.entries(values).map(([key, value]) => {
-                  if (key === 'logoPreviews') return null
-                  
-                  const label = key
-                    .replace(/([A-Z])/g, ' $1')
-                    .replace(/^./, str => str.toUpperCase())
-                    .trim()
-                  
-                  return renderField(label, value, logoPreviews, key)
-                })}
-              </div>
+              stepRecords.length > 0 ? (
+                stepRecords.map((record, recordIndex) => {
+                  const values = record?.values || {}
+                  const logoPreviews = record?.logoPreviews || {}
+                  return (
+                    <div key={record?.id || `${step.key}-${recordIndex}`} className="md-view-section-fields" style={{ marginBottom: recordIndex < stepRecords.length - 1 ? '1rem' : 0 }}>
+                      {stepRecords.length > 1 && (
+                        <div className="md-view-record-subtitle">
+                          Record #{recordIndex + 1}
+                        </div>
+                      )}
+                      {Object.entries(values).map(([key, value]) => {
+                        if (key === 'logoPreviews') return null
+
+                        const label = key
+                          .replace(/([A-Z])/g, ' $1')
+                          .replace(/^./, str => str.toUpperCase())
+                          .trim()
+
+                        return renderField(label, value, logoPreviews, key)
+                      })}
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="md-view-section-empty">
+                  <p>This step has not been completed yet.</p>
+                </div>
+              )
             ) : (
               <div className="md-view-section-empty">
                 <p>This step has not been completed yet.</p>

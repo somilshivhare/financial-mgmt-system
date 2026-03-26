@@ -66,6 +66,9 @@ function PaymentEntry() {
   const [openInvoices, setOpenInvoices] = useState([])
   const [customerLocked, setCustomerLocked] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [showFieldSelector, setShowFieldSelector] = useState(false)
+  const [availableFields, setAvailableFields] = useState([])
+  const [hiddenFieldKeys, setHiddenFieldKeys] = useState([])
   
   const { values, setValues, clearLocalDraft, persistNow } = usePersistedFormState({
     pathKey: 'payment-entry',
@@ -86,6 +89,50 @@ function PaymentEntry() {
       charges: typeof updater === 'function' ? updater(prev.charges ?? INITIAL_PAYMENT_STATE.charges) : updater,
     }))
   }, [setValues])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('paymentEntryHiddenFields')
+      const parsed = saved ? JSON.parse(saved) : []
+      setHiddenFieldKeys(Array.isArray(parsed) ? parsed : [])
+    } catch {
+      setHiddenFieldKeys([])
+    }
+  }, [])
+
+  useEffect(() => {
+    const nodes = Array.from(document.querySelectorAll('.payment-entry-form .payment-entry-field'))
+    const collected = []
+
+    nodes.forEach((node) => {
+      const labelEl = node.querySelector('.payment-entry-label')
+      const rawLabel = (labelEl?.textContent || '').replace(/\s+/g, ' ').trim()
+      if (!rawLabel) return
+      const cleanLabel = rawLabel.replace('*', '').trim()
+      const key = cleanLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      node.setAttribute('data-field-key', key)
+      if (!collected.some((item) => item.key === key)) collected.push({ key, label: cleanLabel })
+    })
+
+    setAvailableFields((prev) => {
+      const prevKeys = prev.map((item) => item.key).join('|')
+      const nextKeys = collected.map((item) => item.key).join('|')
+      return prevKeys === nextKeys ? prev : collected
+    })
+
+    nodes.forEach((node) => {
+      const key = node.getAttribute('data-field-key')
+      node.style.display = key && hiddenFieldKeys.includes(key) ? 'none' : ''
+    })
+  }, [hiddenFieldKeys, formData, charges, openInvoices])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('paymentEntryHiddenFields', JSON.stringify(hiddenFieldKeys))
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [hiddenFieldKeys])
   
   useEffect(() => {
     if (!id) {
@@ -579,6 +626,13 @@ function PaymentEntry() {
         <div className="payment-entry-header-actions">
           <button
             type="button"
+            onClick={() => setShowFieldSelector(true)}
+            className="payment-entry-action-button payment-entry-action-button-secondary"
+          >
+            <span>Field Selection</span>
+          </button>
+          <button
+            type="button"
             onClick={handleSaveDraft}
             className="payment-entry-action-button payment-entry-action-button-secondary"
           >
@@ -949,6 +1003,58 @@ function PaymentEntry() {
           </button>
         </div>
       </form>
+
+      {showFieldSelector && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: 16 }} onClick={() => setShowFieldSelector(false)}>
+          <div style={{ width: '100%', maxWidth: 760, maxHeight: '80vh', overflow: 'hidden', background: '#fff', border: '1px solid #d6dde7', borderRadius: 12, display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #e5e7eb' }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>Field Selection</h3>
+              <button type="button" onClick={() => setShowFieldSelector(false)} className="payment-entry-action-button payment-entry-action-button-secondary" aria-label="Close field selection">
+                Close
+              </button>
+            </div>
+            <div style={{ overflow: 'auto', padding: 16 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', border: '1px solid #e5e7eb', padding: 10, background: '#f3f4f6' }}>Field Name</th>
+                    <th style={{ textAlign: 'center', border: '1px solid #e5e7eb', padding: 10, background: '#f3f4f6', width: 120 }}>Show</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {availableFields.map((field) => {
+                    const checked = !hiddenFieldKeys.includes(field.key)
+                    return (
+                      <tr key={field.key}>
+                        <td style={{ border: '1px solid #e5e7eb', padding: 10 }}>{field.label}</td>
+                        <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setHiddenFieldKeys((prev) => (
+                                checked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
+                              ))
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '14px 16px', borderTop: '1px solid #e5e7eb' }}>
+              <button type="button" className="payment-entry-action-button payment-entry-action-button-secondary" onClick={() => setHiddenFieldKeys([])}>
+                Reset
+              </button>
+              <button type="button" className="payment-entry-action-button payment-entry-action-button-secondary" onClick={() => setShowFieldSelector(false)}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

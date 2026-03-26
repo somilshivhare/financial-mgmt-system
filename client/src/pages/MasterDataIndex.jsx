@@ -6,7 +6,6 @@ import {
   Truck,
   CreditCard,
   IdCard,
-  FileCheck2,
   Users,
   ArrowRight,
   CheckCircle2,
@@ -105,7 +104,7 @@ function MasterDataIndex() {
   }
 
   const isArrayType = (stepKey) => (
-    ['consignee-profile', 'payer-profile', 'employee-profile', 'payment-terms'].includes(stepKey)
+    ['consignee-profile', 'payer-profile', 'employee-profile'].includes(stepKey)
   )
 
   const isStepComplete = (stepKey, values) => {
@@ -221,18 +220,11 @@ function MasterDataIndex() {
         step: 5,
       },
       {
-        key: 'payment-terms',
-        title: 'Payment Terms',
-        description: 'Net days, discounts, penalties, and terms settings.',
-        icon: FileCheck2,
-        step: 6,
-      },
-      {
         key: 'review-submit',
         title: 'Review & Final Submit',
         description: 'Review all draft data and publish when ready.',
         icon: CheckCircle2,
-        step: 7,
+        step: 6,
       },
     ],
     [],

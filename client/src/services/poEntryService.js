@@ -10,8 +10,12 @@ export const generatePONumber = (businessUnit = 'MAIN', financialYear = null) =>
   }
 
   const fyShort = financialYear.replace('-', '')
+  const now = new Date()
+  const timestampPart = `${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`
+  const randomPart = Math.floor(100 + Math.random() * 900).toString()
+  const sequence = `${timestampPart}${randomPart}`
 
-  return `PO-${businessUnit}-${fyShort}-XXXX` // Backend will handle sequence
+  return `PO-${businessUnit}-${fyShort}-${sequence}`
 }
 
 export const getAllPOEntries = async () => {

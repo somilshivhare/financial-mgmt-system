@@ -232,35 +232,6 @@ export const FORM_DEFS = {
       },
     ],
   },
-  'payment-terms': {
-    title: 'Payment Terms',
-    description: 'Define payment terms used across invoices and contracts.',
-    groups: [
-      {
-        title: 'Payment Structure',
-        fields: [
-          { key: 'basic', label: 'Basic', type: 'number' },
-          { key: 'freight', label: 'Freight', type: 'number' },
-          { key: 'taxes', label: 'Taxes', type: 'number' },
-        ],
-      },
-      {
-        title: 'Due Dates',
-        fields: [
-          { key: 'firstDue', label: '1st Due', type: 'number' },
-          { key: 'secondDue', label: '2nd Due', type: 'number' },
-          { key: 'thirdDue', label: '3rd Due', type: 'number' },
-          { key: 'finalDue', label: 'Final Due', type: 'number' },
-        ],
-      },
-      {
-        title: 'Description',
-        fields: [
-          { key: 'paymentTermsDescription', label: 'Payment Terms Description', type: 'textarea' },
-        ],
-      },
-    ],
-  },
 };
 
 export const FORM_STEPS = [
@@ -269,8 +240,7 @@ export const FORM_STEPS = [
   { key: 'consignee-profile', order: 3 },
   { key: 'payer-profile', order: 4 },
   { key: 'employee-profile', order: 5 },
-  { key: 'payment-terms', order: 6 },
-  { key: 'review-submit', order: 7 },
+  { key: 'review-submit', order: 6 },
 ];
 
 export const FORM_TYPES = FORM_STEPS.filter(step => step.key !== 'review-submit').map(step => step.key);

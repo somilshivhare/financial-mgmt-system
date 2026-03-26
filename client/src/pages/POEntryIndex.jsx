@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Filter, Eye, Edit, Trash2, X, RefreshCw } from 'lucide-react'
+import { Plus, Search, Eye, Edit, Trash2, X, RefreshCw } from 'lucide-react'
 import DatePicker from '../components/DatePicker'
 import { ConfirmDialog, useConfirmDialog } from '../components/ConfirmDialog'
 import { useToast } from '../contexts/ToastContext'
@@ -69,7 +69,8 @@ function POEntryIndex() {
   const [statusFilter, setStatusFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
+  const [quickFilter, setQuickFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('latest')
 
   useEffect(() => {
     loadPOEntries()
@@ -147,8 +148,37 @@ function POEntryIndex() {
       })
     }
 
+    if (quickFilter === 'draft') {
+      filtered = filtered.filter((po) => (po.status || 'draft').toLowerCase() === 'draft')
+    } else if (quickFilter === 'submitted') {
+      filtered = filtered.filter((po) => (po.status || '').toLowerCase() === 'approved')
+    } else if (quickFilter === 'highValue') {
+      filtered = filtered.filter((po) => getPOValue(po) >= 1000000)
+    } else if (quickFilter === 'recent7d') {
+      const now = Date.now()
+      filtered = filtered.filter((po) => {
+        const poDate = po.issue_date || po.po_date || po.poDate || po.created_at
+        const ts = new Date(poDate || 0).getTime()
+        if (!ts || Number.isNaN(ts)) return false
+        return (now - ts) <= (7 * 24 * 60 * 60 * 1000)
+      })
+    }
+
+    filtered.sort((a, b) => {
+      if (sortBy === 'latest') {
+        return new Date(b.issue_date || b.po_date || b.poDate || b.created_at || 0) - new Date(a.issue_date || a.po_date || a.poDate || a.created_at || 0)
+      }
+      if (sortBy === 'oldest') {
+        return new Date(a.issue_date || a.po_date || a.poDate || a.created_at || 0) - new Date(b.issue_date || b.po_date || b.poDate || b.created_at || 0)
+      }
+      if (sortBy === 'poValueHigh') return getPOValue(b) - getPOValue(a)
+      if (sortBy === 'poValueLow') return getPOValue(a) - getPOValue(b)
+      if (sortBy === 'poNumberAsc') return pickPONumber(a).localeCompare(pickPONumber(b))
+      return 0
+    })
+
     return filtered
-  }, [poEntries, searchQuery, statusFilter, dateFrom, dateTo])
+  }, [poEntries, searchQuery, statusFilter, dateFrom, dateTo, quickFilter, sortBy])
 
   const handleDelete = async (poId) => {
     const confirmed = await confirm({
@@ -173,9 +203,11 @@ function POEntryIndex() {
     setStatusFilter('')
     setDateFrom('')
     setDateTo('')
+    setQuickFilter('all')
+    setSortBy('latest')
   }
 
-  const hasActiveFilters = searchQuery || statusFilter || dateFrom || dateTo
+  const hasActiveFilters = searchQuery || statusFilter || dateFrom || dateTo || quickFilter !== 'all' || sortBy !== 'latest'
 
   return (
     <div className="po-entry-index-page">
@@ -195,50 +227,60 @@ function POEntryIndex() {
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="po-entry-index-toolbar">
-        <div className="po-entry-index-search-container">
-          <Search className="po-entry-index-search-icon" />
-          <input
-            type="text"
-            className="po-entry-index-search-input"
-            placeholder="Search by PO Number, Customer, or Project Description..."
-            value={searchQuery ?? ''}
-            onChange={(e) => setSearchQuery(e.target.value ?? '')}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="po-entry-index-clear-search"
-              title="Clear search"
-            >
-              <X size={16} />
-            </button>
-          )}
+      <div className="po-entry-index-filters-card">
+        <div className="po-entry-index-toolbar">
+          <div className="po-entry-index-search-container">
+            <Search className="po-entry-index-search-icon" />
+            <input
+              type="text"
+              className="po-entry-index-search-input"
+              placeholder="Search by PO Number, Customer, or Project Description..."
+              value={searchQuery ?? ''}
+              onChange={(e) => setSearchQuery(e.target.value ?? '')}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="po-entry-index-clear-search"
+                title="Clear search"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          <div className="po-entry-index-toolbar-actions">
+            <span className="po-entry-index-filter-hint">Showing {filteredPOEntries.length} of {poEntries.length}</span>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="po-entry-index-clear-filters"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => loadPOEntries()}
+            disabled={loading}
+            className="po-entry-index-filter-button"
+            title="Refresh list"
+          >
+            <RefreshCw className="po-entry-index-filter-icon" size={18} style={loading ? { opacity: 0.7 } : undefined} />
+            <span>Refresh</span>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowFilters(!showFilters)}
-          className={`po-entry-index-filter-button ${showFilters ? 'active' : ''}`}
-        >
-          <Filter className="po-entry-index-filter-icon" />
-          <span>Filters</span>
-          {hasActiveFilters && <span className="po-entry-index-filter-badge">{[searchQuery, statusFilter, dateFrom, dateTo].filter(Boolean).length}</span>}
-        </button>
-        <button
-          type="button"
-          onClick={() => loadPOEntries()}
-          disabled={loading}
-          className="po-entry-index-filter-button"
-          title="Refresh list"
-        >
-          <RefreshCw className="po-entry-index-filter-icon" size={18} style={loading ? { opacity: 0.7 } : undefined} />
-          <span>Refresh</span>
-        </button>
-      </div>
 
-      {/* Filter Panel */}
-      {showFilters && (
+        <div className="po-entry-index-quick-filters">
+          <button type="button" className={`po-entry-index-quick-chip ${quickFilter === 'all' ? 'active' : ''}`} onClick={() => setQuickFilter('all')}>All</button>
+          <button type="button" className={`po-entry-index-quick-chip ${quickFilter === 'draft' ? 'active' : ''}`} onClick={() => setQuickFilter('draft')}>Draft</button>
+          <button type="button" className={`po-entry-index-quick-chip ${quickFilter === 'submitted' ? 'active' : ''}`} onClick={() => setQuickFilter('submitted')}>Submitted</button>
+          <button type="button" className={`po-entry-index-quick-chip ${quickFilter === 'recent7d' ? 'active' : ''}`} onClick={() => setQuickFilter('recent7d')}>Last 7 Days</button>
+          <button type="button" className={`po-entry-index-quick-chip ${quickFilter === 'highValue' ? 'active' : ''}`} onClick={() => setQuickFilter('highValue')}>High Value (&gt;= 10L)</button>
+        </div>
+
         <div className="po-entry-index-filters">
           <div className="po-entry-index-filter-group">
             <label className="po-entry-index-filter-label">Status</label>
@@ -275,17 +317,22 @@ function POEntryIndex() {
             />
           </div>
 
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="po-entry-index-clear-filters"
+          <div className="po-entry-index-filter-group">
+            <label className="po-entry-index-filter-label">Sort By</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="po-entry-index-filter-select"
             >
-              Clear All Filters
-            </button>
-          )}
+              <option value="latest">Latest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="poValueHigh">PO Value: High to Low</option>
+              <option value="poValueLow">PO Value: Low to High</option>
+              <option value="poNumberAsc">PO Number A-Z</option>
+            </select>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* PO Entries Table */}
       <div className="po-entry-index-content">
