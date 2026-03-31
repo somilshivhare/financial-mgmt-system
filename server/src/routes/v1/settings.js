@@ -10,6 +10,7 @@ const {
   resetSettings,
   getAuditLog,
   checkFinancialYearChange,
+  resetSystemWithBackup,
 } = require('../../controllers/settingsController');
 
 const router = express.Router();
@@ -24,6 +25,7 @@ router.put('/', requireAuth, requireRole('admin'), validate(settingsUpdateSchema
 router.patch('/', requireAuth, requireRole('admin'), validate(settingsUpdateSchema), updateSettings);
 
 router.post('/reset', requireAuth, requireRole('admin'), validate(resetSettingsSchema), resetSettings);
+router.post('/reset-system', requireAuth, requireRole('admin'), resetSystemWithBackup);
 
 router.get('/audit', requireAuth, requireRole('admin'), getAuditLog);
 

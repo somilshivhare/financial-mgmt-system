@@ -3,7 +3,7 @@ const { requireAuth } = require('../../middleware/requireAuth');
 const { requireRole } = require('../../middleware/requireRole');
 const { validate } = require('../../middleware/validate');
 const { paymentSchema } = require('../../validators/paymentValidators');
-const { listPayments, createPayment, getNextPaymentNumber, getOpenInvoicesForCustomer } = require('../../controllers/paymentController');
+const { listPayments, createPayment, deletePayment, getNextPaymentNumber, getOpenInvoicesForCustomer } = require('../../controllers/paymentController');
 
 const router = express.Router();
 
@@ -25,6 +25,8 @@ router.get('/invoice/:invoiceId', requireAuth, (req, res, next) => {
   return listPayments(req, res, next);
 });
 router.post('/', requireAuth, requireRole('admin', 'user'), validate(paymentSchema), createPayment);
+
+router.delete('/:id', requireAuth, requireRole('admin', 'user'), deletePayment);
 
 module.exports = router;
 

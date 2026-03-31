@@ -87,6 +87,7 @@ export default function Settings() {
   const [draft, setDraft] = useState(DEFAULT_SETTINGS)
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
+  const [resettingSystem, setResettingSystem] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -367,6 +368,57 @@ export default function Settings() {
     })
   }
 
+  const handleResetSystemWithBackup = () => {
+    requestConfirm({
+      title: 'Reset System (Delete All Customer Data)',
+      confirmText: 'Backup & Reset System',
+      tone: 'danger',
+      body: (
+        <div className="settings-confirm">
+          <div className="settings-confirm-note">
+            <AlertCircle className="settings-confirm-icon" />
+            <div>
+              This will permanently delete all business data for your account (Master Data, PO, Invoices, Payments,
+              Collections, Meetings, Support Tickets). A backup PDF will be downloaded before completion.
+            </div>
+          </div>
+        </div>
+      ),
+      onConfirm: async () => {
+        setModal(null)
+        setResettingSystem(true)
+        setErrors({})
+        try {
+          const response = await settingsApi.resetSystemWithBackup()
+          const blob = response?.data
+          if (blob) {
+            const disposition = response?.headers?.['content-disposition'] || ''
+            const filenameMatch = disposition.match(/filename="?([^"]+)"?/i)
+            const filename = filenameMatch?.[1] || `system-backup-${new Date().toISOString().slice(0, 10)}.pdf`
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = filename
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+          }
+          setSaved(true)
+          window.setTimeout(() => window.location.reload(), 500)
+        } catch (error) {
+          console.error('Failed to reset system:', error)
+          setErrors({
+            ...errors,
+            _general: error.message || 'Failed to reset system',
+          })
+        } finally {
+          setResettingSystem(false)
+        }
+      },
+    })
+  }
+
   if (loading) {
     return (
       <div className="settings-page">
@@ -429,12 +481,22 @@ export default function Settings() {
               type="button"
               className="settings-btn settings-btn-secondary"
               onClick={handleResetToDefaults}
-              disabled={saving}
+              disabled={saving || resettingSystem}
             >
               Reset to defaults
             </button>
           )}
-          <button type="button" className="settings-btn settings-btn-primary" onClick={onSave} disabled={saving || !isDirty}>
+          {isAdmin && (
+            <button
+              type="button"
+              className="settings-btn settings-btn-danger"
+              onClick={handleResetSystemWithBackup}
+              disabled={saving || resettingSystem}
+            >
+              {resettingSystem ? 'Resetting system…' : 'Reset system'}
+            </button>
+          )}
+          <button type="button" className="settings-btn settings-btn-primary" onClick={onSave} disabled={saving || resettingSystem || !isDirty}>
             {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>

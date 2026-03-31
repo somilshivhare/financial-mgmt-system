@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, Calculator, RotateCcw, Zap } from 'lucide-react'
+import { ArrowLeft, Save, Calculator, RotateCcw, Zap, Plus, Trash2 } from 'lucide-react'
 import DatePicker from '../components/DatePicker'
 import { useMasterData } from '../contexts/MasterDataContext'
 import { useToast } from '../contexts/ToastContext'
@@ -10,6 +10,7 @@ import * as invoiceService from '../services/invoiceService'
 import * as paymentApi from '../api/payment'
 import { getInvoiceById, updateInvoice } from '../api/invoice'
 import { INDIA_STATES } from '../utils/indiaStates'
+import { getInvoiceNumberPrefix } from '../utils/numbering'
 import '../styles/InvoiceEntry.css'
 
 const FIELD_TYPES = {
@@ -25,7 +26,97 @@ const SEGMENTS = ['Domestic', 'Export']
 const ZONES = ['North', 'East', 'West', 'South']
 const REGIONS = ['North', 'East', 'West', 'South', 'Central']
 const MATERIAL_DESCRIPTION_TYPES = ['Goods', 'Services', 'Both', 'Other']
+/** Matches PO Entry → BOQ as per PO (Form) headers */
+const INVOICE_NATURE_OPTIONS = ['Supply', 'Service', 'Supply & Service', 'AMC', 'Freight', 'Civil']
 const UNITS = ['Nos', 'MT', 'KG', 'LTR', 'MTR', 'SQM', 'CUM', 'Other']
+
+const UNIT_ALIAS_MAP = {
+  'METRIC TON': 'MT',
+  'M.T.': 'MT',
+  MTON: 'MT',
+  NUMBERS: 'Nos',
+  'NO.': 'Nos',
+  NOS: 'Nos',
+  LITRE: 'LTR',
+  LITRES: 'LTR',
+  METER: 'MTR',
+  METRE: 'MTR',
+  'SQ M': 'SQM',
+  'SQ.M': 'SQM',
+  'CUBIC M': 'CUM',
+}
+
+/** Align PO UOM text with invoice unit codes where we have a mapping. */
+function normalizeInvoiceUnit(u) {
+  if (!u || typeof u !== 'string') return ''
+  const raw = String(u).trim()
+  if (!raw) return ''
+  const s = raw.toUpperCase()
+  return UNIT_ALIAS_MAP[s] || (UNITS.includes(s) ? s : UNITS.includes(raw) ? raw : raw)
+}
+
+/**
+ * PO BOQ can use free-text UOM (e.g. Bags, PCS). The unit <select> must list those
+ * values or the browser shows a blank despite line.unit being set.
+ */
+function unitOptionsForInvoice(poBoqItems, materialLines) {
+  const seen = new Set(UNITS)
+  const extras = []
+  const add = (v) => {
+    if (v == null || v === '') return
+    let t = normalizeInvoiceUnit(String(v))
+    if (!t) t = String(v).trim()
+    if (!t) return
+    if (!seen.has(t)) {
+      seen.add(t)
+      extras.push(t)
+    }
+  }
+  ;(Array.isArray(poBoqItems) ? poBoqItems : []).forEach((b) => add(b.uom ?? b.unit ?? b.uom_uom ?? ''))
+  ;(Array.isArray(materialLines) ? materialLines : []).forEach((l) => add(l.unit))
+  extras.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+  return [...UNITS, ...extras]
+}
+
+/** Merge top-level and nested BOQ; map snake_case from APIs / DB. */
+function normalizePoBoqItemsFromApi(raw) {
+  if (!raw || typeof raw !== 'object') return []
+  const fromTop = Array.isArray(raw.boqItems) ? raw.boqItems : []
+  const nested = Array.isArray(raw.formData?.boqItems) ? raw.formData.boqItems : []
+  const list = fromTop.length > 0 ? fromTop : nested
+  return list.map((b, idx) => {
+    const id = b.id != null ? b.id : idx + 1
+    const boqHeader = String(b.boqHeader ?? b.boq_header ?? '').trim()
+    const materialDescription = String(
+      b.materialDescription ?? b.material_description ?? b.description ?? ''
+    ).trim()
+    const uom = String(b.uom ?? b.unit ?? b.uom_uom ?? '').trim()
+    return {
+      ...b,
+      id,
+      boqHeader,
+      materialDescription: materialDescription || String(b.materialDescription ?? ''),
+      uom,
+    }
+  })
+}
+
+const newMaterialLineId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `ml-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+const createEmptyMaterialLine = (defaults = {}) => ({
+  id: newMaterialLineId(),
+  invoiceNature: '',
+  stateOfSupply: '',
+  boqItemId: '',
+  description: '',
+  qty: '',
+  unit: '',
+  unitPrice: '',
+  ...defaults,
+})
 
 const INITIAL_INVOICE_FORM_DATA = {
   keyID: '',
@@ -33,6 +124,7 @@ const INITIAL_INVOICE_FORM_DATA = {
   gstTaxInvoiceNo: '',
   gstTaxInvoiceDate: '',
   internalInvoiceNo: '',
+  internalInvoiceSuffix: '',
   invoiceType: 'REG',
   businessUnit: 'MAIN',
   customerName: '',
@@ -46,6 +138,7 @@ const INITIAL_INVOICE_FORM_DATA = {
   poNoReference: '',
   poDate: '',
   materialDescriptionType: '',
+  materialLines: [createEmptyMaterialLine()],
   stateOfSupply: '',
   qty: '',
   unit: '',
@@ -158,16 +251,16 @@ function InvoiceEntry() {
   const navigate = useNavigate()
   const { id } = useParams() // Get ID if editing existing invoice
   const isViewMode = window.location.pathname.includes('/view/')
-  const { getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees } = useMasterData()
+  const { getCustomers, getConsignees, getPayers, getEmployees } = useMasterData()
   const { showToast } = useToast()
   
   const [poEntries, setPOEntries] = useState([])
   const [poNumbersLoading, setPONumbersLoading] = useState(true)
   const [customers, setCustomers] = useState([])
-  const [paymentTerms, setPaymentTerms] = useState([])
   const [consignees, setConsignees] = useState([])
   const [payers, setPayers] = useState([])
   const [employees, setEmployees] = useState([])
+  const [poBoqItems, setPoBoqItems] = useState([])
   const [paymentData, setPaymentData] = useState(null) // Payment Advice data
   const [showFieldSelector, setShowFieldSelector] = useState(false)
   const [availableFields, setAvailableFields] = useState([])
@@ -228,7 +321,6 @@ function InvoiceEntry() {
 
   useEffect(() => {
     setCustomers(getCustomers())
-    setPaymentTerms(getPaymentTerms())
     setConsignees(getConsignees())
     setPayers(getPayers())
     setEmployees(getEmployees())
@@ -245,7 +337,28 @@ function InvoiceEntry() {
         setPONumbersLoading(false)
       }
     })()
-  }, [getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees])
+  }, [getCustomers, getConsignees, getPayers, getEmployees])
+
+  useEffect(() => {
+    const poNum = formData.keyID
+    if (!poNum) {
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const raw = await poEntryService.getPOEntryByPONumber(poNum)
+        if (!cancelled && raw) {
+          setPoBoqItems(normalizePoBoqItemsFromApi(raw))
+        }
+      } catch {
+        /* ignore */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [formData.keyID])
   
   const loadPaymentData = async (poNumber) => {
     try {
@@ -325,6 +438,22 @@ function InvoiceEntry() {
               poNoReference: invoice.po_no_reference || invoice.poNoReference || invoice.po_number || '',
               poDate: formatDateForInput(invoice.po_date || invoice.poDate || ''),
               materialDescriptionType: invoice.material_description_type || invoice.materialDescriptionType || '',
+              materialLines: (() => {
+                const raw = invoice.material_lines ?? invoice.materialLines
+                if (Array.isArray(raw) && raw.length > 0) return raw
+                return [
+                  createEmptyMaterialLine({
+                    invoiceNature: invoice.material_description_type || invoice.materialDescriptionType || '',
+                    stateOfSupply: invoice.state_of_supply || invoice.stateOfSupply || '',
+                    qty: invoice.qty != null && invoice.qty !== '' ? String(invoice.qty) : String(invoice.quantity ?? ''),
+                    unit: invoice.unit || '',
+                    unitPrice:
+                      invoice.basic_rate != null && invoice.basic_rate !== ''
+                        ? String(invoice.basic_rate)
+                        : String(invoice.basicRate ?? ''),
+                  }),
+                ]
+              })(),
               stateOfSupply: invoice.state_of_supply || invoice.stateOfSupply || '',
               qty: invoice.qty || invoice.quantity || '',
               unit: invoice.unit || '',
@@ -380,21 +509,7 @@ function InvoiceEntry() {
       }
       loadInvoice()
     }
-  }, [id, getCustomers, getPaymentTerms, getConsignees, getPayers, getEmployees])
-  
-  useEffect(() => {
-    const type = formData.invoiceType || 'REG'
-    const bu = formData.businessUnit || 'MAIN'
-    const current = (formData.internalInvoiceNo || '').trim()
-    const hasPlaceholder = /XXXX/i.test(current)
-    if ((!current || hasPlaceholder) && type && bu) {
-      let cancelled = false
-      invoiceService.fetchNextInvoiceNumber(type, bu).then((nextNumber) => {
-        if (!cancelled && nextNumber) setFormData((prev) => ({ ...prev, internalInvoiceNo: nextNumber }))
-      })
-      return () => { cancelled = true }
-    }
-  }, [formData.invoiceType, formData.businessUnit, formData.internalInvoiceNo])
+  }, [id, getCustomers, getConsignees, getPayers, getEmployees])
   
   const formatDateForInput = (val) => {
     if (val === undefined || val === null) return ''
@@ -404,16 +519,147 @@ function InvoiceEntry() {
     return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
   }
 
-  const normalizeUnit = (u) => {
-    if (!u || typeof u !== 'string') return ''
-    const s = String(u).trim().toUpperCase()
-    const map = { 'METRIC TON': 'MT', 'M.T.': 'MT', 'MTON': 'MT', 'NUMBERS': 'Nos', 'NO.': 'Nos', 'NOS': 'Nos', 'LITRE': 'LTR', 'LITRES': 'LTR', 'METER': 'MTR', 'METRE': 'MTR', 'SQ M': 'SQM', 'SQ.M': 'SQM', 'CUBIC M': 'CUM' }
-    return map[s] || (UNITS.includes(s) ? s : (UNITS.includes(u) ? u : u))
+  const invoiceNumberPrefix = useMemo(
+    () =>
+      getInvoiceNumberPrefix(
+        formData.invoiceType,
+        formData.businessUnit,
+        formData.businessUnitOther,
+        formData.invoiceTypeOther,
+        null,
+      ),
+    [
+      formData.invoiceType,
+      formData.businessUnit,
+      formData.businessUnitOther,
+      formData.invoiceTypeOther,
+    ],
+  )
+
+  useEffect(() => {
+    const prefix = getInvoiceNumberPrefix(
+      formData.invoiceType,
+      formData.businessUnit,
+      formData.businessUnitOther,
+      formData.invoiceTypeOther,
+      null,
+    )
+    const full = String(formData.internalInvoiceNo || '').trim()
+    const suffixRaw = String(formData.internalInvoiceSuffix ?? '').trim()
+
+    if (full && suffixRaw === '') {
+      if (full.startsWith(prefix)) {
+        const extracted = full.slice(prefix.length)
+        setFormData((prev) => ({
+          ...prev,
+          internalInvoiceSuffix: extracted === '0' ? '' : extracted,
+        }))
+        return
+      }
+      const m = full.match(/^INV-([^-]+)-([^-]+)-(\d{8})-(.+)$/)
+      if (m && m[4]) {
+        setFormData((prev) => ({
+          ...prev,
+          internalInvoiceSuffix: m[4] === '0' ? '' : m[4],
+        }))
+        return
+      }
+    }
+
+    const suffix = String(formData.internalInvoiceSuffix ?? '').trim()
+    // No prefix-only or stray lone "0" as the full sequence — wait for a real suffix (e.g. 0005)
+    const effectiveSuffix = suffix === '0' ? '' : suffix
+    const combined = effectiveSuffix ? `${prefix}${effectiveSuffix}` : ''
+    if (combined !== full) {
+      setFormData((prev) => ({ ...prev, internalInvoiceNo: combined }))
+    }
+  }, [
+    formData.invoiceType,
+    formData.businessUnit,
+    formData.businessUnitOther,
+    formData.invoiceTypeOther,
+    formData.internalInvoiceSuffix,
+    formData.internalInvoiceNo,
+    invoiceNumberPrefix,
+  ])
+
+  const invoiceUnitSelectOptions = useMemo(
+    () => unitOptionsForInvoice(poBoqItems, formData.materialLines),
+    [poBoqItems, formData.materialLines],
+  )
+
+  const updateMaterialLine = (lineId, patch) => {
+    setFormData((prev) => {
+      const lines = Array.isArray(prev.materialLines) ? [...prev.materialLines] : []
+      const idx = lines.findIndex((l) => l.id === lineId)
+      if (idx < 0) return prev
+      lines[idx] = { ...lines[idx], ...patch }
+      const natures = lines.map((l) => l.invoiceNature).filter(Boolean)
+      const states = lines.map((l) => l.stateOfSupply).filter((s) => s != null && String(s).trim() !== '')
+      return {
+        ...prev,
+        materialLines: lines,
+        materialDescriptionType: natures[0] || prev.materialDescriptionType,
+        stateOfSupply: states[0] != null ? states[0] : prev.stateOfSupply,
+      }
+    })
+  }
+
+  const addMaterialLine = () => {
+    setFormData((prev) => {
+      const lines = Array.isArray(prev.materialLines) ? [...prev.materialLines] : []
+      const defaultState = lines[0]?.stateOfSupply || prev.stateOfSupply || ''
+      lines.push(createEmptyMaterialLine({ stateOfSupply: defaultState }))
+      return { ...prev, materialLines: lines }
+    })
+  }
+
+  const removeMaterialLine = (lineId) => {
+    setFormData((prev) => {
+      let lines = Array.isArray(prev.materialLines) ? prev.materialLines.filter((l) => l.id !== lineId) : []
+      if (lines.length === 0) lines = [createEmptyMaterialLine()]
+      return { ...prev, materialLines: lines }
+    })
+  }
+
+  const handleMaterialLineBoqChange = (lineId, boqItemId) => {
+    if (!boqItemId) {
+      updateMaterialLine(lineId, { boqItemId: '', description: '', qty: '', unit: '', unitPrice: '' })
+      return
+    }
+    const bi = poBoqItems.find((b) => String(b.id) === String(boqItemId))
+    if (!bi) return
+    const qtyRaw =
+      bi.totalQty != null && bi.totalQty !== ''
+        ? bi.totalQty
+        : (bi.originalQty ?? bi.quantity ?? bi.qty ?? '')
+    const uRaw = bi.uom ?? bi.unit ?? bi.uom_uom ?? ''
+    const u = normalizeInvoiceUnit(String(uRaw)) || String(uRaw).trim()
+    const rate = bi.unitPrice ?? bi.basicRate ?? ''
+    updateMaterialLine(lineId, {
+      boqItemId: String(bi.id),
+      description: String(bi.materialDescription ?? bi.description ?? '').trim(),
+      qty: qtyRaw !== '' && qtyRaw != null ? String(qtyRaw) : '',
+      unit: u !== '' ? String(u) : '',
+      unitPrice: rate !== '' && rate != null ? String(rate) : '',
+    })
+  }
+
+  const handleMaterialLineNatureChange = (lineId, nature) => {
+    updateMaterialLine(lineId, {
+      invoiceNature: nature,
+      boqItemId: '',
+      description: '',
+      qty: '',
+      unit: '',
+      unitPrice: '',
+    })
   }
 
   const handleKeyIDChange = async (e) => {
     const poNumber = e.target.value
     if (!poNumber) {
+      setPoBoqItems([])
       setFormData((prev) => ({
         ...prev,
         keyID: '',
@@ -434,6 +680,7 @@ function InvoiceEntry() {
         paymentTextId: '',
         paymentText: '',
         materialDescriptionType: '',
+        materialLines: [createEmptyMaterialLine()],
         qty: '',
         unit: '',
         basicRate: '',
@@ -473,23 +720,45 @@ function InvoiceEntry() {
       }
 
       const customer = customers.find((c) => c.id === poEntry.customerId)
-      const terms = paymentTerms.find((t) => t.id === poEntry.paymentTermsId)
       const accountManager = employees.find((e) => e.id === poEntry.accountManagerId)
       const customerName = customer?.name ?? customer?.values?.customerName ?? customer?.customerName ?? poEntry.customerName ?? ''
       const accountManagerName = accountManager?.values?.nameOfEmployee ?? accountManager?.name ?? ''
-      const paymentTermsDesc = terms?.values?.paymentTermsDescription ?? terms?.values?.termName ?? poEntry.poPaymentTerms ?? ''
+      const paymentTermsDesc =
+        String(fd.poPaymentTerms ?? raw.payment_terms ?? poEntry.poPaymentTerms ?? '').trim() || ''
       const segment = poEntry.segment || customer?.segment || customer?.values?.segment || customer?.fullRecord?.values?.segment || ''
       const region = poEntry.region || customer?.values?.region || customer?.fullRecord?.values?.region || ''
       const zone = poEntry.zone || customer?.values?.zone || customer?.fullRecord?.values?.zone || ''
 
-      const firstBoq = Array.isArray(raw.boqItems) && raw.boqItems.length > 0 ? raw.boqItems[0] : null
-      const materialDescRaw = firstBoq?.materialDescription ?? firstBoq?.description ?? ''
-      const materialDesc = MATERIAL_DESCRIPTION_TYPES.includes(materialDescRaw) ? materialDescRaw : (materialDescRaw && MATERIAL_DESCRIPTION_TYPES.includes(materialDescRaw.trim()) ? materialDescRaw.trim() : '')
-      const boqQty = firstBoq?.quantity ?? firstBoq?.qty ?? ''
-      const boqUnitRaw = firstBoq?.uom ?? firstBoq?.unit ?? ''
-      const boqUnit = normalizeUnit(boqUnitRaw) || (UNITS.includes(boqUnitRaw) ? boqUnitRaw : boqUnitRaw)
+      const boqList = normalizePoBoqItemsFromApi(raw)
+      setPoBoqItems(boqList)
+      const firstBoq = boqList.length > 0 ? boqList[0] : null
+      const supplyState = poEntry.customerState || poEntry.poDeliveryState || ''
+      const natureFromBoq = firstBoq ? String(firstBoq.boqHeader || '').trim() : ''
+      const invoiceNature = INVOICE_NATURE_OPTIONS.includes(natureFromBoq) ? natureFromBoq : ''
+      const qtyStr = firstBoq
+        ? (firstBoq.totalQty != null && firstBoq.totalQty !== ''
+            ? String(firstBoq.totalQty)
+            : String(firstBoq.originalQty ?? firstBoq.quantity ?? firstBoq.qty ?? ''))
+        : ''
+      const boqUnitRaw = firstBoq?.uom ?? firstBoq?.unit ?? firstBoq?.uom_uom ?? ''
+      const boqUnit =
+        normalizeInvoiceUnit(String(boqUnitRaw)) ||
+        (UNITS.includes(String(boqUnitRaw).trim()) ? String(boqUnitRaw).trim() : String(boqUnitRaw).trim())
       const boqRate = firstBoq?.unitPrice ?? firstBoq?.basicRate ?? ''
       const poDateValue = poEntry.poDate || formatDateForInput(raw.issue_date) || formatDateForInput(raw.poDate) || ''
+
+      const firstMaterialLine = firstBoq
+        ? {
+            id: newMaterialLineId(),
+            invoiceNature,
+            stateOfSupply: supplyState,
+            boqItemId: String(firstBoq.id ?? ''),
+            description: String(firstBoq.materialDescription ?? firstBoq.description ?? '').trim(),
+            qty: qtyStr,
+            unit: (boqUnit && (UNITS.includes(boqUnit) || boqUnit === 'Other')) ? boqUnit : String(boqUnitRaw || ''),
+            unitPrice: boqRate !== '' && boqRate != null ? String(boqRate) : '',
+          }
+        : createEmptyMaterialLine({ stateOfSupply: supplyState })
 
       const updated = {
         ...formData,
@@ -506,16 +775,19 @@ function InvoiceEntry() {
         salesOrderNo: poEntry.salesOrderNo || formData.salesOrderNo,
         accountManagerId: poEntry.accountManagerId || '',
         accountManagerName: accountManagerName,
-        stateOfSupply: poEntry.customerState || poEntry.poDeliveryState || '',
+        stateOfSupply: supplyState,
         currency: poEntry.poCurrency || 'INR',
         paymentTermsId: poEntry.paymentTermsId || '',
         paymentTerms: paymentTermsDesc,
         paymentTextId: poEntry.paymentTermsId || '',
         paymentText: paymentTermsDesc,
-        materialDescriptionType: materialDesc || formData.materialDescriptionType,
-        qty: boqQty !== '' ? String(boqQty) : formData.qty,
-        unit: (boqUnit && (UNITS.includes(boqUnit) || boqUnit === 'Other')) ? boqUnit : (formData.unit || boqUnit || ''),
-        basicRate: boqRate !== '' ? String(boqRate) : formData.basicRate,
+        materialDescriptionType: invoiceNature || formData.materialDescriptionType,
+        materialLines: [firstMaterialLine],
+        qty: qtyStr || formData.qty,
+        unit: firstBoq
+          ? ((boqUnit && (UNITS.includes(boqUnit) || boqUnit === 'Other')) ? boqUnit : (formData.unit || String(boqUnitRaw || '')))
+          : formData.unit,
+        basicRate: boqRate !== '' && boqRate != null ? String(boqRate) : formData.basicRate,
       }
 
       if (customer) {
@@ -552,8 +824,25 @@ function InvoiceEntry() {
   }
   
   const calculatedValues = useMemo(() => {
-    return invoiceService.calculateInvoiceValues(formData)
+    const lines = Array.isArray(formData.materialLines) ? formData.materialLines : []
+    let totalQty = 0
+    let totalBasic = 0
+    for (const line of lines) {
+      const q = parseFloat(line.qty) || 0
+      const r = parseFloat(line.unitPrice) || 0
+      totalQty += q
+      totalBasic += q * r
+    }
+    const avgRate = totalQty > 0 ? totalBasic / totalQty : 0
+    const useAgg = lines.some((l) => String(l.qty || '').trim() !== '' && String(l.unitPrice || '').trim() !== '')
+    const fd = {
+      ...formData,
+      qty: useAgg ? String(totalQty) : formData.qty,
+      basicRate: useAgg ? String(avgRate) : formData.basicRate,
+    }
+    return invoiceService.calculateInvoiceValues(fd)
   }, [
+    formData.materialLines,
     formData.basicRate,
     formData.qty,
     formData.freightRate,
@@ -562,6 +851,24 @@ function InvoiceEntry() {
     formData.igstRate,
     formData.ugstRate,
   ])
+
+  const materialAggregateDisplay = useMemo(() => {
+    const lines = Array.isArray(formData.materialLines) ? formData.materialLines : []
+    let totalQty = 0
+    let totalBasic = 0
+    for (const line of lines) {
+      const q = parseFloat(line.qty) || 0
+      const r = parseFloat(line.unitPrice) || 0
+      totalQty += q
+      totalBasic += q * r
+    }
+    const avgRate = totalQty > 0 ? totalBasic / totalQty : 0
+    const useAgg = lines.some((l) => String(l.qty || '').trim() !== '')
+    return {
+      qty: useAgg ? String(totalQty) : formData.qty,
+      basicRate: useAgg ? String(avgRate.toFixed(4)) : formData.basicRate,
+    }
+  }, [formData.materialLines, formData.qty, formData.basicRate])
   
   const dueCalculations = useMemo(() => {
     return invoiceService.calculateDueDates(
@@ -640,6 +947,7 @@ function InvoiceEntry() {
   
   const displayData = {
     ...formData,
+    ...materialAggregateDisplay,
     ...calculatedValues,
     ...dueCalculations,
     sgstOutput: calculatedValues.sgstValue,
@@ -770,50 +1078,6 @@ function InvoiceEntry() {
     }
   }
 
-  const handlePaymentTermsChange = (e) => {
-    const paymentTermsId = e.target.value
-    if (!paymentTermsId) {
-      setFormData((prev) => ({
-        ...prev,
-        paymentTermsId: '',
-        paymentTerms: '',
-      }))
-      return
-    }
-    
-    const terms = paymentTerms.find((t) => t.id === paymentTermsId)
-    if (terms) {
-      const description = terms.values?.paymentTermsDescription || ''
-      setFormData((prev) => ({
-        ...prev,
-        paymentTermsId,
-        paymentTerms: description,
-      }))
-    }
-  }
-
-  const handlePaymentTextChange = (e) => {
-    const paymentTextId = e.target.value
-    if (!paymentTextId) {
-      setFormData((prev) => ({
-        ...prev,
-        paymentTextId: '',
-        paymentText: '',
-      }))
-      return
-    }
-    
-    const terms = paymentTerms.find((t) => t.id === paymentTextId)
-    if (terms) {
-      const description = terms.values?.paymentTermsDescription || ''
-      setFormData((prev) => ({
-        ...prev,
-        paymentTextId,
-        paymentText: description,
-      }))
-    }
-  }
-  
   const handleSaveDraft = () => {
     try {
       persistNow()
@@ -848,13 +1112,31 @@ function InvoiceEntry() {
       ...prev,
       gstTaxInvoiceNo: prev.gstTaxInvoiceNo || 'GST/INV/2025-26/001',
       gstTaxInvoiceDate: prev.gstTaxInvoiceDate || today,
+      internalInvoiceSuffix: (() => {
+        const s = prev.internalInvoiceSuffix
+        const t = s === undefined || s === null ? '' : String(s).trim()
+        if (t === '' || t === '0') return '0005'
+        return t
+      })(),
       
       region: prev.region || 'North',
       zone: prev.zone || 'North',
       salesOrderNo: prev.salesOrderNo || 'SO/2025-26/001',
       poDate: prev.poDate || today,
       
-      materialDescriptionType: prev.materialDescriptionType || 'Goods',
+      materialDescriptionType: prev.materialDescriptionType || 'Supply',
+      materialLines: Array.isArray(prev.materialLines) && prev.materialLines.some((l) => String(l.qty || '').trim())
+        ? prev.materialLines
+        : [
+            createEmptyMaterialLine({
+              invoiceNature: 'Supply',
+              stateOfSupply: 'Maharashtra',
+              description: 'Structural steel (sample)',
+              qty: '100',
+              unit: 'MT',
+              unitPrice: '50000',
+            }),
+          ],
       stateOfSupply: prev.stateOfSupply || 'Maharashtra',
       qty: prev.qty || '100',
       unit: prev.unit || 'MT',
@@ -938,7 +1220,7 @@ function InvoiceEntry() {
       
       excessSupplyQty: prev.excessSupplyQty || '0',
       interestOnAdvance: prev.interestOnAdvance || '0',
-      anyHold: prev.anyHold || 'No',
+      anyHold: prev.anyHold || '0',
       penaltyLDDeduction: prev.penaltyLDDeduction || '0',
       bankCharges: prev.bankCharges || '0',
       lcDiscrepancyCharge: prev.lcDiscrepancyCharge || '0',
@@ -966,6 +1248,12 @@ function InvoiceEntry() {
       showToast('GST Tax Invoice No and Date are required.', 'error')
       return
     }
+
+    const invSuf = String(formData.internalInvoiceSuffix || '').trim()
+    if (!id && (!invSuf || invSuf === '0')) {
+      showToast('Enter the internal invoice sequence (suffix), e.g. 0005, after the prefix.', 'error')
+      return
+    }
     
     try {
       const calculatedTotal = parseFloat(displayData.totalInvoiceValue || calculatedValues.totalInvoiceValue || formData.totalInvoiceValue || 0)
@@ -973,6 +1261,16 @@ function InvoiceEntry() {
       
       console.log('[InvoiceEntry] Submitting invoice with totalInvoiceValue:', finalTotalInvoiceValue, 'from displayData:', displayData.totalInvoiceValue, 'calculatedValues:', calculatedValues.totalInvoiceValue)
       
+      const linesPayload = (Array.isArray(formData.materialLines) ? formData.materialLines : [])
+        .filter((l) => String(l.boqItemId || '').trim() !== '' || String(l.description || '').trim() !== '')
+        .map((l, i) => ({
+          lineNumber: i + 1,
+          description: String(l.description || `Line ${i + 1}`).trim() || `Line ${i + 1}`,
+          quantity: parseFloat(l.qty) || 0,
+          unitPrice: parseFloat(l.unitPrice) || 0,
+        }))
+
+      const firstLine = Array.isArray(formData.materialLines) ? formData.materialLines[0] : null
       const invoiceData = {
         ...formData,
         ...displayData,
@@ -982,7 +1280,10 @@ function InvoiceEntry() {
         poId: formData.poId || undefined, // Preferred: backend uses this for PO lookup when present
         invoice_number: formData.internalInvoiceNo,
         issue_date: formData.gstTaxInvoiceDate,
-        status: id ? (formData.status || 'open') : 'posted', // Set status to 'posted' for new invoices, preserve existing for updates
+        status: id ? (formData.status || 'open') : 'open', // New invoices: open (DB-safe); edit preserves status
+        materialDescriptionType: firstLine?.invoiceNature || formData.materialDescriptionType,
+        state_of_supply: firstLine?.stateOfSupply || formData.stateOfSupply,
+        lines: linesPayload.length > 0 ? linesPayload : undefined,
       }
       
       let savedInvoice
@@ -1001,7 +1302,7 @@ function InvoiceEntry() {
         
         const invoiceWithStatus = {
           ...invoiceFromResponse,
-          status: invoiceFromResponse?.status || invoiceData.status || 'posted'
+          status: invoiceFromResponse?.status || invoiceData.status || 'open'
         }
         
         console.log('[InvoiceEntry] Created invoice with status:', invoiceWithStatus.status, invoiceWithStatus)
@@ -1014,7 +1315,7 @@ function InvoiceEntry() {
           if (refreshedData) {
             const finalInvoice = {
               ...refreshedData,
-              status: refreshedData.status || invoiceData.status || 'posted'
+              status: refreshedData.status || invoiceData.status || 'open'
             }
             console.log('[InvoiceEntry] Refreshed invoice with status:', finalInvoice.status)
             window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: { invoice: finalInvoice } }))
@@ -1046,7 +1347,7 @@ function InvoiceEntry() {
       
       const finalInvoice = savedInvoice?.data?.data || savedInvoice?.data || savedInvoice
       const invoiceNumber = finalInvoice?.invoice_number || finalInvoice?.internal_invoice_no || finalInvoice?.internalInvoiceNo || formData.internalInvoiceNo || ''
-      const invoiceStatus = finalInvoice?.status || invoiceData.status || 'posted'
+      const invoiceStatus = finalInvoice?.status || invoiceData.status || 'open'
       
       console.log('[InvoiceEntry] Invoice saved - Number:', invoiceNumber, 'Status:', invoiceStatus)
       
@@ -1173,9 +1474,13 @@ function InvoiceEntry() {
         
         <div className="invoice-entry-header-content">
           <h1 className="invoice-entry-title">Invoice Entry</h1>
-          {formData.internalInvoiceNo && (
-            <p className="invoice-entry-subtitle">Internal Invoice No: {formData.internalInvoiceNo}</p>
-          )}
+          {(() => {
+            const suf = String(formData.internalInvoiceSuffix || '').trim()
+            const show = suf.length > 0 && suf !== '0' && formData.internalInvoiceNo
+            return show ? (
+              <p className="invoice-entry-subtitle">Internal Invoice No: {formData.internalInvoiceNo}</p>
+            ) : null
+          })()}
         </div>
         
         <div className="invoice-entry-header-actions">
@@ -1219,16 +1524,66 @@ function InvoiceEntry() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="invoice-entry-form">
-        {/* ========== KEY ID & INVOICE IDENTIFICATION SECTION ========== */}
-        <div className="invoice-entry-section">
-          <h2 className="invoice-entry-section-title">Key ID & Invoice Identification</h2>
+        {/* Top: type, unit & manual invoice number only */}
+        <div className="invoice-entry-section invoice-entry-section--identification-top">
+          <h2 className="invoice-entry-section-title">Invoice Identification</h2>
+          <p className="invoice-entry-section-lead">
+            Enter the internal invoice sequence (suffix); it is saved as prefix + your entry. Invoice type and business unit (which shape the prefix) are in <strong>PO link &amp; GST details</strong> below.
+          </p>
+          <div className="invoice-entry-form-grid">
+            <div className="invoice-entry-field invoice-entry-field--internal-inv-split invoice-entry-field-full" key="internalInvoiceSplit">
+              <span className="invoice-entry-label">
+                Internal Invoice No <span className="invoice-entry-required">*</span>
+              </span>
+              <div className="invoice-entry-internal-inv-row">
+                <span className="invoice-entry-inv-prefix" title="Sequence prefix (Invoice Type, Business Unit, financial year)">
+                  {invoiceNumberPrefix}
+                </span>
+                <input
+                  type="text"
+                  id="internalInvoiceSuffix"
+                  name="internalInvoiceSuffix"
+                  value={formData.internalInvoiceSuffix}
+                  onChange={handleChange}
+                  onBlur={(e) => {
+                    const v = String(e.target.value || '').trim()
+                    if (v === '0') {
+                      setFormData((prev) => ({ ...prev, internalInvoiceSuffix: '', internalInvoiceNo: '' }))
+                    }
+                  }}
+                  className="invoice-entry-input invoice-entry-inv-suffix"
+                  placeholder="e.g. 0005"
+                  autoComplete="off"
+                  readOnly={isViewMode}
+                  disabled={isViewMode}
+                  required={!id && !isViewMode}
+                  aria-label="Internal invoice number suffix"
+                />
+              </div>
+              <small className="invoice-entry-hint">
+                {(() => {
+                  const suf = String(formData.internalInvoiceSuffix || '').trim()
+                  const eff = suf === '0' ? '' : suf
+                  const preview = eff && formData.internalInvoiceNo ? formData.internalInvoiceNo : `${invoiceNumberPrefix}…`
+                  return (
+                    <>
+                      Saved as: <span className="invoice-entry-mono">{preview}</span>
+                    </>
+                  )
+                })()}
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <div className="invoice-entry-section invoice-entry-section--link-tax">
+          <h2 className="invoice-entry-section-title">PO link &amp; GST details</h2>
           <div className="invoice-entry-form-grid">
             {renderField('keyID', 'Key ID (PO Number)', FIELD_TYPES.DROPDOWN,
               poNumbersLoading ? [] : (poEntries || []).map((po) => po?.poNumber ?? '').filter(Boolean),
               '', true)}
             {renderField('gstTaxInvoiceNo', 'GST Tax Invoice No', FIELD_TYPES.MANUAL, [], '', true)}
             {renderField('gstTaxInvoiceDate', 'GST Tax Invoice Date', FIELD_TYPES.MANUAL, [], '', true)}
-            {renderField('internalInvoiceNo', 'Internal Invoice No', FIELD_TYPES.CALCULATED)}
             {renderField('invoiceType', 'Invoice Type', FIELD_TYPES.DROPDOWN, INVOICE_TYPES)}
             {renderField('businessUnit', 'Business Unit', FIELD_TYPES.DROPDOWN, BUSINESS_UNITS)}
           </div>
@@ -1251,13 +1606,171 @@ function InvoiceEntry() {
 
         {/* ========== MATERIAL & SUPPLY DETAILS SECTION ========== */}
         <div className="invoice-entry-section">
-          <h2 className="invoice-entry-section-title">Material & Supply Details</h2>
-          <div className="invoice-entry-form-grid">
-            {renderField('materialDescriptionType', 'Material Description Type', FIELD_TYPES.DROPDOWN, MATERIAL_DESCRIPTION_TYPES)}
-            {renderField('stateOfSupply', 'State of Supply', FIELD_TYPES.MANUAL)}
-            {renderField('qty', 'Qty', FIELD_TYPES.MANUAL, [], '0.00')}
-            {renderField('unit', 'Unit', FIELD_TYPES.DROPDOWN, UNITS)}
-            {renderField('currency', 'Currency', FIELD_TYPES.DEFAULT)}
+          <div className="invoice-entry-material-heading">
+            <h2 className="invoice-entry-section-title">Material &amp; Supply Details</h2>
+            <button
+              type="button"
+              className="invoice-entry-add-line-button"
+              onClick={addMaterialLine}
+              disabled={isViewMode}
+            >
+              <Plus size={18} aria-hidden />
+              Add line
+            </button>
+          </div>
+          <p className="invoice-entry-section-lead" style={{ marginTop: '-8px' }}>
+            Select <strong>Invoice nature</strong> first, then choose a line from the PO BOQ that matches that nature. Qty and unit fill from the PO; adjust if needed. Add more lines for multiple items on one invoice.
+          </p>
+          {!formData.keyID && (
+            <p className="invoice-entry-hint" style={{ marginBottom: '12px' }}>
+              Choose a Key ID (PO) above to load BOQ lines for Select description.
+            </p>
+          )}
+          <div className="invoice-entry-material-lines">
+            {(Array.isArray(formData.materialLines) ? formData.materialLines : []).map((line, lineIndex) => {
+              const filteredBoq = poBoqItems.filter((b) => {
+                if (!line.invoiceNature) return false
+                const h = String(b.boqHeader || '').trim().toLowerCase()
+                const n = String(line.invoiceNature).trim().toLowerCase()
+                return h === n
+              })
+              return (
+                <div key={line.id} className="invoice-entry-material-line-card">
+                  <div className="invoice-entry-material-line-head">
+                    <span className="invoice-entry-material-line-index">Line {lineIndex + 1}</span>
+                    {(formData.materialLines || []).length > 1 && !isViewMode && (
+                      <button
+                        type="button"
+                        className="invoice-entry-material-line-remove"
+                        onClick={() => removeMaterialLine(line.id)}
+                        aria-label={`Remove line ${lineIndex + 1}`}
+                      >
+                        <Trash2 size={16} aria-hidden />
+                      </button>
+                    )}
+                  </div>
+                  <div className="invoice-entry-form-grid">
+                    <div className="invoice-entry-field">
+                      <label className="invoice-entry-label" htmlFor={`invNature-${line.id}`}>
+                        Invoice nature
+                      </label>
+                      <select
+                        id={`invNature-${line.id}`}
+                        className="invoice-entry-select"
+                        value={line.invoiceNature || ''}
+                        onChange={(e) => handleMaterialLineNatureChange(line.id, e.target.value)}
+                        disabled={isViewMode}
+                      >
+                        <option value="">Select invoice nature</option>
+                        {INVOICE_NATURE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="invoice-entry-field">
+                      <label className="invoice-entry-label" htmlFor={`stateSupply-${line.id}`}>
+                        State of supply
+                      </label>
+                      <select
+                        id={`stateSupply-${line.id}`}
+                        className="invoice-entry-select"
+                        value={line.stateOfSupply || ''}
+                        onChange={(e) => updateMaterialLine(line.id, { stateOfSupply: e.target.value })}
+                        disabled={isViewMode}
+                      >
+                        <option value="">Select state</option>
+                        {INDIA_STATES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="invoice-entry-field invoice-entry-field-full">
+                      <label className="invoice-entry-label" htmlFor={`boqDesc-${line.id}`}>
+                        Select description (from PO BOQ)
+                      </label>
+                      <select
+                        id={`boqDesc-${line.id}`}
+                        className="invoice-entry-select"
+                        value={line.boqItemId || ''}
+                        onChange={(e) => handleMaterialLineBoqChange(line.id, e.target.value)}
+                        disabled={isViewMode || !line.invoiceNature || !formData.keyID}
+                      >
+                        <option value="">
+                          {!formData.keyID
+                            ? 'Select Key ID (PO) first'
+                            : !line.invoiceNature
+                              ? 'Select invoice nature first'
+                              : filteredBoq.length === 0
+                                ? 'No BOQ rows for this nature'
+                                : 'Select BOQ line'}
+                        </option>
+                        {filteredBoq.map((b) => {
+                          const label = String(b.materialDescription || b.description || 'Item').trim() || `BOQ #${b.id}`
+                          return (
+                            <option key={b.id} value={String(b.id)}>
+                              {label.length > 120 ? `${label.slice(0, 120)}…` : label}
+                            </option>
+                          )
+                        })}
+                      </select>
+                    </div>
+                    <div className="invoice-entry-field">
+                      <label className="invoice-entry-label" htmlFor={`qty-${line.id}`}>
+                        Qty
+                      </label>
+                      <input
+                        id={`qty-${line.id}`}
+                        type="number"
+                        className="invoice-entry-input"
+                        value={line.qty ?? ''}
+                        onChange={(e) => updateMaterialLine(line.id, { qty: e.target.value })}
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        disabled={isViewMode}
+                      />
+                    </div>
+                    <div className="invoice-entry-field">
+                      <label className="invoice-entry-label" htmlFor={`unit-${line.id}`}>
+                        Unit
+                      </label>
+                      <select
+                        id={`unit-${line.id}`}
+                        className="invoice-entry-select"
+                        value={line.unit || ''}
+                        onChange={(e) => updateMaterialLine(line.id, { unit: e.target.value })}
+                        disabled={isViewMode}
+                      >
+                        <option value="">Select unit</option>
+                        {invoiceUnitSelectOptions.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="invoice-entry-field">
+                      <label className="invoice-entry-label" htmlFor={`unitPrice-${line.id}`}>
+                        Unit price (from PO)
+                      </label>
+                      <input
+                        id={`unitPrice-${line.id}`}
+                        type="text"
+                        className="invoice-entry-input invoice-entry-input-readonly"
+                        readOnly
+                        tabIndex={-1}
+                        value={line.unitPrice ?? ''}
+                        aria-label="Unit price from PO"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 
@@ -1575,102 +2088,6 @@ function InvoiceEntry() {
             {renderField('invoiceSubmissionAtSiteDate', 'Invoice Submission at Site Date', FIELD_TYPES.MANUAL)}
             {renderField('invoiceForwardedToHODate', 'Invoice Forwarded to HO Date', FIELD_TYPES.MANUAL)}
             {renderField('invoiceForwardedForPaymentDate', 'Invoice Forwarded for Payment Date', FIELD_TYPES.MANUAL)}
-          </div>
-        </div>
-
-        {/* ========== PAYMENT TERMS SECTION ========== */}
-        <div className="invoice-entry-section">
-          <h2 className="invoice-entry-section-title">Payment Terms</h2>
-          <div className="invoice-entry-form-grid">
-            <div className="invoice-entry-field">
-              <label htmlFor="paymentTermsId" className="invoice-entry-label">
-                Payment Terms
-              </label>
-              <select
-                id="paymentTermsId"
-                name="paymentTermsId"
-                value={formData.paymentTermsId}
-                onChange={handlePaymentTermsChange}
-                className="invoice-entry-select"
-                disabled={isViewMode}
-              >
-                <option value="">Select Payment Terms from Master Data</option>
-                {paymentTerms.map((terms) => {
-                  const description = terms.values?.paymentTermsDescription || terms.name || 'Unnamed Payment Terms'
-                  return (
-                    <option key={terms.id} value={terms.id}>
-                      {description.substring(0, 100)}{description.length > 100 ? '...' : ''}
-                    </option>
-                  )
-                })}
-              </select>
-              {paymentTerms.length === 0 && (
-                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
-                  No payment terms found. <a href="/master-data/new/payment-terms" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
-                </p>
-              )}
-            </div>
-            
-            <div className="invoice-entry-field invoice-entry-field-full">
-              <label htmlFor="paymentTerms" className="invoice-entry-label">
-                Payment Terms Description (Auto-filled)
-              </label>
-              <textarea
-                id="paymentTerms"
-                name="paymentTerms"
-                value={formData.paymentTerms || ''}
-                onChange={handleChange}
-                className="invoice-entry-textarea"
-                rows="3"
-                readOnly
-                style={{ background: 'var(--color-bg-tertiary)' }}
-              />
-            </div>
-            
-            <div className="invoice-entry-field">
-              <label htmlFor="paymentTextId" className="invoice-entry-label">
-                Payment Text
-              </label>
-              <select
-                id="paymentTextId"
-                name="paymentTextId"
-                value={formData.paymentTextId}
-                onChange={handlePaymentTextChange}
-                className="invoice-entry-select"
-                disabled={isViewMode}
-              >
-                <option value="">Select Payment Text from Master Data</option>
-                {paymentTerms.map((terms) => {
-                  const description = terms.values?.paymentTermsDescription || terms.name || 'Unnamed Payment Terms'
-                  return (
-                    <option key={terms.id} value={terms.id}>
-                      {description.substring(0, 100)}{description.length > 100 ? '...' : ''}
-                    </option>
-                  )
-                })}
-              </select>
-              {paymentTerms.length === 0 && (
-                <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
-                  No payment terms found. <a href="/master-data/new/payment-terms" style={{ color: 'var(--color-primary)' }}>Create one in Master Data</a>
-                </p>
-              )}
-            </div>
-            
-            <div className="invoice-entry-field invoice-entry-field-full">
-              <label htmlFor="paymentText" className="invoice-entry-label">
-                Payment Text Description (Auto-filled)
-              </label>
-              <textarea
-                id="paymentText"
-                name="paymentText"
-                value={formData.paymentText || ''}
-                onChange={handleChange}
-                className="invoice-entry-textarea"
-                rows="3"
-                readOnly
-                style={{ background: 'var(--color-bg-tertiary)' }}
-              />
-            </div>
           </div>
         </div>
 

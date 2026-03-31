@@ -34,22 +34,29 @@ export const fetchNextInvoiceNumber = async (invoiceType = 'REG', businessUnit =
   }
 }
 
-function unwrapInvoiceList(response) {
-  if (!response) return [];
-  
-  if (Array.isArray(response)) return response;
-  
-  if (response.data && Array.isArray(response.data)) return response.data;
-  
-  const nestedData = response.data?.data || response.data;
-  if (Array.isArray(nestedData)) return nestedData;
-  
-  return [];
+/**
+ * API: { success, data: { data: rows[], page, total } } (axios body)
+ * Also accepts axios response or a bare rows array.
+ */
+function unwrapInvoiceList(raw) {
+  if (raw == null) return []
+
+  const isAxios = typeof raw?.status === 'number' && raw?.data !== undefined && raw?.config
+  const body = isAxios ? raw.data : raw
+
+  if (Array.isArray(body)) return body
+  if (!body || typeof body !== 'object') return []
+
+  const payload = body.data
+  if (Array.isArray(payload)) return payload
+  if (payload && typeof payload === 'object' && Array.isArray(payload.data)) return payload.data
+
+  return []
 }
 
 export const getAllInvoices = async () => {
   try {
-    const response = await invoiceApi.getAllInvoices({ page: 1, pageSize: 500 })
+    const response = await invoiceApi.getAllInvoices({ page: 1, pageSize: 1000 })
     return unwrapInvoiceList(response)
   } catch (error) {
     console.error('Failed to load invoices:', error)
@@ -90,7 +97,7 @@ export const saveInvoice = async (invoiceData) => {
     
     const invoiceWithStatus = {
       ...invoice,
-      status: invoice?.status || invoiceData.status || (invoiceData.id ? 'open' : 'posted')
+      status: invoice?.status || invoiceData.status || 'open'
     }
 
     console.log('[InvoiceService] Saved invoice with status:', invoiceWithStatus.status, 'from payload:', invoiceData.status)

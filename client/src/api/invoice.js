@@ -11,7 +11,7 @@ export const getNextInvoiceNumber = async (params = {}) => {
 export const getAllInvoices = async (params = {}) => {
   const query = new URLSearchParams(params).toString()
   const response = await client.get(`/invoices?${query}`)
-  return response.data || response
+  return response?.data ?? response
 }
 
 export const getInvoiceById = async (id) => {

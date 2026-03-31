@@ -166,6 +166,19 @@
   gap: var(--space-6);
 }
 
+.po-entry-section--identification-top {
+  background: linear-gradient(180deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
+  border-color: rgba(15, 76, 129, 0.25);
+  box-shadow: var(--shadow-md);
+}
+
+.po-entry-section-lead {
+  margin: calc(-1 * var(--space-1)) 0 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+}
+
 @media (max-width: 767px) {
   .po-entry-section {
     padding: var(--space-4);
@@ -301,6 +314,18 @@
   font-style: italic;
 }
 
+.po-entry-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  word-break: break-all;
+}
+
+.po-entry-po-prefix-field {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 
 .po-entry-actions {
   display: flex;
@@ -993,6 +1018,148 @@
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
+
+/* Due distribution (payment terms) — compact table */
+.po-entry-due-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+}
+
+.po-entry-due-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.po-entry-due-table thead {
+  background: var(--color-bg-tertiary);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.po-entry-due-table th {
+  padding: var(--space-3);
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  vertical-align: bottom;
+}
+
+.po-entry-due-table th.po-entry-due-table-num,
+.po-entry-due-table td.po-entry-due-table-num {
+  text-align: right;
+}
+
+.po-entry-due-table th.po-entry-due-table-pct,
+.po-entry-due-table td.po-entry-due-table-pct {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.po-entry-due-table th.po-entry-due-table-tax,
+.po-entry-due-table td.po-entry-due-table-tax {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.po-entry-due-tax-cell {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.po-entry-due-tax-cell .po-entry-due-select {
+  flex: 1 1 auto;
+  min-width: 4.5rem;
+  max-width: 7rem;
+}
+
+.po-entry-due-tax-amount {
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+  min-width: 5rem;
+  min-height: 44px;
+  box-sizing: border-box;
+  text-align: right;
+  font-size: var(--font-size-sm);
+}
+
+.po-entry-due-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border-light);
+  vertical-align: middle;
+}
+
+.po-entry-due-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.po-entry-due-table tbody tr:hover {
+  background: rgba(15, 76, 129, 0.04);
+}
+
+.po-entry-due-term-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 200px;
+}
+
+.po-entry-due-term-cell.po-entry-due-term-cell--label-only {
+  min-width: 120px;
+  max-width: 280px;
+}
+
+.po-entry-due-inline-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.po-entry-due-inline-cell .po-entry-due-select {
+  width: 100%;
+  max-width: 7.5rem;
+}
+
+.po-entry-due-term-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.po-entry-due-term-label {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.po-entry-due-term-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.po-entry-due-term-sublabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+}
+
+.po-entry-due-select {
+  min-height: 44px;
+}
+
+.po-entry-due-num-input {
+  min-height: 44px;
+  text-align: right;
+}
 
 .po-entry-boq-container {
   display: flex;

@@ -194,6 +194,26 @@
   color: var(--color-primary);
 }
 
+.invoice-entry-section--identification-top {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  background: linear-gradient(180deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-4);
+}
+
+.invoice-entry-section--link-tax {
+  margin-top: var(--space-2);
+}
+
+.invoice-entry-section-lead {
+  margin: 0 0 var(--space-4) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+}
+
 
 .invoice-entry-form-grid {
   display: grid;
@@ -242,6 +262,48 @@
   color: var(--color-text-tertiary);
   margin-top: -4px;
   font-style: italic;
+}
+
+.invoice-entry-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  word-break: break-all;
+}
+
+.invoice-entry-field--internal-inv-split .invoice-entry-label {
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+.invoice-entry-internal-inv-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.invoice-entry-inv-prefix {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-3);
+  min-height: 44px;
+  box-sizing: border-box;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  max-width: 100%;
+  word-break: break-all;
+}
+
+.invoice-entry-inv-suffix {
+  flex: 1;
+  min-width: 120px;
+  width: auto !important;
 }
 
 
@@ -677,22 +739,44 @@
 }
 
 .invoice-entry-index-filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--space-4);
-  padding: var(--space-4);
-  background: var(--color-bg-primary);
+  padding: var(--space-5);
+  background: linear-gradient(180deg, var(--color-bg-secondary, #f8fafc) 0%, var(--color-bg-primary) 100%);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   margin-bottom: var(--space-4);
+  align-items: end;
+  box-shadow: var(--shadow-sm);
+}
+
+.invoice-entry-index-filters-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  align-items: flex-end;
+  margin-bottom: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.invoice-entry-index-filters-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .invoice-entry-index-filter-group {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  min-width: 150px;
+  min-width: 0;
 }
 
 .invoice-entry-index-filter-label {
@@ -701,9 +785,8 @@
   color: var(--color-text-secondary);
 }
 
-.invoice-entry-index-filter-select,
 .invoice-entry-index-filter-input {
-  height: 40px;
+  height: 42px;
   padding: 0 var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -713,7 +796,43 @@
   transition: all var(--transition-base);
 }
 
-.invoice-entry-index-filter-select:focus,
+/* Single chevron — excluded from Layout.css global `select` rule to avoid stacked backgrounds */
+.invoice-entry-index-page select.invoice-entry-index-filter-select {
+  height: 42px;
+  width: 100%;
+  padding: 0 2.5rem 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  box-sizing: border-box;
+  background-color: var(--color-bg-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  background-position: right 12px center;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.invoice-entry-index-page select.invoice-entry-index-filter-select:hover:not(:disabled) {
+  border-color: var(--color-text-tertiary);
+}
+
+.invoice-entry-index-page select.invoice-entry-index-filter-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.15);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230f4c81' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  background-position: right 12px center;
+}
+
 .invoice-entry-index-filter-input:focus {
   outline: none;
   border-color: var(--color-primary);
@@ -734,7 +853,19 @@
   align-self: flex-end;
 }
 
-.invoice-entry-index-clear-filters:hover {
+.invoice-entry-index-clear-filters--inline {
+  height: auto;
+  min-height: 36px;
+  padding: var(--space-2) var(--space-3);
+  align-self: center;
+  font-size: var(--font-size-sm);
+  border-color: var(--color-border);
+  color: var(--color-primary);
+  background: var(--color-bg-primary);
+}
+
+.invoice-entry-index-clear-filters:hover,
+.invoice-entry-index-clear-filters--inline:hover {
   background: var(--color-bg-tertiary);
   border-color: var(--color-danger);
   color: var(--color-danger);
@@ -905,7 +1036,8 @@
   }
   
   .invoice-entry-index-filters {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    padding: var(--space-4);
   }
   
   .invoice-entry-index-filter-group {
@@ -922,6 +1054,89 @@
   }
 }
 
+
+.invoice-entry-material-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.invoice-entry-material-heading .invoice-entry-section-title {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.invoice-entry-add-line-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  border: 1px solid var(--color-primary);
+  background: var(--color-bg-primary);
+  color: var(--color-primary);
+}
+
+.invoice-entry-add-line-button:hover:not(:disabled) {
+  background: rgba(15, 76, 129, 0.08);
+}
+
+.invoice-entry-add-line-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.invoice-entry-material-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.invoice-entry-material-line-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--color-bg-secondary);
+}
+
+.invoice-entry-material-line-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.invoice-entry-material-line-index {
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.invoice-entry-material-line-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  color: var(--color-danger, #dc2626);
+  cursor: pointer;
+}
+
+.invoice-entry-material-line-remove:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
 
 @media (max-width: 767px) {
   .invoice-entry-section {

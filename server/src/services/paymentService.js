@@ -149,6 +149,44 @@ const createPayment = async (payload, userId) =>
     return payment;
   });
 
+const deletePayment = async (paymentId, userId, userRole = null) =>
+  transaction(async (conn) => {
+    const [[payment]] = await conn.execute('SELECT * FROM payments WHERE id = ?', [paymentId]);
+    if (!payment) {
+      const err = new Error('PAYMENT_NOT_FOUND');
+      throw err;
+    }
+    const role = String(userRole || '').toLowerCase();
+    const isAdmin = ['admin', 'operations', 'finance'].includes(role);
+    if (!isAdmin && String(payment.created_by) !== String(userId)) {
+      const err = new Error('FORBIDDEN');
+      throw err;
+    }
+
+    const [[invoice]] = await conn.execute('SELECT * FROM invoices WHERE id = ?', [payment.invoice_id]);
+    const payAmt = Number(payment.amount) || 0;
+
+    if (invoice) {
+      const newPaid = Math.round((Number(invoice.amount_paid || 0) - payAmt) * 100) / 100;
+      const total = Number(invoice.total_amount) || 0;
+      const newBalance = Math.round((total - Math.max(0, newPaid)) * 100) / 100;
+      const invStatus = String(invoice.status || '').toLowerCase();
+      const newStatus =
+        invStatus === 'cancelled'
+          ? invoice.status
+          : newBalance <= 0
+            ? 'paid'
+            : 'open';
+      await conn.execute(
+        'UPDATE invoices SET amount_paid = ?, balance = ?, status = ? WHERE id = ?',
+        [Math.max(0, newPaid), Math.max(0, newBalance), newStatus, invoice.id],
+      );
+    }
+
+    await conn.execute('DELETE FROM payments WHERE id = ?', [paymentId]);
+    return { deleted: true, id: paymentId };
+  });
+
 const getNextPaymentNumber = async (paymentDateLike = null) => {
   try {
     const fy = getFinancialYearConcat(paymentDateLike);
@@ -174,7 +212,8 @@ const getNextPaymentNumber = async (paymentDateLike = null) => {
 
 module.exports = { 
   listPayments, 
-  createPayment, 
+  createPayment,
+  deletePayment,
   generateNextPaymentNumber,
   getNextPaymentNumber 
 };

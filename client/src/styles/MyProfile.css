@@ -59,6 +59,7 @@
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .profile-save-state {
@@ -581,6 +582,8 @@
   cursor: pointer;
   transition: all var(--transition-base);
   min-height: 40px;
+  min-width: max-content;
+  white-space: nowrap;
   user-select: none;
 }
 
@@ -596,7 +599,7 @@
 
 .profile-btn-primary {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
-  color: #111827;
+  color: #ffffff;
   border-color: rgba(15, 76, 129, 0.3);
   box-shadow: 0 8px 18px rgba(15, 76, 129, 0.2);
 }

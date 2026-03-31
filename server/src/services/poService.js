@@ -31,6 +31,30 @@ const normalizePOStatus = (status) => {
   return allowed.has(s) ? s : null;
 };
 
+/** mysql2 often returns JSON columns as already-parsed objects; avoid JSON.parse(object.toString()). */
+const parsePODraftDataColumn = (raw) => {
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'string') {
+    try {
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+  if (Buffer.isBuffer(raw)) {
+    try {
+      const str = raw.toString('utf8');
+      return str ? JSON.parse(str) : null;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof raw === 'object') {
+    return raw;
+  }
+  return null;
+};
+
 const createHttpError = (status, code, message) => {
   const err = new Error(message);
   err.status = status;
@@ -184,15 +208,12 @@ const getPO = async (poId, userId = null, role = null) => {
   }
 
   if (po.draft_data) {
-    try {
-      const raw = po.draft_data;
-      const str = typeof raw === 'string' ? raw : (raw && typeof raw.toString === 'function' ? raw.toString() : '');
-      const parsed = str ? JSON.parse(str) : null;
-      if (parsed && typeof parsed.formData === 'object') {
-        po.formData = parsed.formData;
-        po.boqItems = Array.isArray(parsed.boqItems) ? parsed.boqItems : [];
-      }
-    } catch (err) {
+    const parsed = parsePODraftDataColumn(po.draft_data);
+    if (parsed && typeof parsed.formData === 'object' && parsed.formData !== null) {
+      po.formData = parsed.formData;
+      po.boqItems = Array.isArray(parsed.boqItems) ? parsed.boqItems : [];
+    } else if (parsed && Array.isArray(parsed.boqItems)) {
+      po.boqItems = parsed.boqItems;
     }
   }
 
@@ -360,7 +381,21 @@ const upsertPODraft = async (formData, userId, poId = null) => {
     generatedPoNumber = await generateNextPONumber(cleanFormData.businessUnit || 'MAIN', cleanFormData.poDate || null);
     cleanFormData.poNumber = generatedPoNumber;
   }
-  
+
+  const finalPoNumber = String(cleanFormData.poNumber || '').trim();
+  if (finalPoNumber) {
+    const dupRows = await query(
+      'SELECT id FROM purchase_orders WHERE po_number = ? LIMIT 1',
+      [finalPoNumber],
+    );
+    if (dupRows && dupRows.length > 0) {
+      const dupId = dupRows[0].id;
+      if (!existingPO || String(dupId) !== String(existingPO.id)) {
+        throw createHttpError(400, 'ERR_DUPLICATE_PO', 'This PO number already exists. Enter a different sequence (suffix).');
+      }
+    }
+  }
+
   const draftDataJson = JSON.stringify({
     formData: cleanFormData,
     boqItems: boqItems,

@@ -277,6 +277,205 @@ const invalidateCache = () => {
   cacheTimestamp = null;
 };
 
+const escapePdfText = (input) => {
+  return String(input ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/[^\x20-\x7E]/g, '?');
+};
+
+const buildPdfFromLines = (lines) => {
+  const safeLines = Array.isArray(lines) ? lines.slice(0, 170) : [];
+  const contentLines = ['BT', '/F1 10 Tf', '50 792 Td'];
+  safeLines.forEach((line, idx) => {
+    if (idx > 0) contentLines.push('0 -14 Td');
+    contentLines.push(`(${escapePdfText(line)}) Tj`);
+  });
+  contentLines.push('ET');
+  const contentStream = contentLines.join('\n');
+
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${Buffer.byteLength(contentStream, 'utf8')} >>\nstream\n${contentStream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  objects.forEach((obj, idx) => {
+    offsets.push(Buffer.byteLength(pdf, 'utf8'));
+    pdf += `${idx + 1} 0 obj\n${obj}\nendobj\n`;
+  });
+
+  const xrefOffset = Buffer.byteLength(pdf, 'utf8');
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += '0000000000 65535 f \n';
+  for (let i = 1; i <= objects.length; i += 1) {
+    pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return Buffer.from(pdf, 'utf8');
+};
+
+const resetSystemWithBackup = async (userId) => {
+  const snapshot = await transaction(async (conn) => {
+    const [masterData] = await conn.execute(
+      `SELECT id, type, status, created_at, updated_at
+       FROM master_data
+       WHERE created_by = ? OR updated_by = ?
+       ORDER BY created_at DESC`,
+      [userId, userId]
+    );
+    const [purchaseOrders] = await conn.execute(
+      `SELECT id, po_number, status, total_amount, created_at
+       FROM purchase_orders
+       WHERE created_by = ?
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+    const [invoices] = await conn.execute(
+      `SELECT id, invoice_number, status, total_amount, amount_paid, balance, issue_date, due_date
+       FROM invoices
+       WHERE created_by = ?
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+    const [payments] = await conn.execute(
+      `SELECT id, payment_number, status, amount, paid_at
+       FROM payments
+       WHERE created_by = ?
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+    const [collectionPlans] = await conn.execute(
+      `SELECT id, status, expected_amount, target_date, created_at
+       FROM collection_plans
+       WHERE owner_user_id = ?
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+    const [meetings] = await conn.execute(
+      `SELECT id, title, meeting_date, status, created_at
+       FROM meetings
+       WHERE owner_user_id = ?
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+    const [supportTickets] = await conn.execute(
+      `SELECT id, ticket_number, status, category, priority, created_at
+       FROM support_tickets
+       WHERE user_id = ?
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    const invoiceIds = invoices.map((row) => row.id);
+    const poIds = purchaseOrders.map((row) => row.id);
+    const planIds = collectionPlans.map((row) => row.id);
+    const meetingIds = meetings.map((row) => row.id);
+    const supportTicketIds = supportTickets.map((row) => row.id);
+
+    if (planIds.length) {
+      await conn.execute(`DELETE FROM collection_actions WHERE plan_id IN (${planIds.map(() => '?').join(', ')})`, planIds);
+    }
+    await conn.execute('DELETE FROM collection_plans WHERE owner_user_id = ?', [userId]);
+
+    await conn.execute('DELETE FROM payments WHERE created_by = ?', [userId]);
+
+    if (invoiceIds.length) {
+      await conn.execute(`DELETE FROM invoice_lines WHERE invoice_id IN (${invoiceIds.map(() => '?').join(', ')})`, invoiceIds);
+    }
+    await conn.execute('DELETE FROM invoices WHERE created_by = ?', [userId]);
+
+    if (poIds.length) {
+      await conn.execute(`DELETE FROM purchase_order_lines WHERE po_id IN (${poIds.map(() => '?').join(', ')})`, poIds);
+    }
+    await conn.execute('DELETE FROM purchase_orders WHERE created_by = ?', [userId]);
+
+    if (meetingIds.length) {
+      await conn.execute(`DELETE FROM meeting_participants WHERE meeting_id IN (${meetingIds.map(() => '?').join(', ')})`, meetingIds);
+      await conn.execute(`DELETE FROM meeting_minutes WHERE meeting_id IN (${meetingIds.map(() => '?').join(', ')})`, meetingIds);
+    }
+    await conn.execute('DELETE FROM meetings WHERE owner_user_id = ?', [userId]);
+
+    if (supportTicketIds.length) {
+      await conn.execute(`DELETE FROM support_ticket_attachments WHERE ticket_id IN (${supportTicketIds.map(() => '?').join(', ')})`, supportTicketIds);
+      await conn.execute(`DELETE FROM support_ticket_replies WHERE ticket_id IN (${supportTicketIds.map(() => '?').join(', ')})`, supportTicketIds);
+      await conn.execute(`DELETE FROM support_ticket_history WHERE ticket_id IN (${supportTicketIds.map(() => '?').join(', ')})`, supportTicketIds);
+    }
+    await conn.execute('DELETE FROM support_tickets WHERE user_id = ?', [userId]);
+
+    await conn.execute(
+      `DELETE FROM master_data
+       WHERE created_by = ? OR updated_by = ?`,
+      [userId, userId]
+    );
+
+    return {
+      masterData,
+      purchaseOrders,
+      invoices,
+      payments,
+      collectionPlans,
+      meetings,
+      supportTickets,
+    };
+  });
+
+  const now = new Date();
+  const backupId = `backup-${userId}-${now.toISOString().replace(/[:.]/g, '-')}`;
+  const lines = [
+    'System Reset Backup',
+    `Generated At: ${now.toISOString()}`,
+    `Generated For User: ${userId}`,
+    `Backup ID: ${backupId}`,
+    '',
+    'Summary',
+    `- Master Data Records: ${snapshot.masterData.length}`,
+    `- Purchase Orders: ${snapshot.purchaseOrders.length}`,
+    `- Invoices: ${snapshot.invoices.length}`,
+    `- Payments: ${snapshot.payments.length}`,
+    `- Collection Plans: ${snapshot.collectionPlans.length}`,
+    `- Meetings: ${snapshot.meetings.length}`,
+    `- Support Tickets: ${snapshot.supportTickets.length}`,
+    '',
+    'Recent Purchase Orders',
+    ...snapshot.purchaseOrders.slice(0, 20).map((r) => `PO ${r.po_number || r.id} | ${r.status} | ${Number(r.total_amount || 0).toFixed(2)}`),
+    '',
+    'Recent Invoices',
+    ...snapshot.invoices.slice(0, 20).map((r) => `INV ${r.invoice_number || r.id} | ${r.status} | Total ${Number(r.total_amount || 0).toFixed(2)} | Bal ${Number(r.balance || 0).toFixed(2)}`),
+    '',
+    'Recent Payments',
+    ...snapshot.payments.slice(0, 20).map((r) => `PAY ${r.payment_number || r.id} | ${r.status} | ${Number(r.amount || 0).toFixed(2)}`),
+    '',
+    'Master Data Snapshot',
+    ...snapshot.masterData.slice(0, 40).map((r) => `${r.type} | ${r.status} | ${r.id}`),
+    '',
+    'Note: This PDF includes summary records before deletion.',
+  ];
+
+  return {
+    filename: `${backupId}.pdf`,
+    backupBuffer: buildPdfFromLines(lines),
+    summary: {
+      backupId,
+      generatedAt: now.toISOString(),
+      counts: {
+        masterData: snapshot.masterData.length,
+        purchaseOrders: snapshot.purchaseOrders.length,
+        invoices: snapshot.invoices.length,
+        payments: snapshot.payments.length,
+        collectionPlans: snapshot.collectionPlans.length,
+        meetings: snapshot.meetings.length,
+        supportTickets: snapshot.supportTickets.length,
+      },
+    },
+  };
+};
+
 module.exports = {
   getAllSettings,
   getSetting,
@@ -289,4 +488,5 @@ module.exports = {
   getSystemSettings,
   canChangeFinancialYear,
   invalidateCache,
+  resetSystemWithBackup,
 };

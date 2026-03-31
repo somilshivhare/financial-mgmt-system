@@ -34,6 +34,25 @@ const getNextPaymentNumber = async (req, res, next) => {
   }
 };
 
+const deletePayment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json(apiError('Payment id is required'));
+    }
+    await paymentService.deletePayment(id, req.user.id, req.user.role);
+    res.json(apiSuccess({ id }, 'Payment deleted'));
+  } catch (err) {
+    if (err.message === 'PAYMENT_NOT_FOUND') {
+      return res.status(404).json(apiError('Payment not found', 'PAYMENT_NOT_FOUND'));
+    }
+    if (err.message === 'FORBIDDEN') {
+      return res.status(403).json(apiError('You do not have permission to delete this payment', 'FORBIDDEN'));
+    }
+    next(err);
+  }
+};
+
 const getOpenInvoicesForCustomer = async (req, res, next) => {
   try {
     const { customerId } = req.params;
@@ -50,5 +69,5 @@ const getOpenInvoicesForCustomer = async (req, res, next) => {
   }
 };
 
-module.exports = { listPayments, createPayment, getNextPaymentNumber, getOpenInvoicesForCustomer };
+module.exports = { listPayments, createPayment, deletePayment, getNextPaymentNumber, getOpenInvoicesForCustomer };
 

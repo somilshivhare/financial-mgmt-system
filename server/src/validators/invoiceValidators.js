@@ -3,8 +3,8 @@ const { z } = require('zod');
 const invoiceLineSchema = z.object({
   lineNumber: z.number().int().positive(),
   description: z.string().min(1),
-  productId: z.string().uuid().optional(),
-  quantity: z.number().positive(),
+  productId: z.string().uuid().optional().nullable(),
+  quantity: z.number().nonnegative(),
   unitPrice: z.number().nonnegative(),
 });
 

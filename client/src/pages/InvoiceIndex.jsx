@@ -20,7 +20,7 @@ function InvoiceIndex() {
   const [poNumberFilter, setPoNumberFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
+  const [showFilters, setShowFilters] = useState(true)
 
   const normalizeInvoiceRow = (inv) => (inv && typeof inv === 'object' ? { ...inv } : inv)
 
@@ -58,17 +58,9 @@ function InvoiceIndex() {
   }
 
   useEffect(() => {
+    if (location.pathname !== '/invoices') return
     loadInvoices()
-  }, [])
-
-  useEffect(() => {
-    if (location.pathname === '/invoices') {
-      const timer = setTimeout(() => {
-        loadInvoices()
-      }, 200)
-      return () => clearTimeout(timer)
-    }
-  }, [location.pathname, location.state])
+  }, [location.pathname, location.state?.fromCreate])
 
   useEffect(() => {
     const handleInvoiceUpdate = (e) => {
@@ -255,10 +247,25 @@ function InvoiceIndex() {
 
       {/* Filter Panel */}
       {showFilters && (
-        <div className="invoice-entry-index-filters">
+        <div className="invoice-entry-index-filters" role="search" aria-label="Filter invoices">
+          <div className="invoice-entry-index-filters-header">
+            <h2 className="invoice-entry-index-filters-title">Refine list</h2>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="invoice-entry-index-clear-filters invoice-entry-index-clear-filters--inline"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
           <div className="invoice-entry-index-filter-group">
-            <label className="invoice-entry-index-filter-label">Status</label>
+            <label className="invoice-entry-index-filter-label" htmlFor="invoice-index-status">
+              Status
+            </label>
             <select
+              id="invoice-index-status"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="invoice-entry-index-filter-select"
@@ -272,45 +279,45 @@ function InvoiceIndex() {
           </div>
 
           <div className="invoice-entry-index-filter-group">
-            <label className="invoice-entry-index-filter-label">PO Number</label>
+            <label className="invoice-entry-index-filter-label" htmlFor="invoice-index-po">
+              PO number
+            </label>
             <input
+              id="invoice-index-po"
               type="text"
               value={poNumberFilter}
               onChange={(e) => setPoNumberFilter(e.target.value)}
               className="invoice-entry-index-filter-input"
-              placeholder="Filter by PO Number..."
+              placeholder="Contains…"
+              autoComplete="off"
             />
           </div>
 
           <div className="invoice-entry-index-filter-group">
-            <label className="invoice-entry-index-filter-label">Date From</label>
+            <label className="invoice-entry-index-filter-label" htmlFor="invoice-index-date-from">
+              Invoice date from
+            </label>
             <DatePicker
+              id="invoice-index-date-from"
               selected={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              placeholderText="From Date"
+              placeholderText="dd - mm - yyyy"
               maxDate={dateTo || undefined}
             />
           </div>
 
           <div className="invoice-entry-index-filter-group">
-            <label className="invoice-entry-index-filter-label">Date To</label>
+            <label className="invoice-entry-index-filter-label" htmlFor="invoice-index-date-to">
+              Invoice date to
+            </label>
             <DatePicker
+              id="invoice-index-date-to"
               selected={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              placeholderText="To Date"
+              placeholderText="dd - mm - yyyy"
               minDate={dateFrom || undefined}
             />
           </div>
-
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="invoice-entry-index-clear-filters"
-            >
-              Clear All Filters
-            </button>
-          )}
         </div>
       )}
 

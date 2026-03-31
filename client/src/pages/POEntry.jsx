@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { getPONumberPrefix } from '../utils/numbering'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Plus, X, Trash2, ToggleLeft, ToggleRight, RotateCcw, Zap } from 'lucide-react'
 import DatePicker from '../components/DatePicker'
@@ -80,6 +81,7 @@ function POEntry() {
     contractAgreementDate: '',
     
     poNumber: '',
+    poNumberSuffix: '',
     
     poDate: '',
     
@@ -100,7 +102,6 @@ function POEntry() {
     paymentType: '',
     
     poPaymentTerms: '',
-    paymentTermsTotalBasicAmount: '',
     paymentDueRows: defaultPaymentDues,
     
     paymentTermsClauseInPO: '',
@@ -413,6 +414,50 @@ function POEntry() {
     }
   }
 
+  const poNumberPrefix = useMemo(
+    () => getPONumberPrefix(formData.businessUnit, formData.poDate, formData.businessUnitOther),
+    [formData.businessUnit, formData.poDate, formData.businessUnitOther],
+  )
+
+  useEffect(() => {
+    const prefix = getPONumberPrefix(formData.businessUnit, formData.poDate, formData.businessUnitOther)
+    const pn = String(formData.poNumber || '').trim()
+    const suffixRaw = String(formData.poNumberSuffix ?? '').trim()
+
+    if (pn && suffixRaw === '') {
+      if (pn.startsWith(prefix)) {
+        const extracted = pn.slice(prefix.length)
+        setFormData((prev) => ({
+          ...prev,
+          poNumberSuffix: extracted === '0' ? '' : extracted,
+        }))
+        return
+      }
+      const m = pn.match(/^PO-([^-]+)-(\d{8})-(.+)$/)
+      if (m && m[3]) {
+        setFormData((prev) => ({
+          ...prev,
+          poNumberSuffix: m[3] === '0' ? '' : m[3],
+        }))
+        return
+      }
+    }
+
+    const suffix = String(formData.poNumberSuffix ?? '').trim()
+    const effectiveSuffix = suffix === '0' ? '' : suffix
+    const combined = effectiveSuffix ? `${prefix}${effectiveSuffix}` : ''
+    if (combined !== pn) {
+      setFormData((prev) => ({ ...prev, poNumber: combined }))
+    }
+  }, [
+    formData.businessUnit,
+    formData.poDate,
+    formData.businessUnitOther,
+    formData.poNumberSuffix,
+    formData.poNumber,
+    poNumberPrefix,
+  ])
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem('poEntryHiddenFields')
@@ -469,16 +514,6 @@ function POEntry() {
     setCompanies(Array.isArray(companiesData) ? companiesData : [])
   }, [getCustomers, getEmployees, getCompanies])
   
-  useEffect(() => {
-    if (id) return
-    const current = String(formData.poNumber || '').trim().toUpperCase()
-    const hasPlaceholder = current.includes('XXXX')
-    if (!persistenceLoading && (!formData.poNumber || hasPlaceholder)) {
-      const generatedPONumber = poEntryService.generatePONumber(formData.businessUnit || 'MAIN')
-      setFormData((prev) => ({ ...prev, poNumber: generatedPONumber }))
-    }
-  }, [id, persistenceLoading, formData.poNumber, formData.businessUnit])
-
   const boqTotals = useMemo(() => {
     let totalExWorks = 0
     let totalFreight = 0
@@ -573,7 +608,7 @@ function POEntry() {
   }, [formData.paymentDueRows])
 
   const paymentTermsTotals = useMemo(() => {
-    const totalBasicAmount = parseNumeric(formData.paymentTermsTotalBasicAmount)
+    const totalBasicAmount = parseNumeric(formData.poValue)
     let totalDuePercentage = 0
     let totalFreight = 0
     let totalTaxes = 0
@@ -607,7 +642,7 @@ function POEntry() {
       totalTaxes: toCurrencyNumber(totalTaxes),
       totalAmount: toCurrencyNumber(totalAmount),
     }
-  }, [formData.paymentTermsTotalBasicAmount, paymentDueRows])
+  }, [formData.poValue, paymentDueRows])
 
   const handlePaymentDueChange = (dueKey, field, value) => {
     setFormData((prev) => {
@@ -949,6 +984,12 @@ function POEntry() {
       businessUnit: prev.businessUnit || 'MAIN',
       segment: prev.segment || 'Domestic',
       zone: prev.zone || 'North',
+      poNumberSuffix: (() => {
+        const s = prev.poNumberSuffix
+        const t = s === undefined || s === null ? '' : String(s).trim()
+        if (t === '' || t === '0') return '0001'
+        return t
+      })(),
     }))
     
     setBoqItems(calculatedBoqItems)
@@ -961,21 +1002,19 @@ function POEntry() {
     
     const customerId = String(formData.customerId || '').trim()
     const poCategory = String(formData.poCategory || '').trim()
-    const poNumber = String(formData.poNumber || '').trim() || poEntryService.generatePONumber(formData.businessUnit || 'MAIN')
+    const suffixPart = String(formData.poNumberSuffix || '').trim()
+    const poNumber = String(formData.poNumber || '').trim()
     const poDate = String(formData.poDate || '').trim()
     
     const missing = []
     if (!poCategory) missing.push('PO Type')
     if (!customerId) missing.push('Customer Name')
+    if (!suffixPart || suffixPart === '0') missing.push('PO sequence')
     if (!poNumber) missing.push('PO Number')
     if (!poDate) missing.push('Purchase Order Date')
     if (missing.length > 0) {
       showToast(`Please fill in the required fields: ${missing.join(', ')}`, 'error')
       return
-    }
-    
-    if (!String(formData.poNumber || '').trim()) {
-      setFormData((prev) => ({ ...prev, poNumber }))
     }
     
     const poEntry = {
@@ -1093,7 +1132,11 @@ function POEntry() {
           <h1 className="po-entry-title">PO Entry</h1>
           <p className="po-entry-subtitle">
             {formData.poCategory ? `Creating ${formData.poCategory} PO` : 'Select PO type to start'}
-            {formData.poNumber ? ` • PO Number: ${formData.poNumber}` : ''}
+            {(() => {
+              const suf = String(formData.poNumberSuffix || '').trim()
+              const show = suf.length > 0 && suf !== '0' && formData.poNumber
+              return show ? ` • PO Number: ${formData.poNumber}` : ''
+            })()}
           </p>
         </div>
         
@@ -1158,9 +1201,70 @@ function POEntry() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="po-entry-form">
-        {/* PO Type Selection */}
         <div className="po-entry-section">
-          <h2 className="po-entry-section-title">PO Type</h2>
+          <h2 className="po-entry-section-title">PO Manual identification</h2>
+          <p className="po-entry-section-lead">
+            The prefix follows Business Unit and Purchase Order Date in PO identification below. Enter the sequence to complete the saved PO number.
+          </p>
+          <div className="po-entry-form-grid">
+            <div className="po-entry-field">
+              <label htmlFor="poNumberPrefixDisplay" className="po-entry-label">
+                PO number prefix
+              </label>
+              <input
+                type="text"
+                id="poNumberPrefixDisplay"
+                readOnly
+                value={poNumberPrefix}
+                className="po-entry-input po-entry-input-readonly po-entry-po-prefix-field"
+                title="From Business Unit and Purchase Order Date"
+                aria-label="PO number prefix, from business unit and purchase order date"
+              />
+              <small className="po-entry-hint">Auto-filled from Business Unit and Purchase Order Date.</small>
+            </div>
+            <div className="po-entry-field">
+              <label htmlFor="poNumberSuffix" className="po-entry-label">
+                PO sequence <span className="po-entry-required">*</span>
+              </label>
+              <input
+                type="text"
+                id="poNumberSuffix"
+                name="poNumberSuffix"
+                value={formData.poNumberSuffix}
+                onChange={handleChange}
+                onBlur={(e) => {
+                  const v = String(e.target.value || '').trim()
+                  if (v === '0') {
+                    setFormData((prev) => ({ ...prev, poNumberSuffix: '', poNumber: '' }))
+                  }
+                }}
+                className="po-entry-input"
+                placeholder="e.g. 0001"
+                autoComplete="off"
+                required
+                aria-describedby="poFullNumberHint"
+              />
+              <small id="poFullNumberHint" className="po-entry-hint">
+                {(() => {
+                  const suf = String(formData.poNumberSuffix || '').trim()
+                  const eff = suf === '0' ? '' : suf
+                  const preview = eff && formData.poNumber ? formData.poNumber : `${poNumberPrefix}…`
+                  return (
+                    <>
+                      Full PO number saved: <span className="po-entry-mono">{preview}</span>
+                    </>
+                  )
+                })()}
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <div className="po-entry-section po-entry-section--identification-top">
+          <h2 className="po-entry-section-title">PO identification</h2>
+          <p className="po-entry-section-lead">
+            Select PO type, business unit, and purchase order date. Changing these updates the PO number prefix above.
+          </p>
           <div className="po-entry-form-grid">
             <div className="po-entry-field">
               <label htmlFor="poCategory" className="po-entry-label">
@@ -1189,6 +1293,50 @@ function POEntry() {
                 value={formData.poCategory ? `${formData.poCategory} PO` : 'Not selected'}
                 className="po-entry-input po-entry-input-readonly"
                 readOnly
+              />
+            </div>
+            <div className="po-entry-field">
+              <label htmlFor="businessUnit" className="po-entry-label">
+                Business Unit
+              </label>
+              <select
+                id="businessUnit"
+                name="businessUnit"
+                value={formData.businessUnit}
+                onChange={handleChange}
+                className="po-entry-select"
+              >
+                <option value="">Select Business Unit</option>
+                {BUSINESS_UNITS.filter((unit) => unit !== 'Other').map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+                <option value="Other">Other</option>
+              </select>
+              {formData.businessUnit === 'Other' && (
+                <input
+                  type="text"
+                  id="businessUnitOther"
+                  name="businessUnitOther"
+                  value={formData.businessUnitOther}
+                  onChange={handleChange}
+                  className="po-entry-input"
+                  placeholder="Enter business unit"
+                  style={{ marginTop: '8px' }}
+                />
+              )}
+            </div>
+            <div className="po-entry-field">
+              <label htmlFor="poDate" className="po-entry-label">
+                Purchase Order Date <span className="po-entry-required">*</span>
+              </label>
+              <DatePicker
+                selected={formData.poDate}
+                onChange={handleChange}
+                name="poDate"
+                id="poDate"
+                required
               />
             </div>
           </div>
@@ -1363,39 +1511,6 @@ function POEntry() {
             </div>
             
             <div className="po-entry-field">
-              <label htmlFor="businessUnit" className="po-entry-label">
-                Business Unit
-              </label>
-              <select
-                id="businessUnit"
-                name="businessUnit"
-                value={formData.businessUnit}
-                onChange={handleChange}
-                className="po-entry-select"
-              >
-                <option value="">Select Business Unit</option>
-                {BUSINESS_UNITS.filter((unit) => unit !== 'Other').map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit}
-                  </option>
-                ))}
-                <option value="Other">Other</option>
-              </select>
-              {formData.businessUnit === 'Other' && (
-                <input
-                  type="text"
-                  id="businessUnitOther"
-                  name="businessUnitOther"
-                  value={formData.businessUnitOther}
-                  onChange={handleChange}
-                  className="po-entry-input"
-                  placeholder="Enter business unit"
-                  style={{ marginTop: '8px' }}
-                />
-              )}
-            </div>
-            
-            <div className="po-entry-field">
               <label htmlFor="segment" className="po-entry-label">
                 Segment
               </label>
@@ -1464,35 +1579,6 @@ function POEntry() {
                 onChange={handleChange}
                 name="contractAgreementDate"
                 id="contractAgreementDate"
-              />
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poNumber" className="po-entry-label">
-                Purchase Order No <span className="po-entry-required">*</span>
-              </label>
-              <input
-                type="text"
-                id="poNumber"
-                name="poNumber"
-                value={formData.poNumber}
-                className="po-entry-input po-entry-input-readonly"
-                readOnly
-                required
-              />
-              <small className="po-entry-hint">Auto-generated, immutable</small>
-            </div>
-            
-            <div className="po-entry-field">
-              <label htmlFor="poDate" className="po-entry-label">
-                Purchase Order Date <span className="po-entry-required">*</span>
-              </label>
-              <DatePicker
-                selected={formData.poDate}
-                onChange={handleChange}
-                name="poDate"
-                id="poDate"
-                required
               />
             </div>
           </div>
@@ -1654,31 +1740,6 @@ function POEntry() {
               />
             </div>
 
-            <div className="po-entry-field">
-              <label htmlFor="paymentTermsTotalBasicAmount" className="po-entry-label">
-                Total Basic Amount
-              </label>
-              <input
-                type="number"
-                id="paymentTermsTotalBasicAmount"
-                name="paymentTermsTotalBasicAmount"
-                value={formData.paymentTermsTotalBasicAmount}
-                onChange={handleChange}
-                className="po-entry-input"
-                placeholder="Enter total basic amount"
-              />
-            </div>
-
-            <div className="po-entry-field">
-              <label className="po-entry-label">Total Due Percentage</label>
-              <input
-                type="text"
-                value={`${paymentTermsTotals.totalDuePercentage || 0}%`}
-                readOnly
-                className="po-entry-input po-entry-input-readonly"
-              />
-            </div>
-
             <div className="po-entry-field po-entry-field-full">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '12px 14px', border: '1px solid var(--color-border)', borderRadius: '10px', background: 'var(--color-bg-tertiary)' }}>
                 <label className="po-entry-label" style={{ marginBottom: 0, fontSize: '16px', fontWeight: 700 }}>Due Distribution</label>
@@ -1694,75 +1755,90 @@ function POEntry() {
                 </div>
               </div>
 
-              {paymentTermsTotals.dueSummaries.map((due) => (
-                <div key={due.key} className="po-entry-section" style={{ padding: '12px', gap: '12px', marginBottom: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <strong>{due.label}</strong>
-                    {paymentDueRows.length > 1 && (
-                      <button
-                        type="button"
-                        className="po-entry-boq-remove-button"
-                        onClick={() => handleRemovePaymentDue(due.key)}
-                        aria-label={`Remove ${due.label}`}
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                  <div className="po-entry-form-grid">
-                    <div className="po-entry-field">
-                      <label className="po-entry-label">Percentage</label>
-                      <select
-                        className="po-entry-select"
-                        value={due.percentage}
-                        onChange={(e) => handlePaymentDueChange(due.key, 'percentage', e.target.value)}
-                      >
-                        <option value="">Select percentage...</option>
-                        {PAYMENT_PERCENTAGE_OPTIONS.map((option) => (
-                          <option key={option} value={option}>{option}%</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="po-entry-field">
-                      <label className="po-entry-label">Freight</label>
-                      <input
-                        type="number"
-                        className="po-entry-input"
-                        value={due.freight}
-                        onChange={(e) => handlePaymentDueChange(due.key, 'freight', e.target.value)}
-                        placeholder="Enter freight..."
-                        step="0.01"
-                        min="0"
-                      />
-                    </div>
-                    <div className="po-entry-field">
-                      <label className="po-entry-label">GST %</label>
-                      <select
-                        className="po-entry-select"
-                        value={due.gst}
-                        onChange={(e) => handlePaymentDueChange(due.key, 'gst', e.target.value)}
-                      >
-                        <option value="">Select GST...</option>
-                        {PAYMENT_GST_OPTIONS.map((option) => (
-                          <option key={option} value={option}>{option}%</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="po-entry-field">
-                      <label className="po-entry-label">Basic (Auto)</label>
-                      <input type="text" readOnly value={due.basic ?? 0} className="po-entry-input po-entry-input-readonly" />
-                    </div>
-                    <div className="po-entry-field">
-                      <label className="po-entry-label">Taxes (Auto)</label>
-                      <input type="text" readOnly value={due.taxes ?? 0} className="po-entry-input po-entry-input-readonly" />
-                    </div>
-                    <div className="po-entry-field">
-                      <label className="po-entry-label">Total (Auto)</label>
-                      <input type="text" readOnly value={due.total ?? 0} className="po-entry-input po-entry-input-readonly" />
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <div className="po-entry-due-table-wrapper">
+                <table className="po-entry-due-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Payment Terms</th>
+                      <th scope="col" className="po-entry-due-table-pct">Basic (%)</th>
+                      <th scope="col" className="po-entry-due-table-num">Freight</th>
+                      <th scope="col" className="po-entry-due-table-tax">Taxes (GST %)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentTermsTotals.dueSummaries.map((due) => (
+                      <tr key={due.key}>
+                        <td>
+                          <div className="po-entry-due-term-cell po-entry-due-term-cell--label-only">
+                            <div className="po-entry-due-term-head">
+                              <span className="po-entry-due-term-label">{due.label}</span>
+                              {paymentDueRows.length > 1 && (
+                                <button
+                                  type="button"
+                                  className="po-entry-boq-remove-button"
+                                  onClick={() => handleRemovePaymentDue(due.key)}
+                                  aria-label={`Remove ${due.label}`}
+                                >
+                                  <X size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="po-entry-due-table-pct">
+                          <div className="po-entry-due-inline-cell">
+                            <select
+                              className="po-entry-select po-entry-due-select"
+                              value={due.percentage}
+                              onChange={(e) => handlePaymentDueChange(due.key, 'percentage', e.target.value)}
+                              aria-label={`${due.label} percent of PO value`}
+                            >
+                              <option value="">%</option>
+                              {PAYMENT_PERCENTAGE_OPTIONS.map((option) => (
+                                <option key={option} value={option}>{option}%</option>
+                              ))}
+                            </select>
+                          </div>
+                        </td>
+                        <td className="po-entry-due-table-num">
+                          <input
+                            type="number"
+                            className="po-entry-input po-entry-due-num-input"
+                            value={due.freight}
+                            onChange={(e) => handlePaymentDueChange(due.key, 'freight', e.target.value)}
+                            placeholder="0.00"
+                            step="0.01"
+                            min="0"
+                            aria-label={`${due.label} freight`}
+                          />
+                        </td>
+                        <td className="po-entry-due-table-tax">
+                          <div className="po-entry-due-tax-cell">
+                            <select
+                              className="po-entry-select po-entry-due-select"
+                              value={due.gst}
+                              onChange={(e) => handlePaymentDueChange(due.key, 'gst', e.target.value)}
+                              aria-label={`${due.label} GST rate`}
+                            >
+                              <option value="">GST %</option>
+                              {PAYMENT_GST_OPTIONS.map((option) => (
+                                <option key={option} value={option}>{option}%</option>
+                              ))}
+                            </select>
+                            <input
+                              type="text"
+                              readOnly
+                              value={Number(due.taxes ?? 0).toFixed(2)}
+                              className="po-entry-input po-entry-input-readonly po-entry-due-tax-amount"
+                              aria-label={`${due.label} tax amount`}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="po-entry-field">

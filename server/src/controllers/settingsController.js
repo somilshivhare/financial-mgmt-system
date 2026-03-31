@@ -81,6 +81,18 @@ const checkFinancialYearChange = async (req, res, next) => {
   }
 };
 
+const resetSystemWithBackup = async (req, res, next) => {
+  try {
+    const result = await settingsService.resetSystemWithBackup(req.user.id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.setHeader('X-Backup-Id', result.summary.backupId);
+    res.send(result.backupBuffer);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getSettings,
   getSystemSettings,
@@ -88,4 +100,5 @@ module.exports = {
   resetSettings,
   getAuditLog,
   checkFinancialYearChange,
+  resetSystemWithBackup,
 };

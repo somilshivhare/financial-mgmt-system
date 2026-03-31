@@ -400,7 +400,7 @@
 }
 
 
-select, 
+select:not(.invoice-entry-index-filter-select),
 .po-entry-select, 
 .invoice-entry-select, 
 .master-data-select,
@@ -418,7 +418,7 @@ select,
   transition: all var(--transition-base);
 }
 
-select:focus,
+select:not(.invoice-entry-index-filter-select):focus,
 .po-entry-select:focus,
 .invoice-entry-select:focus,
 .master-data-select:focus {
@@ -429,7 +429,7 @@ select:focus,
   background-size: 16px 16px;
 }
 
-select:hover:not(:disabled) {
+select:not(.invoice-entry-index-filter-select):hover:not(:disabled) {
   border-color: var(--color-text-tertiary);
 }
 

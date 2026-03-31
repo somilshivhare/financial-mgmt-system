@@ -9,6 +9,7 @@ import '../styles/PaymentEntry.css'
 
 function PaymentIndex() {
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const { confirm, dialogProps } = useConfirmDialog()
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)

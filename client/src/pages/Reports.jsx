@@ -435,21 +435,20 @@ function Reports() {
       )}
 
       {/* Report Type Selector */}
-      <div className="reports-type-selector">
-        {REPORT_TYPES.map((report) => {
-          const Icon = report.icon
-          return (
-            <button
-              key={report.id}
-              type="button"
-              onClick={() => setSelectedReport(report.id)}
-              className={`reports-type-button ${selectedReport === report.id ? 'active' : ''}`}
-            >
-              <Icon className="reports-type-icon" />
-              <span>{report.label}</span>
-            </button>
-          )
-        })}
+      <div className="reports-type-selector-dropdown">
+        <label htmlFor="reportTypeSelect" className="reports-filter-group-label">Report Type</label>
+        <select
+          id="reportTypeSelect"
+          value={selectedReport}
+          onChange={(e) => setSelectedReport(e.target.value)}
+          className="reports-filter-select reports-type-select"
+        >
+          {REPORT_TYPES.map((report) => (
+            <option key={report.id} value={report.id}>
+              {report.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Filters */}

@@ -31,3 +31,8 @@ export const checkFinancialYearChange = async (financialYear) => {
   const response = await client.get(`/settings/check-financial-year?financialYear=${encodeURIComponent(financialYear)}`)
   return response.data
 }
+
+export const resetSystemWithBackup = async () => {
+  const response = await client.post('/settings/reset-system', {}, { responseType: 'blob' })
+  return response
+}

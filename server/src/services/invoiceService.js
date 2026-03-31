@@ -131,6 +131,13 @@ const getNextInvoiceNumber = async (invoiceType = 'REG', businessUnit = 'MAIN') 
 
 const VALID_PO_STATUSES = ['approved', 'closed'];
 
+/** DECIMAL columns: reject NaN from values like parseFloat('No') or empty text */
+const finiteNum = (v, fallback = 0) => {
+  if (v === null || v === undefined || v === '') return fallback;
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g, ''));
+  return Number.isFinite(n) ? n : fallback;
+};
+
 const createInvoice = async (payload, userId) =>
   transaction(async (conn) => {
     console.log('[InvoiceService] Creating invoice with status:', payload.status || 'open (default)')
@@ -200,15 +207,24 @@ const createInvoice = async (payload, userId) =>
 
     const invoiceId = uuidv4();
     const invoiceNumber = payload.invoice_number || payload.internalInvoiceNo || `INV-${Date.now()}`;
+    const [[dupInv]] = await conn.execute(
+      'SELECT id FROM invoices WHERE invoice_number = ? LIMIT 1',
+      [invoiceNumber],
+    );
+    if (dupInv) {
+      const err = new Error('An invoice with this internal invoice number already exists. Choose a different sequence.');
+      err.code = 'ERR_DUPLICATE';
+      throw err;
+    }
     const issueDate = payload.issue_date || payload.gstTaxInvoiceDate || new Date().toISOString().split('T')[0];
     
-    let totalAmount = parseFloat(payload.total_amount || payload.totalInvoiceValue || payload.total_invoice_value || 0);
+    let totalAmount = finiteNum(payload.total_amount || payload.totalInvoiceValue || payload.total_invoice_value, 0);
     
-    if (!totalAmount || isNaN(totalAmount)) {
-      const basicValue = parseFloat(payload.basic_value || payload.basicValue || 0);
-      const freightValue = parseFloat(payload.freight_value || payload.freightValue || 0);
-      const totalGST = parseFloat(payload.total_gst || payload.totalGST || 0);
-      const subtotal = parseFloat(payload.subtotal || 0);
+    if (!totalAmount) {
+      const basicValue = finiteNum(payload.basic_value || payload.basicValue, 0);
+      const freightValue = finiteNum(payload.freight_value || payload.freightValue, 0);
+      const totalGST = finiteNum(payload.total_gst || payload.totalGST, 0);
+      const subtotal = finiteNum(payload.subtotal, 0);
       
       if (subtotal > 0) {
         totalAmount = subtotal + totalGST;
@@ -261,44 +277,53 @@ const createInvoice = async (payload, userId) =>
     ];
     
     const placeholders = fields.map(() => '?').join(', ');
+    const amountPaid = finiteNum(payload.amount_paid, 0);
+    const statusRaw = (payload.status && String(payload.status).trim()) || 'open';
+    const statusLower = statusRaw.toLowerCase();
+    const statusInsert = ['draft', 'open', 'posted', 'submitted', 'active', 'paid', 'closed', 'overdue', 'cancelled', 'rejected'].includes(
+      statusLower,
+    )
+      ? statusLower
+      : 'open';
+
     const values = [
       invoiceId,
       invoiceNumber,
       payload.poId || po.id,
       resolvedCustomerId,
-      (payload.status && String(payload.status).trim()) || 'posted',
+      statusInsert,
       issueDate,
       payload.due_date || payload.firstDueDate || issueDate,
       payload.currency || 'INR',
-      parseFloat(payload.basic_rate || payload.basicRate || 0),
-      parseFloat(payload.quantity || payload.qty || 0),
-      parseFloat(payload.basic_value || payload.basicValue || 0),
-      parseFloat(payload.freight_rate || payload.freightRate || 0),
-      parseFloat(payload.freight_value || payload.freightValue || 0),
-      parseFloat(payload.sgst_rate || payload.sgstRate || 0),
-      parseFloat(payload.cgst_rate || payload.cgstRate || 0),
-      parseFloat(payload.igst_rate || payload.igstRate || 0),
-      parseFloat(payload.ugst_rate || payload.ugstRate || 0),
-      parseFloat(payload.sgst_value || payload.sgstOutput || payload.sgstValue || 0),
-      parseFloat(payload.cgst_value || payload.cgstOutput || payload.cgstValue || 0),
-      parseFloat(payload.igst_value || payload.igstOutput || payload.igstValue || 0),
-      parseFloat(payload.ugst_value || payload.ugstOutput || payload.ugstValue || 0),
-      parseFloat(payload.total_gst || payload.totalGST || 0),
-      parseFloat(payload.subtotal || 0),
+      finiteNum(payload.basic_rate || payload.basicRate, 0),
+      finiteNum(payload.quantity || payload.qty, 0),
+      finiteNum(payload.basic_value || payload.basicValue, 0),
+      finiteNum(payload.freight_rate || payload.freightRate, 0),
+      finiteNum(payload.freight_value || payload.freightValue, 0),
+      finiteNum(payload.sgst_rate || payload.sgstRate, 0),
+      finiteNum(payload.cgst_rate || payload.cgstRate, 0),
+      finiteNum(payload.igst_rate || payload.igstRate, 0),
+      finiteNum(payload.ugst_rate || payload.ugstRate, 0),
+      finiteNum(payload.sgst_value || payload.sgstOutput || payload.sgstValue, 0),
+      finiteNum(payload.cgst_value || payload.cgstOutput || payload.cgstValue, 0),
+      finiteNum(payload.igst_value || payload.igstOutput || payload.igstValue, 0),
+      finiteNum(payload.ugst_value || payload.ugstOutput || payload.ugstValue, 0),
+      finiteNum(payload.total_gst || payload.totalGST, 0),
+      finiteNum(payload.subtotal, 0),
       totalAmount,
-      parseFloat(payload.amount_paid || 0),
-      Math.round((totalAmount - parseFloat(payload.amount_paid || 0)) * 100) / 100,
+      amountPaid,
+      Math.round((totalAmount - amountPaid) * 100) / 100,
       payload.first_due_date || payload.firstDueDate || null,
-      parseFloat(payload.first_due_amount || payload.firstDueAmount || 0),
-      parseFloat(payload.first_received_amount || payload.paymentReceivedAmount1stDue || 0),
+      finiteNum(payload.first_due_amount || payload.firstDueAmount, 0),
+      finiteNum(payload.first_received_amount || payload.paymentReceivedAmount1stDue, 0),
       payload.first_receipt_date || payload.receiptDate1stDue || null,
       payload.second_due_date || payload.secondDueDate || null,
-      parseFloat(payload.second_due_amount || payload.secondDueAmount || 0),
-      parseFloat(payload.second_received_amount || payload.paymentReceivedAmount2ndDue || 0),
+      finiteNum(payload.second_due_amount || payload.secondDueAmount, 0),
+      finiteNum(payload.second_received_amount || payload.paymentReceivedAmount2ndDue, 0),
       payload.second_receipt_date || payload.receiptDate2ndDue || null,
       payload.third_due_date || payload.thirdDueDate || null,
-      parseFloat(payload.third_due_amount || payload.thirdDueAmount || 0),
-      parseFloat(payload.third_received_amount || payload.paymentReceivedAmount3rdDue || 0),
+      finiteNum(payload.third_due_amount || payload.thirdDueAmount, 0),
+      finiteNum(payload.third_received_amount || payload.paymentReceivedAmount3rdDue, 0),
       payload.third_receipt_date || payload.receiptDate3rdDue || null,
       payload.key_id || payload.keyID || null,
       payload.gst_tax_invoice_no || payload.gstTaxInvoiceNo || null,
@@ -319,7 +344,7 @@ const createInvoice = async (payload, userId) =>
       payload.state_of_supply || payload.stateOfSupply || null,
       payload.unit || null,
       payload.freight_invoice_no || payload.freightInvoiceNo || null,
-      parseFloat(payload.tcs || 0),
+      finiteNum(payload.tcs, 0),
       payload.consignee_id || payload.consigneeId || null,
       payload.consignee_name_address || payload.consigneeNameAddress || null,
       payload.consignee_city || payload.consigneeCity || null,
@@ -357,20 +382,20 @@ const createInvoice = async (payload, userId) =>
       payload.payment_terms_id || payload.paymentTermsId || null,
       payload.payment_terms || payload.paymentTerms || null,
       payload.payment_text || payload.paymentText || null,
-      parseFloat(payload.it_tds_2_percent || payload.itTDS2Percent || 0),
-      parseFloat(payload.it_tds_1_percent_194q || payload.itTDS1Percent194Q || 0),
-      parseFloat(payload.lcess_boq_1_percent || payload.lcessBoq1Percent || 0),
-      parseFloat(payload.tds_2_percent_cgst_sgst || payload.tds2PercentCGSTSGST || 0),
-      parseFloat(payload.tds_on_cgst_1_percent || payload.tdsOnCGST1Percent || 0),
-      parseFloat(payload.tds_on_sgst_1_percent || payload.tdsOnSGST1Percent || 0),
-      parseFloat(payload.excess_supply_qty || payload.excessSupplyQty || 0),
-      parseFloat(payload.interest_on_advance || payload.interestOnAdvance || 0),
-      parseFloat(payload.any_hold || payload.anyHold || 0),
-      parseFloat(payload.penalty_ld_deduction || payload.penaltyLDDeduction || 0),
-      parseFloat(payload.bank_charges || 0),
-      parseFloat(payload.lc_discrepancy_charge || payload.lcDiscrepancyCharge || 0),
-      parseFloat(payload.provision_for_bad_debts || payload.provisionForBadDebts || 0),
-      parseFloat(payload.bad_debts || payload.badDebts || 0),
+      finiteNum(payload.it_tds_2_percent || payload.itTDS2Percent, 0),
+      finiteNum(payload.it_tds_1_percent_194q || payload.itTDS1Percent194Q, 0),
+      finiteNum(payload.lcess_boq_1_percent || payload.lcessBoq1Percent, 0),
+      finiteNum(payload.tds_2_percent_cgst_sgst || payload.tds2PercentCGSTSGST, 0),
+      finiteNum(payload.tds_on_cgst_1_percent || payload.tdsOnCGST1Percent, 0),
+      finiteNum(payload.tds_on_sgst_1_percent || payload.tdsOnSGST1Percent, 0),
+      finiteNum(payload.excess_supply_qty || payload.excessSupplyQty, 0),
+      finiteNum(payload.interest_on_advance || payload.interestOnAdvance, 0),
+      finiteNum(payload.any_hold || payload.anyHold, 0),
+      finiteNum(payload.penalty_ld_deduction || payload.penaltyLDDeduction, 0),
+      finiteNum(payload.bank_charges, 0),
+      finiteNum(payload.lc_discrepancy_charge || payload.lcDiscrepancyCharge, 0),
+      finiteNum(payload.provision_for_bad_debts || payload.provisionForBadDebts, 0),
+      finiteNum(payload.bad_debts || payload.badDebts, 0),
       userId,
     ];
 
@@ -385,7 +410,15 @@ const createInvoice = async (payload, userId) =>
         await conn.execute(
           `INSERT INTO invoice_lines (id, invoice_id, line_number, description, product_id, quantity, unit_price)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [lineId, invoiceId, line.lineNumber, line.description, line.productId || null, line.quantity, line.unitPrice],
+          [
+            lineId,
+            invoiceId,
+            line.lineNumber,
+            line.description,
+            line.productId || null,
+            finiteNum(line.quantity, 0),
+            finiteNum(line.unitPrice, 0),
+          ],
         );
       }
     }
@@ -461,7 +494,7 @@ const resolvePOAndCustomer = async (conn, payload) => {
 const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
   transaction(async (conn) => {
     const [[existing]] = await conn.execute(
-      'SELECT id, po_id, customer_id, status, due_date, first_due_date, created_by FROM invoices WHERE id = ?',
+      'SELECT id, po_id, customer_id, status, due_date, first_due_date, created_by, invoice_number FROM invoices WHERE id = ?',
       [invoiceId]
     );
     if (!existing) return null;
@@ -483,6 +516,19 @@ const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
     const payloadDueDate = val(payload, 'due_date', 'firstDueDate');
     const effectiveDueDate = payloadDueDate || existing.due_date || existing.first_due_date || issueDate;
     const totalAmount = num(payload, 'total_amount', 'totalInvoiceValue');
+
+    const newInvoiceNumber = val(payload, 'invoice_number', 'internalInvoiceNo');
+    if (newInvoiceNumber && String(newInvoiceNumber).trim() && String(newInvoiceNumber).trim() !== String(existing.invoice_number || '').trim()) {
+      const [[rowDup]] = await conn.execute(
+        'SELECT id FROM invoices WHERE invoice_number = ? AND id <> ? LIMIT 1',
+        [String(newInvoiceNumber).trim(), invoiceId],
+      );
+      if (rowDup) {
+        const err = new Error('An invoice with this internal invoice number already exists.');
+        err.code = 'ERR_DUPLICATE';
+        throw err;
+      }
+    }
 
     const updates = [
       ['invoice_number', val(payload, 'invoice_number', 'internalInvoiceNo')],
