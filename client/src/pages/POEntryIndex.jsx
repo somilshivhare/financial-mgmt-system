@@ -39,6 +39,17 @@ function formatStatusLabel(status) {
   return 'Draft'
 }
 
+function getPOTypeLabel(po) {
+  const raw =
+    getPOField(po, 'poCategory') ||
+    po.po_category ||
+    po.poCategory ||
+    getPOField(po, 'materialDescriptionType') ||
+    ''
+  const v = String(raw || '').trim()
+  return v || 'N/A'
+}
+
 function getPOValue(po) {
   try {
     const draft = typeof po.draft_data === 'string' ? JSON.parse(po.draft_data) : po.draft_data
@@ -346,6 +357,7 @@ function POEntryIndex() {
               <thead>
                 <tr>
                   <th>PO Number</th>
+                  <th>PO Type</th>
                   <th>PO Date</th>
                   <th>Customer Name</th>
                   <th>Project Description</th>
@@ -360,6 +372,7 @@ function POEntryIndex() {
                     <td>
                       <span className="po-entry-index-po-number">{pickPONumber(po) || 'N/A'}</span>
                     </td>
+                    <td>{getPOTypeLabel(po)}</td>
                     <td>{formatDate(po.issue_date || po.po_date || po.poDate || po.created_at) || 'N/A'}</td>
                     <td>{getPOField(po, 'customerName') || po.customer_name || po.customerName || 'N/A'}</td>
                     <td className="po-entry-index-project-desc">

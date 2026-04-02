@@ -29,6 +29,19 @@ const MATERIAL_DESCRIPTION_TYPES = ['Goods', 'Services', 'Both', 'Other']
 /** Matches PO Entry → BOQ as per PO (Form) headers */
 const INVOICE_NATURE_OPTIONS = ['Supply', 'Service', 'Supply & Service', 'AMC', 'Freight', 'Civil']
 const UNITS = ['Nos', 'MT', 'KG', 'LTR', 'MTR', 'SQM', 'CUM', 'Other']
+/** Internal values: IGST | SGST & CGST | UGST */
+const INVOICE_TAX_TYPE_OPTIONS = [
+  { value: 'IGST', label: 'Inter State Sell (IGST)' },
+  { value: 'SGST & CGST', label: 'Intra State Sell (CGST & SGST)' },
+  { value: 'UGST', label: 'Union Territory Sell (UGST)' },
+]
+
+function coerceInvoiceTaxType(raw) {
+  const s = String(raw ?? '').trim()
+  if (s === 'CGST' || s === 'SGST') return 'SGST & CGST'
+  if (s === 'IGST' || s === 'SGST & CGST' || s === 'UGST') return s
+  return 'IGST'
+}
 
 const UNIT_ALIAS_MAP = {
   'METRIC TON': 'MT',
@@ -115,6 +128,8 @@ const createEmptyMaterialLine = (defaults = {}) => ({
   qty: '',
   unit: '',
   unitPrice: '',
+  freight: '',
+  taxType: 'IGST',
   ...defaults,
 })
 
@@ -148,6 +163,7 @@ const INITIAL_INVOICE_FORM_DATA = {
   freightInvoiceNo: '',
   freightRate: '',
   freightValue: '',
+  taxType: 'IGST',
   sgstRate: '',
   cgstRate: '',
   igstRate: '',
@@ -198,6 +214,7 @@ const INITIAL_INVOICE_FORM_DATA = {
   invoiceForwardedForPaymentDate: '',
   paymentTermsId: '',
   paymentTerms: '',
+  paymentDueRows: [],
   paymentTextId: '',
   paymentText: '',
   firstDueDate: '',
@@ -350,6 +367,16 @@ function InvoiceEntry() {
         const raw = await poEntryService.getPOEntryByPONumber(poNum)
         if (!cancelled && raw) {
           setPoBoqItems(normalizePoBoqItemsFromApi(raw))
+          const poMatrix = Array.isArray(raw?.formData?.paymentDueRows) ? raw.formData.paymentDueRows : []
+          if (poMatrix.length > 0) {
+            setFormData((prev) => ({
+              ...prev,
+              paymentDueRows:
+                Array.isArray(prev.paymentDueRows) && prev.paymentDueRows.length > 0
+                  ? prev.paymentDueRows
+                  : poMatrix,
+            }))
+          }
         }
       } catch {
         /* ignore */
@@ -440,7 +467,15 @@ function InvoiceEntry() {
               materialDescriptionType: invoice.material_description_type || invoice.materialDescriptionType || '',
               materialLines: (() => {
                 const raw = invoice.material_lines ?? invoice.materialLines
-                if (Array.isArray(raw) && raw.length > 0) return raw
+                if (Array.isArray(raw) && raw.length > 0) {
+                  return raw.map((line) => ({
+                    ...createEmptyMaterialLine(),
+                    ...line,
+                    id: line.id || newMaterialLineId(),
+                    taxType: coerceInvoiceTaxType(line.taxType || line.tax_type || 'IGST'),
+                    freight: line.freight ?? '',
+                  }))
+                }
                 return [
                   createEmptyMaterialLine({
                     invoiceNature: invoice.material_description_type || invoice.materialDescriptionType || '',
@@ -463,6 +498,16 @@ function InvoiceEntry() {
               freightInvoiceNo: invoice.freight_invoice_no || invoice.freightInvoiceNo || '',
               freightRate: invoice.freight_rate || invoice.freightRate || '',
               freightValue: invoice.freight_value || invoice.freightValue || '',
+              taxType: coerceInvoiceTaxType(
+                invoice.tax_type ||
+                  invoice.taxType ||
+                  inferTaxTypeFromRates({
+                    igstRate: invoice.igst_rate || invoice.igstRate || '',
+                    cgstRate: invoice.cgst_rate || invoice.cgstRate || '',
+                    sgstRate: invoice.sgst_rate || invoice.sgstRate || '',
+                    ugstRate: invoice.ugst_rate || invoice.ugstRate || '',
+                  }),
+              ),
               sgstRate: invoice.sgst_rate || invoice.sgstRate || '',
               cgstRate: invoice.cgst_rate || invoice.cgstRate || '',
               igstRate: invoice.igst_rate || invoice.igstRate || '',
@@ -517,6 +562,29 @@ function InvoiceEntry() {
     if (str && /^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10)
     const d = new Date(val)
     return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
+  }
+
+  const inferTaxTypeFromRates = (rates) => {
+    const igst = parseFloat(rates?.igstRate || 0) || 0
+    const cgst = parseFloat(rates?.cgstRate || 0) || 0
+    const sgst = parseFloat(rates?.sgstRate || 0) || 0
+    const ugst = parseFloat(rates?.ugstRate || 0) || 0
+    if (ugst > 0 && igst <= 0 && cgst <= 0 && sgst <= 0) return 'UGST'
+    if (cgst > 0 || sgst > 0) return 'SGST & CGST'
+    if (igst > 0) return 'IGST'
+    return 'IGST'
+  }
+
+  const normalizeTaxRatesByType = (fd) => {
+    let taxType = coerceInvoiceTaxType(String(fd.taxType || inferTaxTypeFromRates(fd) || 'IGST'))
+    const igstRate = String(fd.igstRate || '').trim()
+    const cgstRate = String(fd.cgstRate || '').trim()
+    const sgstRate = String(fd.sgstRate || '').trim()
+    const ugstRate = String(fd.ugstRate || '').trim()
+
+    if (taxType === 'IGST') return { ...fd, taxType, igstRate, cgstRate: '0', sgstRate: '0', ugstRate: '0' }
+    if (taxType === 'UGST') return { ...fd, taxType, ugstRate, igstRate: '0', cgstRate: '0', sgstRate: '0' }
+    return { ...fd, taxType: 'SGST & CGST', sgstRate, cgstRate, igstRate: '0', ugstRate: '0' }
   }
 
   const invoiceNumberPrefix = useMemo(
@@ -624,7 +692,7 @@ function InvoiceEntry() {
 
   const handleMaterialLineBoqChange = (lineId, boqItemId) => {
     if (!boqItemId) {
-      updateMaterialLine(lineId, { boqItemId: '', description: '', qty: '', unit: '', unitPrice: '' })
+      updateMaterialLine(lineId, { boqItemId: '', description: '', qty: '', unit: '', unitPrice: '', freight: '' })
       return
     }
     const bi = poBoqItems.find((b) => String(b.id) === String(boqItemId))
@@ -642,6 +710,7 @@ function InvoiceEntry() {
       qty: qtyRaw !== '' && qtyRaw != null ? String(qtyRaw) : '',
       unit: u !== '' ? String(u) : '',
       unitPrice: rate !== '' && rate != null ? String(rate) : '',
+      freight: bi.freight != null && bi.freight !== '' ? String(bi.freight) : '',
     })
   }
 
@@ -653,6 +722,7 @@ function InvoiceEntry() {
       qty: '',
       unit: '',
       unitPrice: '',
+      freight: '',
     })
   }
 
@@ -677,6 +747,7 @@ function InvoiceEntry() {
         currency: 'INR',
         paymentTermsId: '',
         paymentTerms: '',
+        paymentDueRows: [],
         paymentTextId: '',
         paymentText: '',
         materialDescriptionType: '',
@@ -684,6 +755,7 @@ function InvoiceEntry() {
         qty: '',
         unit: '',
         basicRate: '',
+        taxType: 'IGST',
         consigneeId: '',
         consigneeNameAddress: '',
         consigneeCity: '',
@@ -717,6 +789,7 @@ function InvoiceEntry() {
         poCurrency: fd.poCurrency ?? raw.currency ?? 'INR',
         paymentTermsId: fd.paymentTermsId ?? raw.payment_terms_id ?? '',
         poPaymentTerms: fd.poPaymentTerms ?? raw.payment_terms ?? '',
+        paymentDueRows: Array.isArray(fd.paymentDueRows) ? fd.paymentDueRows : [],
       }
 
       const customer = customers.find((c) => c.id === poEntry.customerId)
@@ -745,6 +818,14 @@ function InvoiceEntry() {
         normalizeInvoiceUnit(String(boqUnitRaw)) ||
         (UNITS.includes(String(boqUnitRaw).trim()) ? String(boqUnitRaw).trim() : String(boqUnitRaw).trim())
       const boqRate = firstBoq?.unitPrice ?? firstBoq?.basicRate ?? ''
+      const boqGST = firstBoq?.gstPercent ?? firstBoq?.gst ?? ''
+      const normalizedTax = normalizeTaxRatesByType({
+        taxType: coerceInvoiceTaxType(formData.taxType || 'IGST'),
+        igstRate: boqGST !== '' && boqGST != null ? String(boqGST) : formData.igstRate,
+        cgstRate: formData.cgstRate,
+        sgstRate: formData.sgstRate,
+        ugstRate: formData.ugstRate,
+      })
       const poDateValue = poEntry.poDate || formatDateForInput(raw.issue_date) || formatDateForInput(raw.poDate) || ''
 
       const firstMaterialLine = firstBoq
@@ -757,6 +838,8 @@ function InvoiceEntry() {
             qty: qtyStr,
             unit: (boqUnit && (UNITS.includes(boqUnit) || boqUnit === 'Other')) ? boqUnit : String(boqUnitRaw || ''),
             unitPrice: boqRate !== '' && boqRate != null ? String(boqRate) : '',
+            freight: firstBoq?.freight != null && firstBoq?.freight !== '' ? String(firstBoq.freight) : '',
+            taxType: normalizedTax.taxType,
           }
         : createEmptyMaterialLine({ stateOfSupply: supplyState })
 
@@ -779,6 +862,7 @@ function InvoiceEntry() {
         currency: poEntry.poCurrency || 'INR',
         paymentTermsId: poEntry.paymentTermsId || '',
         paymentTerms: paymentTermsDesc,
+        paymentDueRows: poEntry.paymentDueRows,
         paymentTextId: poEntry.paymentTermsId || '',
         paymentText: paymentTermsDesc,
         materialDescriptionType: invoiceNature || formData.materialDescriptionType,
@@ -788,6 +872,11 @@ function InvoiceEntry() {
           ? ((boqUnit && (UNITS.includes(boqUnit) || boqUnit === 'Other')) ? boqUnit : (formData.unit || String(boqUnitRaw || '')))
           : formData.unit,
         basicRate: boqRate !== '' && boqRate != null ? String(boqRate) : formData.basicRate,
+        taxType: normalizedTax.taxType,
+        igstRate: normalizedTax.igstRate,
+        cgstRate: normalizedTax.cgstRate,
+        sgstRate: normalizedTax.sgstRate,
+        ugstRate: normalizedTax.ugstRate,
       }
 
       if (customer) {
@@ -823,60 +912,135 @@ function InvoiceEntry() {
     }
   }
   
-  const calculatedValues = useMemo(() => {
+  const materialTableCalculations = useMemo(() => {
     const lines = Array.isArray(formData.materialLines) ? formData.materialLines : []
+    const rawSgst = parseFloat(formData.sgstRate) || 0
+    const rawCgst = parseFloat(formData.cgstRate) || 0
+    const rawUgst = parseFloat(formData.ugstRate) || 0
+    const rawIgst = parseFloat(formData.igstRate) || 0
+
+    const byLineId = {}
     let totalQty = 0
     let totalBasic = 0
+    let totalFreight = 0
+    let totalTax = 0
+    let sgstValue = 0
+    let cgstValue = 0
+    let ugstValue = 0
+    let igstValue = 0
+
     for (const line of lines) {
       const q = parseFloat(line.qty) || 0
-      const r = parseFloat(line.unitPrice) || 0
+      const unitPrice = parseFloat(line.unitPrice) || 0
+      const freight = parseFloat(line.freight) || 0
+      const basic = q * unitPrice
+      const taxable = basic + freight
+      const taxType = coerceInvoiceTaxType(line.taxType || formData.taxType)
+
+      let taxAmount = 0
+      if (taxType === 'IGST') {
+        taxAmount = taxable * (rawIgst / 100)
+        igstValue += taxAmount
+      } else if (taxType === 'SGST & CGST') {
+        let effS = rawSgst
+        let effC = rawCgst
+        if (effS <= 0 && effC <= 0 && rawIgst > 0) {
+          effS = rawIgst / 2
+          effC = rawIgst / 2
+        }
+        const combined = effS + effC
+        taxAmount = taxable * (combined / 100)
+        if (combined > 0) {
+          sgstValue += taxAmount * (effS / combined)
+          cgstValue += taxAmount * (effC / combined)
+        } else {
+          sgstValue += taxAmount / 2
+          cgstValue += taxAmount / 2
+        }
+      } else if (taxType === 'UGST') {
+        const effRate = rawUgst / 2
+        taxAmount = taxable * (effRate / 100)
+        ugstValue += taxAmount
+      }
+
+      const total = taxable + taxAmount
+
       totalQty += q
-      totalBasic += q * r
+      totalBasic += basic
+      totalFreight += freight
+      totalTax += taxAmount
+
+      byLineId[line.id] = {
+        basic,
+        taxAmount,
+        total,
+      }
     }
+
+    const subtotal = totalBasic + totalFreight
+    const totalInvoiceValue = subtotal + totalTax
     const avgRate = totalQty > 0 ? totalBasic / totalQty : 0
-    const useAgg = lines.some((l) => String(l.qty || '').trim() !== '' && String(l.unitPrice || '').trim() !== '')
-    const fd = {
-      ...formData,
-      qty: useAgg ? String(totalQty) : formData.qty,
-      basicRate: useAgg ? String(avgRate) : formData.basicRate,
+
+    return {
+      byLineId,
+      qty: totalQty,
+      basicRate: avgRate,
+      basicValue: totalBasic,
+      freightValue: totalFreight,
+      sgstValue,
+      cgstValue,
+      igstValue,
+      ugstValue,
+      totalGST: totalTax,
+      subtotal,
+      totalInvoiceValue,
     }
-    return invoiceService.calculateInvoiceValues(fd)
-  }, [
-    formData.materialLines,
-    formData.basicRate,
-    formData.qty,
-    formData.freightRate,
-    formData.sgstRate,
-    formData.cgstRate,
-    formData.igstRate,
-    formData.ugstRate,
-  ])
+  }, [formData.materialLines, formData.taxType, formData.sgstRate, formData.cgstRate, formData.ugstRate, formData.igstRate])
+
+  const calculatedValues = useMemo(() => {
+    const hasTabularRows = (Array.isArray(formData.materialLines) ? formData.materialLines : []).some(
+      (line) => String(line.qty || '').trim() !== '' || String(line.unitPrice || '').trim() !== '' || String(line.description || '').trim() !== '',
+    )
+    if (!hasTabularRows) {
+      return invoiceService.calculateInvoiceValues(normalizeTaxRatesByType(formData))
+    }
+    const normalizedTaxForm = normalizeTaxRatesByType(formData)
+    const tt = coerceInvoiceTaxType(normalizedTaxForm.taxType)
+    const sgstValue = tt === 'SGST & CGST' ? materialTableCalculations.sgstValue : 0
+    const cgstValue = tt === 'SGST & CGST' ? materialTableCalculations.cgstValue : 0
+    const igstValue = tt === 'IGST' ? materialTableCalculations.igstValue : 0
+    const ugstValue = tt === 'UGST' ? materialTableCalculations.ugstValue : 0
+    return {
+      basicValue: materialTableCalculations.basicValue.toFixed(2),
+      freightValue: materialTableCalculations.freightValue.toFixed(2),
+      sgstValue: sgstValue.toFixed(2),
+      cgstValue: cgstValue.toFixed(2),
+      igstValue: igstValue.toFixed(2),
+      ugstValue: ugstValue.toFixed(2),
+      totalGST: materialTableCalculations.totalGST.toFixed(2),
+      subtotal: materialTableCalculations.subtotal.toFixed(2),
+      totalInvoiceValue: materialTableCalculations.totalInvoiceValue.toFixed(2),
+    }
+  }, [formData, materialTableCalculations])
 
   const materialAggregateDisplay = useMemo(() => {
-    const lines = Array.isArray(formData.materialLines) ? formData.materialLines : []
-    let totalQty = 0
-    let totalBasic = 0
-    for (const line of lines) {
-      const q = parseFloat(line.qty) || 0
-      const r = parseFloat(line.unitPrice) || 0
-      totalQty += q
-      totalBasic += q * r
-    }
-    const avgRate = totalQty > 0 ? totalBasic / totalQty : 0
-    const useAgg = lines.some((l) => String(l.qty || '').trim() !== '')
+    const useAgg = (Array.isArray(formData.materialLines) ? formData.materialLines : []).some(
+      (line) => String(line.qty || '').trim() !== '' || String(line.unitPrice || '').trim() !== '',
+    )
     return {
-      qty: useAgg ? String(totalQty) : formData.qty,
-      basicRate: useAgg ? String(avgRate.toFixed(4)) : formData.basicRate,
+      qty: useAgg ? String(materialTableCalculations.qty) : formData.qty,
+      basicRate: useAgg ? String(materialTableCalculations.basicRate.toFixed(4)) : formData.basicRate,
     }
-  }, [formData.materialLines, formData.qty, formData.basicRate])
+  }, [formData.materialLines, formData.qty, formData.basicRate, materialTableCalculations])
   
   const dueCalculations = useMemo(() => {
     return invoiceService.calculateDueDates(
       formData.gstTaxInvoiceDate || new Date().toISOString().split('T')[0],
       formData.paymentTerms,
-      calculatedValues.totalInvoiceValue
+      calculatedValues.totalInvoiceValue,
+      formData.paymentDueRows
     )
-  }, [formData.gstTaxInvoiceDate, formData.paymentTerms, calculatedValues.totalInvoiceValue])
+  }, [formData.gstTaxInvoiceDate, formData.paymentTerms, calculatedValues.totalInvoiceValue, formData.paymentDueRows])
   
   const calculateDueStage = (dueDate, dueAmount, receivedAmount, receiptDate) => {
     if (!dueDate || !dueAmount) {
@@ -975,6 +1139,35 @@ function InvoiceEntry() {
     const { name, value } = e.target
     if (name === 'keyID') {
       handleKeyIDChange(e)
+      return
+    }
+    if (name === 'taxType') {
+      const next = coerceInvoiceTaxType(value)
+      setFormData((prev) => {
+        const lines = (Array.isArray(prev.materialLines) ? prev.materialLines : []).map((l) => ({
+          ...l,
+          taxType: next,
+        }))
+        const patch = { ...prev, taxType: next, materialLines: lines }
+        if (next === 'SGST & CGST') {
+          const ig = parseFloat(prev.igstRate) || 0
+          const sg = parseFloat(prev.sgstRate) || 0
+          const cg = parseFloat(prev.cgstRate) || 0
+          if (ig > 0 && sg <= 0 && cg <= 0) {
+            patch.sgstRate = String(ig / 2)
+            patch.cgstRate = String(ig / 2)
+            patch.igstRate = ''
+          }
+        } else if (next === 'UGST') {
+          const ug = parseFloat(prev.ugstRate) || 0
+          const ig = parseFloat(prev.igstRate) || 0
+          if (ug <= 0 && ig > 0) {
+            patch.ugstRate = String(prev.igstRate)
+            patch.igstRate = ''
+          }
+        }
+        return patch
+      })
       return
     }
     setFormData((prev) => ({ ...prev, [name]: value }))
@@ -1126,7 +1319,7 @@ function InvoiceEntry() {
       
       materialDescriptionType: prev.materialDescriptionType || 'Supply',
       materialLines: Array.isArray(prev.materialLines) && prev.materialLines.some((l) => String(l.qty || '').trim())
-        ? prev.materialLines
+        ? prev.materialLines.map((l) => ({ ...l, taxType: 'IGST' }))
         : [
             createEmptyMaterialLine({
               invoiceNature: 'Supply',
@@ -1135,6 +1328,7 @@ function InvoiceEntry() {
               qty: '100',
               unit: 'MT',
               unitPrice: '50000',
+              taxType: 'IGST',
             }),
           ],
       stateOfSupply: prev.stateOfSupply || 'Maharashtra',
@@ -1144,10 +1338,11 @@ function InvoiceEntry() {
       basicRate: prev.basicRate || '50000',
       freightInvoiceNo: prev.freightInvoiceNo || 'FRT/2025-26/001',
       freightRate: prev.freightRate || '5000',
-      sgstRate: prev.sgstRate || '9',
-      cgstRate: prev.cgstRate || '9',
+      taxType: 'IGST',
+      sgstRate: '',
+      cgstRate: '',
       igstRate: prev.igstRate || '18',
-      ugstRate: prev.ugstRate || '0',
+      ugstRate: '',
       tcs: prev.tcs || '0',
       
       consigneeNameAddress: prev.consigneeNameAddress || 'ABC Logistics Solutions\n123 Warehouse Complex, Industrial Estate\nMumbai, Maharashtra',
@@ -1376,6 +1571,8 @@ function InvoiceEntry() {
     const value = displayData[fieldName] || formData[fieldName] || ''
     
     if (type === FIELD_TYPES.DROPDOWN) {
+      const selectValue =
+        fieldName === 'taxType' ? coerceInvoiceTaxType(formData[fieldName]) : formData[fieldName] || ''
       return (
         <div className="invoice-entry-field" key={fieldName}>
           <label htmlFor={fieldName} className="invoice-entry-label">
@@ -1384,18 +1581,23 @@ function InvoiceEntry() {
           <select
             id={fieldName}
             name={fieldName}
-            value={formData[fieldName] || ''}
+            value={selectValue}
             onChange={handleChange}
             className="invoice-entry-select"
             required={required}
             disabled={isReadOnly}
           >
-            <option value="">Select {label}</option>
-            {options.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
+            {fieldName !== 'taxType' && <option value="">Select {label}</option>}
+            {options.map((opt) => {
+              const v = typeof opt === 'object' && opt !== null && 'value' in opt ? opt.value : opt
+              const lab =
+                typeof opt === 'object' && opt !== null && 'label' in opt ? opt.label : String(opt)
+              return (
+                <option key={String(v)} value={String(v)}>
+                  {lab}
+                </option>
+              )
+            })}
           </select>
           {formData[fieldName] === 'Other' && (
             <input
@@ -1626,151 +1828,201 @@ function InvoiceEntry() {
               Choose a Key ID (PO) above to load BOQ lines for Select description.
             </p>
           )}
-          <div className="invoice-entry-material-lines">
-            {(Array.isArray(formData.materialLines) ? formData.materialLines : []).map((line, lineIndex) => {
-              const filteredBoq = poBoqItems.filter((b) => {
-                if (!line.invoiceNature) return false
-                const h = String(b.boqHeader || '').trim().toLowerCase()
-                const n = String(line.invoiceNature).trim().toLowerCase()
-                return h === n
-              })
-              return (
-                <div key={line.id} className="invoice-entry-material-line-card">
-                  <div className="invoice-entry-material-line-head">
-                    <span className="invoice-entry-material-line-index">Line {lineIndex + 1}</span>
-                    {(formData.materialLines || []).length > 1 && !isViewMode && (
-                      <button
-                        type="button"
-                        className="invoice-entry-material-line-remove"
-                        onClick={() => removeMaterialLine(line.id)}
-                        aria-label={`Remove line ${lineIndex + 1}`}
-                      >
-                        <Trash2 size={16} aria-hidden />
-                      </button>
-                    )}
-                  </div>
-                  <div className="invoice-entry-form-grid">
-                    <div className="invoice-entry-field">
-                      <label className="invoice-entry-label" htmlFor={`invNature-${line.id}`}>
-                        Invoice nature
-                      </label>
-                      <select
-                        id={`invNature-${line.id}`}
-                        className="invoice-entry-select"
-                        value={line.invoiceNature || ''}
-                        onChange={(e) => handleMaterialLineNatureChange(line.id, e.target.value)}
-                        disabled={isViewMode}
-                      >
-                        <option value="">Select invoice nature</option>
-                        {INVOICE_NATURE_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="invoice-entry-field">
-                      <label className="invoice-entry-label" htmlFor={`stateSupply-${line.id}`}>
-                        State of supply
-                      </label>
-                      <select
-                        id={`stateSupply-${line.id}`}
-                        className="invoice-entry-select"
-                        value={line.stateOfSupply || ''}
-                        onChange={(e) => updateMaterialLine(line.id, { stateOfSupply: e.target.value })}
-                        disabled={isViewMode}
-                      >
-                        <option value="">Select state</option>
-                        {INDIA_STATES.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="invoice-entry-field invoice-entry-field-full">
-                      <label className="invoice-entry-label" htmlFor={`boqDesc-${line.id}`}>
-                        Select description (from PO BOQ)
-                      </label>
-                      <select
-                        id={`boqDesc-${line.id}`}
-                        className="invoice-entry-select"
-                        value={line.boqItemId || ''}
-                        onChange={(e) => handleMaterialLineBoqChange(line.id, e.target.value)}
-                        disabled={isViewMode || !line.invoiceNature || !formData.keyID}
-                      >
-                        <option value="">
-                          {!formData.keyID
-                            ? 'Select Key ID (PO) first'
-                            : !line.invoiceNature
-                              ? 'Select invoice nature first'
-                              : filteredBoq.length === 0
-                                ? 'No BOQ rows for this nature'
-                                : 'Select BOQ line'}
-                        </option>
-                        {filteredBoq.map((b) => {
-                          const label = String(b.materialDescription || b.description || 'Item').trim() || `BOQ #${b.id}`
-                          return (
-                            <option key={b.id} value={String(b.id)}>
-                              {label.length > 120 ? `${label.slice(0, 120)}…` : label}
+          <div className="invoice-entry-index-table-wrapper">
+            <table className="invoice-entry-index-table">
+              <thead>
+                <tr>
+                  <th>Invoice Nature</th>
+                  <th>State of Supply</th>
+                  <th>Item Description</th>
+                  <th>Qty</th>
+                  <th>UOM</th>
+                  <th>Unit Price</th>
+                  <th>Total Basic Amount</th>
+                  <th>Tax Type</th>
+                  <th>Tax Amount</th>
+                  <th>Freight</th>
+                  <th>Total Amount</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(Array.isArray(formData.materialLines) ? formData.materialLines : []).map((line, lineIndex) => {
+                  const filteredBoq = poBoqItems.filter((b) => {
+                    if (!line.invoiceNature) return false
+                    const h = String(b.boqHeader || '').trim().toLowerCase()
+                    const n = String(line.invoiceNature).trim().toLowerCase()
+                    return h === n
+                  })
+                  const lineCalc = materialTableCalculations.byLineId[line.id] || { basic: 0, taxAmount: 0, total: 0 }
+                  return (
+                    <tr key={line.id}>
+                      <td>
+                        <select
+                          id={`invNature-${line.id}`}
+                          className="invoice-entry-select"
+                          value={line.invoiceNature || ''}
+                          onChange={(e) => handleMaterialLineNatureChange(line.id, e.target.value)}
+                          disabled={isViewMode}
+                        >
+                          <option value="">Select</option>
+                          {INVOICE_NATURE_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
                             </option>
-                          )
-                        })}
-                      </select>
-                    </div>
-                    <div className="invoice-entry-field">
-                      <label className="invoice-entry-label" htmlFor={`qty-${line.id}`}>
-                        Qty
-                      </label>
-                      <input
-                        id={`qty-${line.id}`}
-                        type="number"
-                        className="invoice-entry-input"
-                        value={line.qty ?? ''}
-                        onChange={(e) => updateMaterialLine(line.id, { qty: e.target.value })}
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0"
-                        disabled={isViewMode}
-                      />
-                    </div>
-                    <div className="invoice-entry-field">
-                      <label className="invoice-entry-label" htmlFor={`unit-${line.id}`}>
-                        Unit
-                      </label>
-                      <select
-                        id={`unit-${line.id}`}
-                        className="invoice-entry-select"
-                        value={line.unit || ''}
-                        onChange={(e) => updateMaterialLine(line.id, { unit: e.target.value })}
-                        disabled={isViewMode}
-                      >
-                        <option value="">Select unit</option>
-                        {invoiceUnitSelectOptions.map((u) => (
-                          <option key={u} value={u}>
-                            {u}
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          id={`stateSupply-${line.id}`}
+                          className="invoice-entry-select"
+                          value={line.stateOfSupply || ''}
+                          onChange={(e) => updateMaterialLine(line.id, { stateOfSupply: e.target.value })}
+                          disabled={isViewMode}
+                        >
+                          <option value="">Select</option>
+                          {INDIA_STATES.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          id={`boqDesc-${line.id}`}
+                          className="invoice-entry-select"
+                          value={line.boqItemId || ''}
+                          onChange={(e) => handleMaterialLineBoqChange(line.id, e.target.value)}
+                          disabled={isViewMode || !line.invoiceNature || !formData.keyID}
+                        >
+                          <option value="">
+                            {!formData.keyID
+                              ? 'Select Key ID first'
+                              : !line.invoiceNature
+                                ? 'Select nature first'
+                                : filteredBoq.length === 0
+                                  ? 'No BOQ rows'
+                                  : 'Select BOQ line'}
                           </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="invoice-entry-field">
-                      <label className="invoice-entry-label" htmlFor={`unitPrice-${line.id}`}>
-                        Unit price (from PO)
-                      </label>
-                      <input
-                        id={`unitPrice-${line.id}`}
-                        type="text"
-                        className="invoice-entry-input invoice-entry-input-readonly"
-                        readOnly
-                        tabIndex={-1}
-                        value={line.unitPrice ?? ''}
-                        aria-label="Unit price from PO"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+                          {filteredBoq.map((b) => {
+                            const label = String(b.materialDescription || b.description || 'Item').trim() || `BOQ #${b.id}`
+                            return (
+                              <option key={b.id} value={String(b.id)}>
+                                {label.length > 120 ? `${label.slice(0, 120)}...` : label}
+                              </option>
+                            )
+                          })}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          id={`qty-${line.id}`}
+                          type="number"
+                          className="invoice-entry-input"
+                          value={line.qty ?? ''}
+                          onChange={(e) => updateMaterialLine(line.id, { qty: e.target.value })}
+                          placeholder="0.00"
+                          step="0.01"
+                          min="0"
+                          disabled={isViewMode}
+                        />
+                      </td>
+                      <td>
+                        <select
+                          id={`unit-${line.id}`}
+                          className="invoice-entry-select"
+                          value={line.unit || ''}
+                          onChange={(e) => updateMaterialLine(line.id, { unit: e.target.value })}
+                          disabled={isViewMode}
+                        >
+                          <option value="">Select</option>
+                          {invoiceUnitSelectOptions.map((u) => (
+                            <option key={u} value={u}>
+                              {u}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          id={`unitPrice-${line.id}`}
+                          type="text"
+                          className="invoice-entry-input invoice-entry-input-readonly"
+                          readOnly
+                          tabIndex={-1}
+                          value={line.unitPrice ?? ''}
+                          aria-label="Unit price from PO"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="invoice-entry-input invoice-entry-input-calculated"
+                          value={lineCalc.basic.toFixed(2)}
+                          readOnly
+                        />
+                      </td>
+                      <td>
+                        <select
+                          className="invoice-entry-select"
+                          value={coerceInvoiceTaxType(line.taxType || formData.taxType)}
+                          onChange={(e) => updateMaterialLine(line.id, { taxType: coerceInvoiceTaxType(e.target.value) })}
+                          disabled={isViewMode}
+                        >
+                          {INVOICE_TAX_TYPE_OPTIONS.map(({ value: v, label: lab }) => (
+                            <option key={v} value={v}>
+                              {lab}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="invoice-entry-input invoice-entry-input-calculated"
+                          value={lineCalc.taxAmount.toFixed(2)}
+                          readOnly
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          className="invoice-entry-input"
+                          value={line.freight ?? ''}
+                          onChange={(e) => updateMaterialLine(line.id, { freight: e.target.value })}
+                          placeholder="0.00"
+                          step="0.01"
+                          min="0"
+                          disabled={isViewMode}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="invoice-entry-input invoice-entry-input-calculated"
+                          value={lineCalc.total.toFixed(2)}
+                          readOnly
+                        />
+                      </td>
+                      <td>
+                        {(formData.materialLines || []).length > 1 && !isViewMode && (
+                          <button
+                            type="button"
+                            className="invoice-entry-material-line-remove"
+                            onClick={() => removeMaterialLine(line.id)}
+                            aria-label={`Remove line ${lineIndex + 1}`}
+                          >
+                            <Trash2 size={16} aria-hidden />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -1786,14 +2038,29 @@ function InvoiceEntry() {
             {renderField('freightInvoiceNo', 'Freight Invoice No', FIELD_TYPES.MANUAL)}
             {renderField('freightRate', 'Freight Rate', FIELD_TYPES.MANUAL, [], '0.00')}
             {renderField('freightValue', 'Freight Value (Freight Rate × Qty)', FIELD_TYPES.CALCULATED)}
-            {renderField('sgstRate', 'SGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
-            {renderField('cgstRate', 'CGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
-            {renderField('igstRate', 'IGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
-            {renderField('ugstRate', 'UGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
-            {renderField('sgstOutput', 'SGST Output', FIELD_TYPES.CALCULATED)}
-            {renderField('cgstOutput', 'CGST Output', FIELD_TYPES.CALCULATED)}
-            {renderField('igstOutput', 'IGST Output', FIELD_TYPES.CALCULATED)}
-            {renderField('ugstOutput', 'UGST Output', FIELD_TYPES.CALCULATED)}
+            {renderField('taxType', 'Tax Type', FIELD_TYPES.DROPDOWN, INVOICE_TAX_TYPE_OPTIONS)}
+            {coerceInvoiceTaxType(formData.taxType) === 'SGST & CGST' &&
+              renderField('sgstRate', 'SGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
+            {coerceInvoiceTaxType(formData.taxType) === 'SGST & CGST' &&
+              renderField('cgstRate', 'CGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
+            {coerceInvoiceTaxType(formData.taxType) === 'IGST' &&
+              renderField('igstRate', 'IGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
+            {coerceInvoiceTaxType(formData.taxType) === 'UGST' && (
+              <>
+                {renderField('ugstRate', 'UGST Rate (%)', FIELD_TYPES.MANUAL, [], '0.00')}
+                <p className="invoice-entry-hint" style={{ gridColumn: '1 / -1', margin: '-6px 0 0 0' }}>
+                  Tax amount uses 50% of this rate on taxable value (e.g. 18% entered → 9% applied).
+                </p>
+              </>
+            )}
+            {coerceInvoiceTaxType(formData.taxType) === 'SGST & CGST' &&
+              renderField('sgstOutput', 'SGST Output', FIELD_TYPES.CALCULATED)}
+            {coerceInvoiceTaxType(formData.taxType) === 'SGST & CGST' &&
+              renderField('cgstOutput', 'CGST Output', FIELD_TYPES.CALCULATED)}
+            {coerceInvoiceTaxType(formData.taxType) === 'IGST' &&
+              renderField('igstOutput', 'IGST Output', FIELD_TYPES.CALCULATED)}
+            {coerceInvoiceTaxType(formData.taxType) === 'UGST' &&
+              renderField('ugstOutput', 'UGST Output', FIELD_TYPES.CALCULATED)}
             {renderField('totalGST', 'Total GST', FIELD_TYPES.CALCULATED)}
             {renderField('tcs', 'TCS', FIELD_TYPES.MANUAL, [], '0.00')}
             {renderField('subtotal', 'SubTotal', FIELD_TYPES.CALCULATED)}
@@ -2230,10 +2497,11 @@ function InvoiceEntry() {
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() => {
-                              setHiddenFieldKeys((prev) => (
-                                checked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
-                              ))
+                            onChange={(e) => {
+                              const show = e.target.checked
+                              setHiddenFieldKeys((prev) =>
+                                show ? prev.filter((k) => k !== field.key) : prev.includes(field.key) ? prev : [...prev, field.key]
+                              )
                             }}
                           />
                         </td>

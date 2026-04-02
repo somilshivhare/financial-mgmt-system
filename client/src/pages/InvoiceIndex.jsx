@@ -20,7 +20,8 @@ function InvoiceIndex() {
   const [poNumberFilter, setPoNumberFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [showFilters, setShowFilters] = useState(true)
+  const [showFilters, setShowFilters] = useState(false)
+  const [datePreset, setDatePreset] = useState('')
 
   const normalizeInvoiceRow = (inv) => (inv && typeof inv === 'object' ? { ...inv } : inv)
 
@@ -153,6 +154,30 @@ function InvoiceIndex() {
     return filtered
   }, [invoices, searchQuery, statusFilter, poNumberFilter, dateFrom, dateTo])
 
+  const applyDatePreset = (preset) => {
+    const toISO = (d) => d.toISOString().split('T')[0]
+    const today = new Date()
+    const end = toISO(today)
+    let start = ''
+    if (preset === 'today') {
+      start = end
+    } else if (preset === 'last7') {
+      const d = new Date(today)
+      d.setDate(d.getDate() - 6)
+      start = toISO(d)
+    } else if (preset === 'last30') {
+      const d = new Date(today)
+      d.setDate(d.getDate() - 29)
+      start = toISO(d)
+    } else if (preset === 'thisMonth') {
+      const d = new Date(today.getFullYear(), today.getMonth(), 1)
+      start = toISO(d)
+    }
+    setDatePreset(preset)
+    setDateFrom(start)
+    setDateTo(end)
+  }
+
   const handleDelete = async (invoiceId) => {
     const confirmed = await confirm({
       title: 'Delete invoice?',
@@ -191,6 +216,7 @@ function InvoiceIndex() {
     setPoNumberFilter('')
     setDateFrom('')
     setDateTo('')
+    setDatePreset('')
   }
 
   const hasActiveFilters = searchQuery || statusFilter || poNumberFilter || dateFrom || dateTo
@@ -242,6 +268,44 @@ function InvoiceIndex() {
           <Filter className="invoice-entry-index-filter-icon" />
           <span>Filters</span>
           {hasActiveFilters && <span className="invoice-entry-index-filter-badge">{[searchQuery, statusFilter, poNumberFilter, dateFrom, dateTo].filter(Boolean).length}</span>}
+        </button>
+      </div>
+
+      <div className="invoice-entry-index-quick-filters">
+        <button
+          type="button"
+          className={`invoice-entry-index-pill ${statusFilter === '' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('')}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          className={`invoice-entry-index-pill ${statusFilter === 'open' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('open')}
+        >
+          Open / Draft
+        </button>
+        <button
+          type="button"
+          className={`invoice-entry-index-pill ${statusFilter === 'posted' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('posted')}
+        >
+          Posted / Active
+        </button>
+        <button
+          type="button"
+          className={`invoice-entry-index-pill ${statusFilter === 'paid' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('paid')}
+        >
+          Paid / Closed
+        </button>
+        <button
+          type="button"
+          className={`invoice-entry-index-pill ${statusFilter === 'cancelled' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('cancelled')}
+        >
+          Cancelled / Rejected
         </button>
       </div>
 
@@ -318,6 +382,27 @@ function InvoiceIndex() {
               minDate={dateFrom || undefined}
             />
           </div>
+
+          <div className="invoice-entry-index-filter-group invoice-entry-index-filter-group-full">
+            <label className="invoice-entry-index-filter-label">Date presets</label>
+            <div className="invoice-entry-index-date-presets">
+              <button type="button" className={`invoice-entry-index-pill ${datePreset === 'today' ? 'active' : ''}`} onClick={() => applyDatePreset('today')}>Today</button>
+              <button type="button" className={`invoice-entry-index-pill ${datePreset === 'last7' ? 'active' : ''}`} onClick={() => applyDatePreset('last7')}>Last 7 days</button>
+              <button type="button" className={`invoice-entry-index-pill ${datePreset === 'last30' ? 'active' : ''}`} onClick={() => applyDatePreset('last30')}>Last 30 days</button>
+              <button type="button" className={`invoice-entry-index-pill ${datePreset === 'thisMonth' ? 'active' : ''}`} onClick={() => applyDatePreset('thisMonth')}>This month</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hasActiveFilters && (
+        <div className="invoice-entry-index-active-filters">
+          <span className="invoice-entry-index-active-title">Active filters:</span>
+          {searchQuery && <span className="invoice-entry-index-active-chip">Search: {searchQuery}</span>}
+          {statusFilter && <span className="invoice-entry-index-active-chip">Status: {statusFilter}</span>}
+          {poNumberFilter && <span className="invoice-entry-index-active-chip">PO: {poNumberFilter}</span>}
+          {dateFrom && <span className="invoice-entry-index-active-chip">From: {dateFrom}</span>}
+          {dateTo && <span className="invoice-entry-index-active-chip">To: {dateTo}</span>}
         </div>
       )}
 

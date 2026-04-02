@@ -15,6 +15,26 @@ export default function MarketingNavbar() {
     setOpen(false)
   }, [location.pathname])
 
+  // Safety net: always clear any stale body/html scroll locks on route changes.
+  useEffect(() => {
+    document.body.style.overflow = ''
+    document.body.style.position = ''
+    document.body.style.top = ''
+    document.body.style.left = ''
+    document.body.style.right = ''
+    document.body.style.width = ''
+    document.documentElement.style.touchAction = ''
+    return () => {
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.width = ''
+      document.documentElement.style.touchAction = ''
+    }
+  }, [location.pathname])
+
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth > 980 && open) {

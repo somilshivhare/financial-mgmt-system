@@ -1076,10 +1076,52 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: var(--space-3);
   margin-top: var(--space-8);
   padding-top: var(--space-6);
   border-top: 1px solid var(--color-border-light);
+}
+
+/* Footer actions: match confirm-dialog (outlined secondary + solid primary, rounded) */
+.md-form-actions .md-form-button {
+  height: 42px;
+  min-height: 42px;
+  padding: 0 var(--space-5);
+  border-radius: 12px;
+  font-weight: 700;
+  min-width: 0;
+}
+
+.md-form-actions .md-form-button-secondary {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.md-form-actions .md-form-button-secondary:hover:not(:disabled) {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.md-form-actions .md-form-button-primary {
+  border: 1px solid transparent;
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(15, 76, 129, 0.2);
+}
+
+.md-form-actions .md-form-button-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: transparent;
+  box-shadow: 0 12px 24px rgba(15, 76, 129, 0.25);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.md-form-actions .md-form-button-primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .md-form-button {
@@ -1715,16 +1757,22 @@
   
   .md-header-actions {
     width: 100%;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: nowrap;
     gap: var(--space-2);
-    align-items: stretch;
+    align-items: center;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
   }
   
   .md-btn {
-    width: 100%;
+    width: auto;
     justify-content: center;
     min-height: 40px;
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-3) var(--space-3);
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
   
   .md-filter-card {

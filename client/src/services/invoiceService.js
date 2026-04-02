@@ -119,15 +119,41 @@ export const calculateInvoiceValues = (formData) => {
 
   const freightValue = freightRate * qty
 
-  const sgstRate = parseFloat(formData.sgstRate || 0)
-  const cgstRate = parseFloat(formData.cgstRate || 0)
-  const igstRate = parseFloat(formData.igstRate || 0)
-  const ugstRate = parseFloat(formData.ugstRate || 0)
+  const taxableBase = basicValue + freightValue
 
-  const sgstValue = (basicValue * sgstRate) / 100
-  const cgstValue = (basicValue * cgstRate) / 100
-  const igstValue = (basicValue * igstRate) / 100
-  const ugstValue = (basicValue * ugstRate) / 100
+  const rawTaxType = String(formData.taxType || 'IGST').trim()
+  const taxType =
+    rawTaxType === 'CGST' || rawTaxType === 'SGST' ? 'SGST & CGST' : rawTaxType
+
+  let sgstRate = parseFloat(formData.sgstRate || 0)
+  let cgstRate = parseFloat(formData.cgstRate || 0)
+  let igstRate = parseFloat(formData.igstRate || 0)
+  let ugstRate = parseFloat(formData.ugstRate || 0)
+
+  if (taxType === 'SGST & CGST' && sgstRate <= 0 && cgstRate <= 0 && igstRate > 0) {
+    sgstRate = igstRate / 2
+    cgstRate = igstRate / 2
+    igstRate = 0
+  }
+
+  let sgstValue = 0
+  let cgstValue = 0
+  let igstValue = 0
+  let ugstValue = 0
+
+  if (taxType === 'IGST') {
+    igstValue = (taxableBase * igstRate) / 100
+  } else if (taxType === 'SGST & CGST') {
+    sgstValue = (taxableBase * sgstRate) / 100
+    cgstValue = (taxableBase * cgstRate) / 100
+  } else if (taxType === 'UGST') {
+    ugstValue = (taxableBase * (ugstRate / 2)) / 100
+  } else {
+    sgstValue = (taxableBase * sgstRate) / 100
+    cgstValue = (taxableBase * cgstRate) / 100
+    igstValue = (taxableBase * igstRate) / 100
+    ugstValue = (taxableBase * ugstRate) / 100
+  }
 
   const totalGST = sgstValue + cgstValue + igstValue + ugstValue
 
@@ -148,8 +174,11 @@ export const calculateInvoiceValues = (formData) => {
   }
 }
 
-export const calculateDueDates = (invoiceDate, paymentTerms, totalInvoiceValue) => {
-  if (!invoiceDate || !paymentTerms) {
+export const calculateDueDates = (invoiceDate, paymentTerms, totalInvoiceValue, paymentDueRows = []) => {
+  const matrixRows = Array.isArray(paymentDueRows)
+    ? paymentDueRows.filter((row) => row && String(row.percentage ?? '').trim() !== '')
+    : []
+  if (!invoiceDate || (!paymentTerms && matrixRows.length === 0)) {
     return {
       firstDueDate: '',
       secondDueDate: '',
@@ -162,6 +191,46 @@ export const calculateDueDates = (invoiceDate, paymentTerms, totalInvoiceValue) 
 
   const invoice = new Date(invoiceDate)
   const total = parseFloat(totalInvoiceValue || 0)
+
+  if (matrixRows.length > 0) {
+    const sorted = [...matrixRows].sort((a, b) => {
+      const keyA = String(a.key || '')
+      const keyB = String(b.key || '')
+      const numA = Number.parseInt(keyA.replace(/\D+/g, ''), 10)
+      const numB = Number.parseInt(keyB.replace(/\D+/g, ''), 10)
+      if (Number.isFinite(numA) && Number.isFinite(numB)) return numA - numB
+      return keyA.localeCompare(keyB)
+    })
+    const stageRows = sorted.slice(0, 3)
+    const out = {
+      firstDueDate: '',
+      secondDueDate: '',
+      thirdDueDate: '',
+      firstDueAmount: '0.00',
+      secondDueAmount: '0.00',
+      thirdDueAmount: '0.00',
+    }
+    stageRows.forEach((row, index) => {
+      const pct = parseFloat(row.percentage || 0)
+      const days = parseFloat(row.days || row.dueDays || row.creditDays || 0)
+      const due = new Date(invoice)
+      due.setDate(due.getDate() + (Number.isFinite(days) ? days : 0))
+      const amount = total > 0 ? ((total * (Number.isFinite(pct) ? pct : 0)) / 100).toFixed(2) : '0.00'
+      if (index === 0) {
+        out.firstDueDate = due.toISOString().split('T')[0]
+        out.firstDueAmount = amount
+      }
+      if (index === 1) {
+        out.secondDueDate = due.toISOString().split('T')[0]
+        out.secondDueAmount = amount
+      }
+      if (index === 2) {
+        out.thirdDueDate = due.toISOString().split('T')[0]
+        out.thirdDueAmount = amount
+      }
+    })
+    return out
+  }
 
   let terms = []
 

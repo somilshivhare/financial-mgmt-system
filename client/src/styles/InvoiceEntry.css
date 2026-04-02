@@ -116,9 +116,22 @@
 }
 
 @media (max-width: 767px) {
+  .invoice-entry-header-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .invoice-entry-action-button {
-    width: 100%;
-    min-height: 44px;
+    width: auto;
+    min-height: 40px;
+    flex: 0 0 auto;
+    padding: 0 var(--space-3);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
   }
 }
 
@@ -626,6 +639,38 @@
   flex-wrap: wrap;
 }
 
+.invoice-entry-index-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: var(--space-4);
+}
+
+.invoice-entry-index-pill {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.invoice-entry-index-pill:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(15, 76, 129, 0.06);
+}
+
+.invoice-entry-index-pill.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
 .invoice-entry-index-search-container {
   position: relative;
   flex: 1;
@@ -749,6 +794,16 @@
   margin-bottom: var(--space-4);
   align-items: end;
   box-shadow: var(--shadow-sm);
+}
+
+.invoice-entry-index-filter-group-full {
+  grid-column: 1 / -1;
+}
+
+.invoice-entry-index-date-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .invoice-entry-index-filters-header {
@@ -888,6 +943,33 @@
   color: var(--color-primary-hover);
 }
 
+.invoice-entry-index-active-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: var(--space-4);
+}
+
+.invoice-entry-index-active-title {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+}
+
+.invoice-entry-index-active-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #c7d7e6;
+  background: #eef5fb;
+  color: #17466e;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .invoice-entry-index-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--color-border);
@@ -921,6 +1003,99 @@
   border-bottom: 1px solid var(--color-border-light);
   color: var(--color-text-primary);
   vertical-align: middle;
+}
+
+/* Invoice material table readability improvements */
+.invoice-entry-section .invoice-entry-index-table {
+  min-width: 1650px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th {
+  font-size: var(--font-size-sm);
+  padding: 12px 14px;
+  line-height: 1.3;
+}
+
+.invoice-entry-section .invoice-entry-index-table td {
+  padding: 10px 12px;
+}
+
+.invoice-entry-section .invoice-entry-index-table td .invoice-entry-input,
+.invoice-entry-section .invoice-entry-index-table td .invoice-entry-select {
+  min-height: 52px;
+  height: 52px;
+  font-size: 15px;
+  padding: 10px 12px;
+}
+
+.invoice-entry-section .invoice-entry-index-table td .invoice-entry-select {
+  padding-right: 38px !important;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(1),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(1) {
+  min-width: 180px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(2),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(2) {
+  min-width: 180px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(3),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(3) {
+  min-width: 260px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(4),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(4) {
+  min-width: 120px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(5),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(5) {
+  min-width: 120px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(6),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(6) {
+  min-width: 150px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(7),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(7) {
+  min-width: 190px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(8),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(8) {
+  min-width: 160px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(9),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(9) {
+  min-width: 160px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(10),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(10) {
+  min-width: 130px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(11),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(11) {
+  min-width: 180px;
+}
+
+.invoice-entry-section .invoice-entry-index-table th:nth-child(12),
+.invoice-entry-section .invoice-entry-index-table td:nth-child(12) {
+  min-width: 110px;
+  text-align: center;
+}
+
+.invoice-entry-section .invoice-entry-index-table td:nth-child(12) .invoice-entry-material-line-remove {
+  width: 42px;
+  height: 42px;
 }
 
 .invoice-entry-index-table tbody tr:hover {

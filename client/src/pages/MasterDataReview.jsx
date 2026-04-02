@@ -8,7 +8,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import * as masterDataService from '../services/masterDataService'
-import { FORM_DEFS, FORM_TYPES } from '../utils/masterDataDefs'
+import { FORM_DEFS, FORM_STEPS, FORM_TYPES } from '../utils/masterDataDefs'
 import '../styles/MasterData.css'
 
 const FORM_TITLES = {
@@ -36,6 +36,20 @@ function MasterDataReview() {
       return ''
     }
   }, [location.search])
+
+  const isWizardFlow = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search).get('flow') === 'wizard'
+    } catch {
+      return false
+    }
+  }, [location.search])
+
+  const wizardReviewPrevStepKey = useMemo(() => {
+    const reviewIdx = FORM_STEPS.findIndex((s) => s.key === 'review-submit')
+    if (reviewIdx <= 0) return null
+    return FORM_STEPS[reviewIdx - 1]?.key || null
+  }, [])
 
   const loadFormData = useCallback(async () => {
     try {
@@ -470,6 +484,20 @@ function MasterDataReview() {
 
             {/* Action Buttons */}
             <div className="md-form-actions">
+              {isWizardFlow && draftCompanyId && wizardReviewPrevStepKey && (
+                <button
+                  type="button"
+                  className="md-form-button md-form-button-secondary"
+                  style={{ marginRight: 'auto' }}
+                  onClick={() =>
+                    navigate(
+                      `/master-data/new/${wizardReviewPrevStepKey}?draftId=${draftCompanyId}&flow=wizard`
+                    )
+                  }
+                >
+                  Previous
+                </button>
+              )}
               <button
                 type="button"
                 className="md-form-button md-form-button-secondary"

@@ -859,6 +859,11 @@ function MasterDataForm() {
     return FORM_STEPS[wizardStepIndex + 1] || null
   }, [wizardStepIndex])
 
+  const wizardPrevStep = useMemo(() => {
+    if (wizardStepIndex <= 0) return null
+    return FORM_STEPS[wizardStepIndex - 1] || null
+  }, [wizardStepIndex])
+
   const buildWizardStepUrl = useCallback((stepKey, nextDraftId) => {
     if (stepKey === 'review-submit') {
       return `/master-data/review?draftId=${nextDraftId}&flow=wizard`
@@ -2995,6 +3000,17 @@ function MasterDataForm() {
 
         {/* Action Buttons */}
         <div className="md-form-actions">
+          {isWizardFlow && draftCompanyId && wizardPrevStep && !isLocked && (
+            <button
+              type="button"
+              className="md-form-button md-form-button-secondary"
+              style={{ marginRight: 'auto' }}
+              onClick={() => navigate(buildWizardStepUrl(wizardPrevStep.key, draftCompanyId))}
+              disabled={savingInProgress}
+            >
+              Previous
+            </button>
+          )}
           <button
             type="button"
             className="md-form-button md-form-button-secondary"

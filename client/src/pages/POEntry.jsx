@@ -2668,10 +2668,11 @@ function POEntry() {
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() => {
-                              setHiddenFieldKeys((prev) => (
-                                checked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
-                              ))
+                            onChange={(e) => {
+                              const show = e.target.checked
+                              setHiddenFieldKeys((prev) =>
+                                show ? prev.filter((k) => k !== field.key) : prev.includes(field.key) ? prev : [...prev, field.key]
+                              )
                             }}
                           />
                         </td>

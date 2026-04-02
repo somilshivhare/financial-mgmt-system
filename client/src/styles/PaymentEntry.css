@@ -116,9 +116,22 @@
 }
 
 @media (max-width: 767px) {
+  .payment-entry-header-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .payment-entry-action-button {
-    width: 100%;
-    min-height: 44px;
+    width: auto;
+    min-height: 40px;
+    flex: 0 0 auto;
+    padding: 0 var(--space-3);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
   }
 }
 

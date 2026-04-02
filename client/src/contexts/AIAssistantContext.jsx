@@ -15,7 +15,7 @@ export const useAIAssistant = () => {
 
 export const AIAssistantProvider = ({ children }) => {
   const location = useLocation()
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
   const [hasSeenIntroduction, setHasSeenIntroduction] = useState(() => {
     try {
       return localStorage.getItem('aiAssistant_introductionSeen') === 'true'
@@ -87,7 +87,6 @@ export const AIAssistantProvider = ({ children }) => {
   useEffect(() => {
     if (location.pathname === '/dashboard' && !hasSeenIntroduction) {
       const timer = setTimeout(() => {
-        setIsOpen(true)
         setHasSeenIntroduction(true)
         try {
           localStorage.setItem('aiAssistant_introductionSeen', 'true')
