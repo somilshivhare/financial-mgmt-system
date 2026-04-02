@@ -35,7 +35,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 import DatePicker from '../components/DatePicker'
@@ -229,40 +229,71 @@ function Reports() {
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== '')
 
-  const exportToExcel = () => {
-    if (!reportData?.data) return
-
-    const ws = XLSX.utils.json_to_sheet(reportData.data)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Report Data')
-
-    if (reportData.summary) {
-      const summaryData = Object.entries(reportData.summary).map(([key, value]) => ({
-        Metric: key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase()),
-        Value: typeof value === 'number' ? value : JSON.stringify(value),
-      }))
-      const summaryWs = XLSX.utils.json_to_sheet(summaryData)
-      XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary')
+  /** CSV export without sheetjs/xlsx (avoids known npm-audit issues in `xlsx`). */
+  const rowsToCsv = (rows) => {
+    if (!rows?.length) return ''
+    const headers = Object.keys(rows[0])
+    const escapeCell = (val) => {
+      if (val == null) return ''
+      const s = typeof val === 'object' ? JSON.stringify(val) : String(val)
+      if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+      return s
     }
-
-    const reportName = REPORT_TYPES.find((r) => r.id === selectedReport)?.label || 'Report'
-    XLSX.writeFile(wb, `${reportName}_${new Date().toISOString().split('T')[0]}.xlsx`)
+    const lines = [
+      headers.join(','),
+      ...rows.map((row) => headers.map((h) => escapeCell(row[h])).join(',')),
+    ]
+    return lines.join('\r\n')
   }
 
-  const exportToCSV = () => {
-    if (!reportData?.data) return
-
-    const ws = XLSX.utils.json_to_sheet(reportData.data)
-    const csv = XLSX.utils.sheet_to_csv(ws)
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
+  const downloadBlob = (blob, filename) => {
     const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
     link.setAttribute('href', url)
-    link.setAttribute('download', `${selectedReport}_${new Date().toISOString().split('T')[0]}.csv`)
+    link.setAttribute('download', filename)
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const exportToExcel = async () => {
+    if (!reportData) return
+    const rows = reportData.data || []
+    if (rows.length === 0 && !reportData.summary) return
+
+    const workbook = new ExcelJS.Workbook()
+    if (rows.length > 0) {
+      const sheet = workbook.addWorksheet('Report Data')
+      const headers = Object.keys(rows[0])
+      sheet.addRow(headers)
+      rows.forEach((row) => sheet.addRow(headers.map((h) => row[h])))
+    }
+    if (reportData.summary) {
+      const summarySheet = workbook.addWorksheet('Summary')
+      summarySheet.addRow(['Metric', 'Value'])
+      Object.entries(reportData.summary).forEach(([key, value]) => {
+        summarySheet.addRow([
+          key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase()),
+          typeof value === 'number' ? value : JSON.stringify(value),
+        ])
+      })
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const reportName = REPORT_TYPES.find((r) => r.id === selectedReport)?.label || 'Report'
+    downloadBlob(blob, `${reportName}_${new Date().toISOString().split('T')[0]}.xlsx`)
+  }
+
+  const exportToCSV = () => {
+    if (!reportData?.data?.length) return
+    const csv = rowsToCsv(reportData.data)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    downloadBlob(blob, `${selectedReport}_${new Date().toISOString().split('T')[0]}.csv`)
   }
 
   const exportToPDF = () => {
