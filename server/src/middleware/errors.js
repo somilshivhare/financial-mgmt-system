@@ -102,6 +102,29 @@ const errorHandler = (err, _req, res, _next) => {
       process.env.NODE_ENV === 'development' ? { details: err.message } : null
     ));
   }
+
+  // Wrong enum, invalid DATE string, value too long — common when DB is older or data is malformed
+  if (err.code === 'ER_DATA_TOO_LONG' || err.errno === 1406) {
+    const col = (err.sqlMessage || '').match(/column ['`]([^'`]+)['`]/)?.[1] || 'a field';
+    return res.status(400).json(apiError(
+      `Value too long for "${col}". Shorten the text or run the latest database migration (cd server && npm run migrate).`,
+      'ERR_DATA_TOO_LONG',
+      process.env.NODE_ENV !== 'production' ? { details: err.sqlMessage } : null
+    ));
+  }
+
+  if ([1265, 1366, 1406].includes(err.errno)) {
+    const sqlLower = (err.sqlMessage || '').toLowerCase();
+    const isStatus = sqlLower.includes('status');
+    const msg = isStatus
+      ? 'The database rejected the invoice status. Run pending migrations on the server (cd server && npm run migrate), especially the invoice status enum update.'
+      : 'A value was invalid or too long for the database (often a date or text field). Fix the highlighted fields, or run migrations if the server schema is outdated.';
+    return res.status(400).json(apiError(
+      msg,
+      'ERR_INVALID_DATA',
+      process.env.NODE_ENV !== 'production' ? { details: err.sqlMessage || err.message } : null
+    ));
+  }
   
   if (err.code && err.code.startsWith('ER_')) {
     console.error('[Database] MySQL error:', {

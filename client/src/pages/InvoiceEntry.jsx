@@ -1170,6 +1170,10 @@ function InvoiceEntry() {
       })
       return
     }
+    if (name === 'internalInvoiceSuffix' && value === '') {
+      setFormData((prev) => ({ ...prev, internalInvoiceSuffix: '', internalInvoiceNo: '' }))
+      return
+    }
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 

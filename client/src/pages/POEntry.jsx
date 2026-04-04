@@ -575,6 +575,11 @@ function POEntry() {
 
   const handleChange = (e) => {
     const { name, value } = e.target
+    /* Clearing suffix must clear full PO number too; otherwise useEffect re-fills suffix from stale poNumber (backspace appeared "broken"). */
+    if (name === 'poNumberSuffix' && value === '') {
+      setFormData((prev) => ({ ...prev, poNumberSuffix: '', poNumber: '' }))
+      return
+    }
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
@@ -1741,22 +1746,36 @@ function POEntry() {
             </div>
 
             <div className="po-entry-field po-entry-field-full">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '12px 14px', border: '1px solid var(--color-border)', borderRadius: '10px', background: 'var(--color-bg-tertiary)' }}>
-                <label className="po-entry-label" style={{ marginBottom: 0, fontSize: '16px', fontWeight: 700 }}>Due Distribution</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button type="button" onClick={handleAddAdvancePaymentDue} className="po-entry-boq-add-button">
-                    <Plus className="po-entry-action-icon" />
+              <div className="po-entry-due-toolbar">
+                <span className="po-entry-due-toolbar-title" id="due-distribution-heading">
+                  Due Distribution
+                </span>
+                <div className="po-entry-due-toolbar-actions">
+                  <button
+                    type="button"
+                    onClick={handleAddAdvancePaymentDue}
+                    className="po-entry-boq-add-button po-entry-due-toolbar-button"
+                  >
+                    <Plus className="po-entry-action-icon" aria-hidden />
                     <span>Advance Payment</span>
                   </button>
-                  <button type="button" onClick={handleAddPaymentDue} className="po-entry-boq-add-button">
-                    <Plus className="po-entry-action-icon" />
+                  <button
+                    type="button"
+                    onClick={handleAddPaymentDue}
+                    className="po-entry-boq-add-button po-entry-due-toolbar-button"
+                  >
+                    <Plus className="po-entry-action-icon" aria-hidden />
                     <span>Add Due</span>
                   </button>
                 </div>
               </div>
 
-              <div className="po-entry-due-table-wrapper">
-                <table className="po-entry-due-table">
+              <div
+                className="po-entry-due-table-wrapper"
+                role="region"
+                aria-labelledby="due-distribution-heading"
+              >
+                <table className="po-entry-due-table po-entry-due-table--stacked-mobile">
                   <thead>
                     <tr>
                       <th scope="col">Payment Terms</th>
@@ -1768,7 +1787,7 @@ function POEntry() {
                   <tbody>
                     {paymentTermsTotals.dueSummaries.map((due) => (
                       <tr key={due.key}>
-                        <td>
+                        <td data-label="Payment terms">
                           <div className="po-entry-due-term-cell po-entry-due-term-cell--label-only">
                             <div className="po-entry-due-term-head">
                               <span className="po-entry-due-term-label">{due.label}</span>
@@ -1785,7 +1804,7 @@ function POEntry() {
                             </div>
                           </div>
                         </td>
-                        <td className="po-entry-due-table-pct">
+                        <td className="po-entry-due-table-pct" data-label="Basic (%)">
                           <div className="po-entry-due-inline-cell">
                             <select
                               className="po-entry-select po-entry-due-select"
@@ -1800,7 +1819,7 @@ function POEntry() {
                             </select>
                           </div>
                         </td>
-                        <td className="po-entry-due-table-num">
+                        <td className="po-entry-due-table-num" data-label="Freight">
                           <input
                             type="number"
                             className="po-entry-input po-entry-due-num-input"
@@ -1812,7 +1831,7 @@ function POEntry() {
                             aria-label={`${due.label} freight`}
                           />
                         </td>
-                        <td className="po-entry-due-table-tax">
+                        <td className="po-entry-due-table-tax" data-label="Taxes (GST)">
                           <div className="po-entry-due-tax-cell">
                             <select
                               className="po-entry-select po-entry-due-select"
@@ -2408,7 +2427,10 @@ function POEntry() {
           <h2 className="po-entry-section-title">BOQ as per PO (Form)</h2>
           <div className="po-entry-boq-container">
             <div className="po-entry-boq-table-wrapper">
-              <table className="po-entry-boq-table">
+              <p className="po-entry-boq-mobile-hint" aria-hidden="true">
+                On small screens each line item is shown as a card with all fields stacked.
+              </p>
+              <table className="po-entry-boq-table po-entry-boq-table--stacked-mobile">
                 <thead>
                   <tr>
                     <th>BOQ Header</th>
@@ -2427,9 +2449,9 @@ function POEntry() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.isArray(boqItems) && boqItems.map((item, index) => (
+                  {Array.isArray(boqItems) && boqItems.map((item) => (
                     <tr key={item.id}>
-                      <td>
+                      <td data-label="BOQ header">
                         <select
                           value={item.boqHeader || ''}
                           onChange={(e) => handleBOQItemChange(item.id, 'boqHeader', e.target.value)}
@@ -2441,7 +2463,7 @@ function POEntry() {
                           ))}
                         </select>
                       </td>
-                      <td>
+                      <td data-label="Material description">
                         <input
                           type="text"
                           value={item.materialDescription}
@@ -2450,7 +2472,7 @@ function POEntry() {
                           placeholder="Enter material description"
                         />
                       </td>
-                      <td>
+                      <td data-label="Original qty">
                         <input
                           type="number"
                           value={item.originalQty}
@@ -2460,7 +2482,7 @@ function POEntry() {
                           step="0.01"
                         />
                       </td>
-                      <td>
+                      <td data-label="Amended qty">
                         <input
                           type="text"
                           value={item.amendedQty}
@@ -2469,7 +2491,7 @@ function POEntry() {
                           placeholder="0"
                         />
                       </td>
-                      <td>
+                      <td data-label="Total qty">
                         <input
                           type="text"
                           value={item.totalQty}
@@ -2478,7 +2500,7 @@ function POEntry() {
                           style={{ background: 'var(--color-bg-tertiary)' }}
                         />
                       </td>
-                      <td>
+                      <td data-label="UOM">
                         <input
                           type="text"
                           value={item.uom}
@@ -2487,7 +2509,7 @@ function POEntry() {
                           placeholder="UOM"
                         />
                       </td>
-                      <td>
+                      <td data-label="Unit price">
                         <input
                           type="number"
                           value={item.unitPrice}
@@ -2497,7 +2519,7 @@ function POEntry() {
                           step="0.01"
                         />
                       </td>
-                      <td>
+                      <td data-label="Total basic amount">
                         <input
                           type="text"
                           value={item.totalBasicAmount}
@@ -2506,7 +2528,7 @@ function POEntry() {
                           style={{ background: 'var(--color-bg-tertiary)' }}
                         />
                       </td>
-                      <td>
+                      <td data-label="Freight">
                         <input
                           type="number"
                           value={item.freight}
@@ -2516,7 +2538,7 @@ function POEntry() {
                           step="0.01"
                         />
                       </td>
-                      <td>
+                      <td data-label="GST %">
                         <input
                           type="number"
                           value={item.gstPercent}
@@ -2526,7 +2548,7 @@ function POEntry() {
                           step="0.01"
                         />
                       </td>
-                      <td>
+                      <td data-label="GST amount">
                         <input
                           type="text"
                           value={item.gstAmount}
@@ -2535,7 +2557,7 @@ function POEntry() {
                           style={{ background: 'var(--color-bg-tertiary)' }}
                         />
                       </td>
-                      <td>
+                      <td data-label="Total amount">
                         <input
                           type="text"
                           value={item.totalAmount}
@@ -2544,7 +2566,10 @@ function POEntry() {
                           style={{ background: 'var(--color-bg-tertiary)' }}
                         />
                       </td>
-                      <td>
+                      <td
+                        className="po-entry-boq-cell-actions"
+                        data-label={boqItems.length > 1 ? 'Remove line' : ''}
+                      >
                         {boqItems.length > 1 && (
                           <button
                             type="button"

@@ -353,7 +353,7 @@ function POEntryIndex() {
           </div>
         ) : filteredPOEntries.length > 0 ? (
           <div className="po-entry-index-table-wrapper">
-            <table className="po-entry-index-table">
+            <table className="po-entry-index-table po-entry-index-table--stacked-mobile">
               <thead>
                 <tr>
                   <th>PO Number</th>
@@ -369,22 +369,22 @@ function POEntryIndex() {
               <tbody>
                 {filteredPOEntries.map((po) => (
                   <tr key={po.id}>
-                    <td>
+                    <td data-label="PO Number">
                       <span className="po-entry-index-po-number">{pickPONumber(po) || 'N/A'}</span>
                     </td>
-                    <td>{getPOTypeLabel(po)}</td>
-                    <td>{formatDate(po.issue_date || po.po_date || po.poDate || po.created_at) || 'N/A'}</td>
-                    <td>{getPOField(po, 'customerName') || po.customer_name || po.customerName || 'N/A'}</td>
-                    <td className="po-entry-index-project-desc">
+                    <td data-label="PO Type">{getPOTypeLabel(po)}</td>
+                    <td data-label="PO Date">{formatDate(po.issue_date || po.po_date || po.poDate || po.created_at) || 'N/A'}</td>
+                    <td data-label="Customer">{getPOField(po, 'customerName') || po.customer_name || po.customerName || 'N/A'}</td>
+                    <td className="po-entry-index-project-desc" data-label="Project">
                       {(() => { const desc = getPOField(po, 'projectDescription') || po.projectDescription; return desc ? (desc.length > 50 ? `${desc.substring(0, 50)}...` : desc) : 'N/A'; })()}
                     </td>
-                    <td>₹{getPOValue(po).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td>
+                    <td data-label="PO Value">₹{getPOValue(po).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td data-label="Status">
                       <span className={`po-entry-index-status-badge po-entry-index-status-badge-${(po.status || 'draft').toLowerCase()}`}>
                         {formatStatusLabel(po.status)}
                       </span>
                     </td>
-                    <td>
+                    <td className="po-entry-index-cell-actions" data-label="Actions">
                       <div className="po-entry-index-actions">
                         <button
                           type="button"

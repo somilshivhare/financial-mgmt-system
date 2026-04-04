@@ -138,6 +138,51 @@ const finiteNum = (v, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+/** MySQL DATE / strict mode: invalid strings cause ER_TRUNCATED / failed INSERT. */
+const normalizeMysqlDate = (val, fallbackWhenInvalid = null) => {
+  if (val === null || val === undefined || val === '') return fallbackWhenInvalid;
+  if (val instanceof Date) {
+    if (Number.isNaN(val.getTime())) return fallbackWhenInvalid;
+    return val.toISOString().slice(0, 10);
+  }
+  const s = String(val).trim();
+  if (!s) return fallbackWhenInvalid;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const y = parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10);
+    const da = parseInt(m[3], 10);
+    const d = new Date(Date.UTC(y, mo - 1, da));
+    if (d.getUTCFullYear() !== y || d.getUTCMonth() !== mo - 1 || d.getUTCDate() !== da) {
+      return fallbackWhenInvalid;
+    }
+    return `${m[1]}-${m[2]}-${m[3]}`;
+  }
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return fallbackWhenInvalid;
+  return d.toISOString().slice(0, 10);
+};
+
+const INVOICE_NUMBER_DB_MAX = 80;
+/** DB column sales_order_no (widened in migration 033); clamp matches column. */
+const SALES_ORDER_NO_MAX = 512;
+
+const clampInvoiceNumber = (raw) => {
+  const s = String(raw || '').trim() || `INV-${Date.now()}`;
+  if (s.length <= INVOICE_NUMBER_DB_MAX) return s;
+  console.warn('[InvoiceService] invoice_number truncated from', s.length, 'to', INVOICE_NUMBER_DB_MAX);
+  return s.slice(0, INVOICE_NUMBER_DB_MAX);
+};
+
+/** Avoid ER_DATA_TOO_LONG for VARCHAR columns on strict MySQL. */
+const clampDbString = (val, maxLen) => {
+  if (val === null || val === undefined) return null;
+  const s = String(val);
+  if (s.length <= maxLen) return s;
+  console.warn('[InvoiceService] VARCHAR truncated to', maxLen, 'chars');
+  return s.slice(0, maxLen);
+};
+
 const createInvoice = async (payload, userId) =>
   transaction(async (conn) => {
     console.log('[InvoiceService] Creating invoice with status:', payload.status || 'open (default)')
@@ -206,7 +251,9 @@ const createInvoice = async (payload, userId) =>
     }
 
     const invoiceId = uuidv4();
-    const invoiceNumber = payload.invoice_number || payload.internalInvoiceNo || `INV-${Date.now()}`;
+    const invoiceNumber = clampInvoiceNumber(
+      payload.invoice_number || payload.internalInvoiceNo || `INV-${Date.now()}`,
+    );
     const [[dupInv]] = await conn.execute(
       'SELECT id FROM invoices WHERE invoice_number = ? LIMIT 1',
       [invoiceNumber],
@@ -216,7 +263,11 @@ const createInvoice = async (payload, userId) =>
       err.code = 'ERR_DUPLICATE';
       throw err;
     }
-    const issueDate = payload.issue_date || payload.gstTaxInvoiceDate || new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    const issueDate = normalizeMysqlDate(
+      payload.issue_date || payload.gstTaxInvoiceDate,
+      today,
+    );
     
     let totalAmount = finiteNum(payload.total_amount || payload.totalInvoiceValue || payload.total_invoice_value, 0);
     
@@ -293,7 +344,7 @@ const createInvoice = async (payload, userId) =>
       resolvedCustomerId,
       statusInsert,
       issueDate,
-      payload.due_date || payload.firstDueDate || issueDate,
+      normalizeMysqlDate(payload.due_date || payload.firstDueDate, issueDate),
       payload.currency || 'INR',
       finiteNum(payload.basic_rate || payload.basicRate, 0),
       finiteNum(payload.quantity || payload.qty, 0),
@@ -313,73 +364,73 @@ const createInvoice = async (payload, userId) =>
       totalAmount,
       amountPaid,
       Math.round((totalAmount - amountPaid) * 100) / 100,
-      payload.first_due_date || payload.firstDueDate || null,
+      normalizeMysqlDate(payload.first_due_date || payload.firstDueDate, null),
       finiteNum(payload.first_due_amount || payload.firstDueAmount, 0),
       finiteNum(payload.first_received_amount || payload.paymentReceivedAmount1stDue, 0),
-      payload.first_receipt_date || payload.receiptDate1stDue || null,
-      payload.second_due_date || payload.secondDueDate || null,
+      normalizeMysqlDate(payload.first_receipt_date || payload.receiptDate1stDue, null),
+      normalizeMysqlDate(payload.second_due_date || payload.secondDueDate, null),
       finiteNum(payload.second_due_amount || payload.secondDueAmount, 0),
       finiteNum(payload.second_received_amount || payload.paymentReceivedAmount2ndDue, 0),
-      payload.second_receipt_date || payload.receiptDate2ndDue || null,
-      payload.third_due_date || payload.thirdDueDate || null,
+      normalizeMysqlDate(payload.second_receipt_date || payload.receiptDate2ndDue, null),
+      normalizeMysqlDate(payload.third_due_date || payload.thirdDueDate, null),
       finiteNum(payload.third_due_amount || payload.thirdDueAmount, 0),
       finiteNum(payload.third_received_amount || payload.paymentReceivedAmount3rdDue, 0),
-      payload.third_receipt_date || payload.receiptDate3rdDue || null,
-      payload.key_id || payload.keyID || null,
-      payload.gst_tax_invoice_no || payload.gstTaxInvoiceNo || null,
-      payload.gst_tax_invoice_date || payload.gstTaxInvoiceDate || null,
-      payload.internal_invoice_no || payload.internalInvoiceNo || invoiceNumber,
-      payload.invoice_type || payload.invoiceType || null,
-      payload.business_unit || payload.businessUnit || null,
-      payload.customer_name || payload.customerName || resolvedCustomerName || null,
-      payload.segment || null,
-      payload.region || null,
-      payload.zone || null,
-      payload.sales_order_no || payload.salesOrderNo || null,
-      payload.account_manager_name || payload.accountManagerName || null,
-      payload.account_manager_id || payload.accountManagerId || null,
-      payload.po_no_reference || payload.poNoReference || null,
-      payload.po_date || payload.poDate || null,
-      payload.material_description_type || payload.materialDescriptionType || null,
-      payload.state_of_supply || payload.stateOfSupply || null,
-      payload.unit || null,
-      payload.freight_invoice_no || payload.freightInvoiceNo || null,
+      normalizeMysqlDate(payload.third_receipt_date || payload.receiptDate3rdDue, null),
+      clampDbString(payload.key_id || payload.keyID, 100),
+      clampDbString(payload.gst_tax_invoice_no || payload.gstTaxInvoiceNo, 100),
+      normalizeMysqlDate(payload.gst_tax_invoice_date || payload.gstTaxInvoiceDate, null),
+      clampDbString(payload.internal_invoice_no || payload.internalInvoiceNo || invoiceNumber, 100),
+      clampDbString(payload.invoice_type || payload.invoiceType, 50),
+      clampDbString(payload.business_unit || payload.businessUnit, 50),
+      clampDbString(payload.customer_name || payload.customerName || resolvedCustomerName, 200),
+      clampDbString(payload.segment, 50),
+      clampDbString(payload.region, 50),
+      clampDbString(payload.zone, 50),
+      clampDbString(payload.sales_order_no || payload.salesOrderNo, SALES_ORDER_NO_MAX),
+      clampDbString(payload.account_manager_name || payload.accountManagerName, 200),
+      clampDbString(payload.account_manager_id || payload.accountManagerId, 36),
+      clampDbString(payload.po_no_reference || payload.poNoReference, 100),
+      normalizeMysqlDate(payload.po_date || payload.poDate, null),
+      clampDbString(payload.material_description_type || payload.materialDescriptionType, 100),
+      clampDbString(payload.state_of_supply || payload.stateOfSupply, 100),
+      clampDbString(payload.unit, 50),
+      clampDbString(payload.freight_invoice_no || payload.freightInvoiceNo, 100),
       finiteNum(payload.tcs, 0),
-      payload.consignee_id || payload.consigneeId || null,
+      clampDbString(payload.consignee_id || payload.consigneeId, 36),
       payload.consignee_name_address || payload.consigneeNameAddress || null,
-      payload.consignee_city || payload.consigneeCity || null,
-      payload.payer_id || payload.payerId || null,
+      clampDbString(payload.consignee_city || payload.consigneeCity, 100),
+      clampDbString(payload.payer_id || payload.payerId, 36),
       payload.payer_name_address || payload.payerNameAddress || null,
-      payload.payer_city || payload.payerCity || null,
-      payload.lorry_receipt_no || payload.lorryReceiptNo || null,
-      payload.lorry_receipt_date || payload.lorryReceiptDate || null,
-      payload.transporter_name || payload.transporterName || null,
-      payload.delivery_challan_no || payload.deliveryChallanNo || null,
-      payload.delivery_challan_date || payload.deliveryChallanDate || null,
-      payload.material_inspection_request_date || payload.materialInspectionRequestDate || null,
-      payload.inspection_offer_date || payload.inspectionOfferDate || null,
-      payload.material_inspection_date || payload.materialInspectionDate || null,
-      payload.delivery_instruction_date || payload.deliveryInstructionDate || null,
-      payload.delivery_inspection_cip_received_date || payload.deliveryInspectionCIPReceivedDate || null,
-      payload.micc_receipt_date || payload.miccReceiptDate || null,
-      payload.last_date_of_dispatch || payload.lastDateOfDispatch || null,
-      payload.invoice_ready_date || payload.invoiceReadyDate || null,
-      payload.courier_document_no || payload.courierDocumentNo || null,
-      payload.courier_document_date || payload.courierDocumentDate || null,
-      payload.courier_company_name || payload.courierCompanyName || null,
-      payload.bill_sent_to_person_name || payload.billSentToPersonName || null,
-      payload.bill_sent_date || payload.billSentDate || null,
-      payload.last_date_of_material_receipt || payload.lastDateOfMaterialReceipt || null,
-      payload.invoice_receipt_date || payload.invoiceReceiptDate || null,
-      payload.invoice_receipt_person_name || payload.invoiceReceiptPersonName || null,
-      payload.material_verification_date || payload.materialVerificationDate || null,
-      payload.jvr_date || payload.jvrDate || null,
-      payload.srn_date || payload.srnDate || null,
-      payload.mrc_date || payload.mrcDate || null,
-      payload.invoice_submission_at_site_date || payload.invoiceSubmissionAtSiteDate || null,
-      payload.invoice_forwarded_to_ho_date || payload.invoiceForwardedToHODate || null,
-      payload.invoice_forwarded_for_payment_date || payload.invoiceForwardedForPaymentDate || null,
-      payload.payment_terms_id || payload.paymentTermsId || null,
+      clampDbString(payload.payer_city || payload.payerCity, 100),
+      clampDbString(payload.lorry_receipt_no || payload.lorryReceiptNo, 100),
+      normalizeMysqlDate(payload.lorry_receipt_date || payload.lorryReceiptDate, null),
+      clampDbString(payload.transporter_name || payload.transporterName, 200),
+      clampDbString(payload.delivery_challan_no || payload.deliveryChallanNo, 100),
+      normalizeMysqlDate(payload.delivery_challan_date || payload.deliveryChallanDate, null),
+      normalizeMysqlDate(payload.material_inspection_request_date || payload.materialInspectionRequestDate, null),
+      normalizeMysqlDate(payload.inspection_offer_date || payload.inspectionOfferDate, null),
+      normalizeMysqlDate(payload.material_inspection_date || payload.materialInspectionDate, null),
+      normalizeMysqlDate(payload.delivery_instruction_date || payload.deliveryInstructionDate, null),
+      normalizeMysqlDate(payload.delivery_inspection_cip_received_date || payload.deliveryInspectionCIPReceivedDate, null),
+      normalizeMysqlDate(payload.micc_receipt_date || payload.miccReceiptDate, null),
+      normalizeMysqlDate(payload.last_date_of_dispatch || payload.lastDateOfDispatch, null),
+      normalizeMysqlDate(payload.invoice_ready_date || payload.invoiceReadyDate, null),
+      clampDbString(payload.courier_document_no || payload.courierDocumentNo, 100),
+      normalizeMysqlDate(payload.courier_document_date || payload.courierDocumentDate, null),
+      clampDbString(payload.courier_company_name || payload.courierCompanyName, 200),
+      clampDbString(payload.bill_sent_to_person_name || payload.billSentToPersonName, 200),
+      normalizeMysqlDate(payload.bill_sent_date || payload.billSentDate, null),
+      normalizeMysqlDate(payload.last_date_of_material_receipt || payload.lastDateOfMaterialReceipt, null),
+      normalizeMysqlDate(payload.invoice_receipt_date || payload.invoiceReceiptDate, null),
+      clampDbString(payload.invoice_receipt_person_name || payload.invoiceReceiptPersonName, 200),
+      normalizeMysqlDate(payload.material_verification_date || payload.materialVerificationDate, null),
+      normalizeMysqlDate(payload.jvr_date || payload.jvrDate, null),
+      normalizeMysqlDate(payload.srn_date || payload.srnDate, null),
+      normalizeMysqlDate(payload.mrc_date || payload.mrcDate, null),
+      normalizeMysqlDate(payload.invoice_submission_at_site_date || payload.invoiceSubmissionAtSiteDate, null),
+      normalizeMysqlDate(payload.invoice_forwarded_to_ho_date || payload.invoiceForwardedToHODate, null),
+      normalizeMysqlDate(payload.invoice_forwarded_for_payment_date || payload.invoiceForwardedForPaymentDate, null),
+      clampDbString(payload.payment_terms_id || payload.paymentTermsId, 36),
       payload.payment_terms || payload.paymentTerms || null,
       payload.payment_text || payload.paymentText || null,
       finiteNum(payload.it_tds_2_percent || payload.itTDS2Percent, 0),
@@ -399,27 +450,50 @@ const createInvoice = async (payload, userId) =>
       userId,
     ];
 
-    await conn.execute(
-      `INSERT INTO invoices (${fields.join(', ')}) VALUES (${placeholders})`,
-      values
-    );
+    try {
+      await conn.execute(
+        `INSERT INTO invoices (${fields.join(', ')}) VALUES (${placeholders})`,
+        values
+      );
+    } catch (insertErr) {
+      console.error('[InvoiceService] INSERT invoices failed:', {
+        code: insertErr.code,
+        errno: insertErr.errno,
+        sqlState: insertErr.sqlState,
+        sqlMessage: insertErr.sqlMessage,
+      });
+      throw insertErr;
+    }
 
     if (payload.lines && Array.isArray(payload.lines)) {
+      let lineIdx = 0;
       for (const line of payload.lines) {
+        lineIdx += 1;
         const lineId = uuidv4();
-        await conn.execute(
-          `INSERT INTO invoice_lines (id, invoice_id, line_number, description, product_id, quantity, unit_price)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            lineId,
-            invoiceId,
-            line.lineNumber,
-            line.description,
-            line.productId || null,
-            finiteNum(line.quantity, 0),
-            finiteNum(line.unitPrice, 0),
-          ],
-        );
+        const lineNo = Number.parseInt(line.lineNumber, 10);
+        try {
+          await conn.execute(
+            `INSERT INTO invoice_lines (id, invoice_id, line_number, description, product_id, quantity, unit_price)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              lineId,
+              invoiceId,
+              Number.isFinite(lineNo) && lineNo > 0 ? lineNo : lineIdx,
+              line.description,
+              line.productId || null,
+              finiteNum(line.quantity, 0),
+              finiteNum(line.unitPrice, 0),
+            ],
+          );
+        } catch (lineErr) {
+          console.error('[InvoiceService] INSERT invoice_lines failed:', {
+            lineNumber: line.lineNumber,
+            code: lineErr.code,
+            errno: lineErr.errno,
+            sqlMessage: lineErr.sqlMessage,
+          });
+          throw lineErr;
+        }
       }
     }
     
@@ -459,6 +533,7 @@ const num = (p, ...keys) => {
   const n = parseFloat(v);
   return Number.isNaN(n) ? 0 : n;
 };
+const strVal = (p, maxLen, ...keys) => clampDbString(val(p, ...keys), maxLen);
 
 const resolvePOAndCustomer = async (conn, payload) => {
   let po = null;
@@ -517,11 +592,11 @@ const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
     const effectiveDueDate = payloadDueDate || existing.due_date || existing.first_due_date || issueDate;
     const totalAmount = num(payload, 'total_amount', 'totalInvoiceValue');
 
-    const newInvoiceNumber = val(payload, 'invoice_number', 'internalInvoiceNo');
-    if (newInvoiceNumber && String(newInvoiceNumber).trim() && String(newInvoiceNumber).trim() !== String(existing.invoice_number || '').trim()) {
+    const newInvoiceNumber = strVal(payload, INVOICE_NUMBER_DB_MAX, 'invoice_number', 'internalInvoiceNo');
+    if (newInvoiceNumber && newInvoiceNumber !== String(existing.invoice_number || '').trim()) {
       const [[rowDup]] = await conn.execute(
         'SELECT id FROM invoices WHERE invoice_number = ? AND id <> ? LIMIT 1',
-        [String(newInvoiceNumber).trim(), invoiceId],
+        [newInvoiceNumber, invoiceId],
       );
       if (rowDup) {
         const err = new Error('An invoice with this internal invoice number already exists.');
@@ -531,7 +606,7 @@ const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
     }
 
     const updates = [
-      ['invoice_number', val(payload, 'invoice_number', 'internalInvoiceNo')],
+      ['invoice_number', strVal(payload, INVOICE_NUMBER_DB_MAX, 'invoice_number', 'internalInvoiceNo')],
       ['po_id', poId],
       ['customer_id', customerId],
       ['status', payload.status ?? existing.status ?? 'open'],
@@ -568,38 +643,38 @@ const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
       ['third_due_amount', num(payload, 'third_due_amount', 'thirdDueAmount')],
       ['third_received_amount', num(payload, 'third_received_amount', 'paymentReceivedAmount3rdDue')],
       ['third_receipt_date', val(payload, 'third_receipt_date', 'receiptDate3rdDue')],
-      ['key_id', val(payload, 'key_id', 'keyID')],
-      ['gst_tax_invoice_no', val(payload, 'gst_tax_invoice_no', 'gstTaxInvoiceNo')],
-      ['invoice_type', val(payload, 'invoice_type', 'invoiceType')],
-      ['business_unit', val(payload, 'business_unit', 'businessUnit')],
-      ['customer_name', val(payload, 'customer_name', 'customerName')],
-      ['segment', val(payload, 'segment')],
-      ['region', val(payload, 'region')],
-      ['zone', val(payload, 'zone')],
-      ['account_manager_name', val(payload, 'account_manager_name', 'accountManagerName')],
-      ['account_manager_id', val(payload, 'account_manager_id', 'accountManagerId')],
-      ['po_no_reference', val(payload, 'po_no_reference', 'poNoReference')],
+      ['key_id', strVal(payload, 100, 'key_id', 'keyID')],
+      ['gst_tax_invoice_no', strVal(payload, 100, 'gst_tax_invoice_no', 'gstTaxInvoiceNo')],
+      ['invoice_type', strVal(payload, 50, 'invoice_type', 'invoiceType')],
+      ['business_unit', strVal(payload, 50, 'business_unit', 'businessUnit')],
+      ['customer_name', strVal(payload, 200, 'customer_name', 'customerName')],
+      ['segment', strVal(payload, 50, 'segment')],
+      ['region', strVal(payload, 50, 'region')],
+      ['zone', strVal(payload, 50, 'zone')],
+      ['account_manager_name', strVal(payload, 200, 'account_manager_name', 'accountManagerName')],
+      ['account_manager_id', strVal(payload, 36, 'account_manager_id', 'accountManagerId')],
+      ['po_no_reference', strVal(payload, 100, 'po_no_reference', 'poNoReference')],
       ['po_date', val(payload, 'po_date', 'poDate')],
-      ['state_of_supply', val(payload, 'state_of_supply', 'stateOfSupply')],
-      ['payment_terms_id', val(payload, 'payment_terms_id', 'paymentTermsId')],
+      ['state_of_supply', strVal(payload, 100, 'state_of_supply', 'stateOfSupply')],
+      ['payment_terms_id', strVal(payload, 36, 'payment_terms_id', 'paymentTermsId')],
       ['payment_terms', val(payload, 'payment_terms', 'paymentTerms')],
       ['gst_tax_invoice_date', val(payload, 'gst_tax_invoice_date', 'gstTaxInvoiceDate')],
-      ['internal_invoice_no', val(payload, 'internal_invoice_no', 'internalInvoiceNo')],
-      ['sales_order_no', val(payload, 'sales_order_no', 'salesOrderNo')],
-      ['material_description_type', val(payload, 'material_description_type', 'materialDescriptionType')],
-      ['unit', val(payload, 'unit')],
-      ['freight_invoice_no', val(payload, 'freight_invoice_no', 'freightInvoiceNo')],
+      ['internal_invoice_no', strVal(payload, 100, 'internal_invoice_no', 'internalInvoiceNo')],
+      ['sales_order_no', strVal(payload, SALES_ORDER_NO_MAX, 'sales_order_no', 'salesOrderNo')],
+      ['material_description_type', strVal(payload, 100, 'material_description_type', 'materialDescriptionType')],
+      ['unit', strVal(payload, 50, 'unit')],
+      ['freight_invoice_no', strVal(payload, 100, 'freight_invoice_no', 'freightInvoiceNo')],
       ['tcs', num(payload, 'tcs')],
-      ['consignee_id', val(payload, 'consignee_id', 'consigneeId')],
+      ['consignee_id', strVal(payload, 36, 'consignee_id', 'consigneeId')],
       ['consignee_name_address', val(payload, 'consignee_name_address', 'consigneeNameAddress')],
-      ['consignee_city', val(payload, 'consignee_city', 'consigneeCity')],
-      ['payer_id', val(payload, 'payer_id', 'payerId')],
+      ['consignee_city', strVal(payload, 100, 'consignee_city', 'consigneeCity')],
+      ['payer_id', strVal(payload, 36, 'payer_id', 'payerId')],
       ['payer_name_address', val(payload, 'payer_name_address', 'payerNameAddress')],
-      ['payer_city', val(payload, 'payer_city', 'payerCity')],
-      ['lorry_receipt_no', val(payload, 'lorry_receipt_no', 'lorryReceiptNo')],
+      ['payer_city', strVal(payload, 100, 'payer_city', 'payerCity')],
+      ['lorry_receipt_no', strVal(payload, 100, 'lorry_receipt_no', 'lorryReceiptNo')],
       ['lorry_receipt_date', val(payload, 'lorry_receipt_date', 'lorryReceiptDate')],
-      ['transporter_name', val(payload, 'transporter_name', 'transporterName')],
-      ['delivery_challan_no', val(payload, 'delivery_challan_no', 'deliveryChallanNo')],
+      ['transporter_name', strVal(payload, 200, 'transporter_name', 'transporterName')],
+      ['delivery_challan_no', strVal(payload, 100, 'delivery_challan_no', 'deliveryChallanNo')],
       ['delivery_challan_date', val(payload, 'delivery_challan_date', 'deliveryChallanDate')],
       ['material_inspection_request_date', val(payload, 'material_inspection_request_date', 'materialInspectionRequestDate')],
       ['inspection_offer_date', val(payload, 'inspection_offer_date', 'inspectionOfferDate')],
@@ -609,14 +684,14 @@ const updateInvoice = async (invoiceId, payload, userId, userRole = null) =>
       ['micc_receipt_date', val(payload, 'micc_receipt_date', 'miccReceiptDate')],
       ['last_date_of_dispatch', val(payload, 'last_date_of_dispatch', 'lastDateOfDispatch')],
       ['invoice_ready_date', val(payload, 'invoice_ready_date', 'invoiceReadyDate')],
-      ['courier_document_no', val(payload, 'courier_document_no', 'courierDocumentNo')],
+      ['courier_document_no', strVal(payload, 100, 'courier_document_no', 'courierDocumentNo')],
       ['courier_document_date', val(payload, 'courier_document_date', 'courierDocumentDate')],
-      ['courier_company_name', val(payload, 'courier_company_name', 'courierCompanyName')],
-      ['bill_sent_to_person_name', val(payload, 'bill_sent_to_person_name', 'billSentToPersonName')],
+      ['courier_company_name', strVal(payload, 200, 'courier_company_name', 'courierCompanyName')],
+      ['bill_sent_to_person_name', strVal(payload, 200, 'bill_sent_to_person_name', 'billSentToPersonName')],
       ['bill_sent_date', val(payload, 'bill_sent_date', 'billSentDate')],
       ['last_date_of_material_receipt', val(payload, 'last_date_of_material_receipt', 'lastDateOfMaterialReceipt')],
       ['invoice_receipt_date', val(payload, 'invoice_receipt_date', 'invoiceReceiptDate')],
-      ['invoice_receipt_person_name', val(payload, 'invoice_receipt_person_name', 'invoiceReceiptPersonName')],
+      ['invoice_receipt_person_name', strVal(payload, 200, 'invoice_receipt_person_name', 'invoiceReceiptPersonName')],
       ['material_verification_date', val(payload, 'material_verification_date', 'materialVerificationDate')],
       ['jvr_date', val(payload, 'jvr_date')],
       ['srn_date', val(payload, 'srn_date')],
